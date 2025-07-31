@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     secret_key: str = "your-secret-key-here-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    environment: str = "development"
 
     # Firebase Configuration
     firebase_project_id: str = ""
@@ -35,6 +36,9 @@ class Settings(BaseSettings):
     sendgrid_template_id_password_reset: str = ""
     sendgrid_template_id_event_reminder: str = ""
     sendgrid_template_id_event_confirmation: str = ""
+
+    # Sentry Configuration
+    sentry_dsn: str = ""
 
     # CORS Configuration
     allowed_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]

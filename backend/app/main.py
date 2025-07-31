@@ -3,11 +3,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.config import settings
-from app.routers import auth, events, scores, leaderboard, files, admin
+from app.routers import auth, events, scores, leaderboard, files, admin, contact
 from app.database import db
 
+# Initialize Sentry
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+        integrations=[
+            FastApiIntegration(),
+            SqlalchemyIntegration(),
+        ],
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production,
+        traces_sample_rate=1.0,
+        # By default the SDK will try to use the SENTRY_RELEASE
+        # environment variable, or infer a git commit
+        # SHA as release, however you may want to set
+        # something more human-readable.
+        # release="myapp@1.0.0",
+    )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,7 +41,6 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     print("Shutting down SATRF API...")
-
 
 # Create FastAPI app
 app = FastAPI(
@@ -42,6 +65,10 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler for unhandled errors"""
+    # Capture the exception in Sentry
+    if settings.sentry_dsn:
+        sentry_sdk.capture_exception(exc)
+    
     print(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
@@ -55,7 +82,6 @@ async def global_exception_handler(request, exc):
         }
     )
 
-
 # Include routers
 app.include_router(auth.router, prefix=f"/api/{settings.app_version}")
 app.include_router(events.router, prefix=f"/api/{settings.app_version}")
@@ -63,7 +89,7 @@ app.include_router(scores.router, prefix=f"/api/{settings.app_version}")
 app.include_router(leaderboard.router, prefix=f"/api/{settings.app_version}")
 app.include_router(files.router, prefix=f"/api/{settings.app_version}")
 app.include_router(admin.router, prefix=f"/api/{settings.app_version}")
-
+app.include_router(contact.router, prefix=f"/api/{settings.app_version}")
 
 # Health check endpoint
 @app.get("/health")
@@ -75,7 +101,6 @@ async def health_check():
         "version": settings.app_version
     }
 
-
 # Root endpoint
 @app.get("/")
 async def root():
@@ -86,7 +111,6 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
 
 if __name__ == "__main__":
     uvicorn.run(

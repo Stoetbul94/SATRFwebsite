@@ -2,6 +2,7 @@ import type { AppProps } from 'next/app';
 import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/lib/firebase/auth';
+import * as Sentry from '@sentry/nextjs';
 import '@/styles/globals.css';
 
 // Extend the theme to include custom colors, fonts, etc
@@ -30,36 +31,94 @@ const theme = extendTheme({
   },
 });
 
+// Custom error boundary component
+function CustomErrorBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <Sentry.ErrorBoundary
+      fallback={({ error, componentStack, resetError }) => (
+        <div style={{ 
+          padding: '2rem', 
+          textAlign: 'center',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        }}>
+          <h2 style={{ color: '#e53e3e', marginBottom: '1rem' }}>
+            Something went wrong
+          </h2>
+          <p style={{ marginBottom: '1rem', color: '#4a5568' }}>
+            We've been notified and are working to fix this issue.
+          </p>
+          <button
+            onClick={resetError}
+            style={{
+              background: '#2196f3',
+              color: 'white',
+              border: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              fontSize: '0.875rem'
+            }}
+          >
+            Try again
+          </button>
+          {process.env.NODE_ENV === 'development' && (
+            <details style={{ marginTop: '1rem', textAlign: 'left' }}>
+              <summary style={{ cursor: 'pointer', color: '#718096' }}>
+                Error details (development only)
+              </summary>
+              <pre style={{ 
+                background: '#f7fafc', 
+                padding: '1rem', 
+                borderRadius: '0.375rem',
+                overflow: 'auto',
+                fontSize: '0.75rem',
+                marginTop: '0.5rem'
+              }}>
+                {error?.toString()}
+                {componentStack}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+    >
+      {children}
+    </Sentry.ErrorBoundary>
+  );
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <ChakraProvider theme={theme}>
-      <AuthProvider>
-        <Component {...pageProps} />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
-              duration: 3000,
-              iconTheme: {
-                primary: '#4ade80',
-                secondary: '#fff',
+    <CustomErrorBoundary>
+      <ChakraProvider theme={theme}>
+        <AuthProvider>
+          <Component {...pageProps} />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              duration: 5000,
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
+              success: {
+                duration: 3000,
+                iconTheme: {
+                  primary: '#4ade80',
+                  secondary: '#fff',
+                },
               },
-            },
-          }}
-        />
-      </AuthProvider>
-    </ChakraProvider>
+              error: {
+                duration: 5000,
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+        </AuthProvider>
+      </ChakraProvider>
+    </CustomErrorBoundary>
   );
 } 
