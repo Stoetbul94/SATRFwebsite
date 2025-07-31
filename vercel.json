@@ -1,18 +1,6 @@
 {
   "version": 2,
   "name": "satrf-website",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/"
-    }
-  ],
   "env": {
     "NEXT_PUBLIC_APP_NAME": "SATRF",
     "NEXT_PUBLIC_API_VERSION": "v1"
