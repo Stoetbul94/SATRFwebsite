@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Form
 from typing import List, Optional
 from datetime import datetime
-from app.models import ScoreCreate, ScoreResponse, ScoreUpdate, APIResponse, PaginatedResponse
+from app.models import (
+    ScoreCreate, ScoreResponse, ScoreUpdate, APIResponse, PaginatedResponse,
+    ISSFScoreImportResponse, ISSFScoreImportResult, ISSFScoreImportError, ISSFScoreRow
+)
 from app.auth import get_current_user
 from app.database import db
 from app.config import settings
@@ -426,4 +429,159 @@ async def reject_score(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
+        ) 
+
+
+@router.post("/import-issf", response_model=ISSFScoreImportResponse, status_code=status.HTTP_201_CREATED)
+async def import_issf_scores(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Import ISSF match scores from Excel/CSV file (admin only)
+    
+    Expected columns:
+    Event Name, Match Number, Shooter Name, Shooter ID, Club, Division/Class, 
+    Veteran, Series 1, Series 2, Series 3, Series 4, Series 5, Series 6, Total, Place
+    """
+    try:
+        # Check if user is admin
+        if current_user.get("role") != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required"
+            )
+        
+        # Validate file type
+        if not file.filename.lower().endswith(('.xlsx', '.csv')):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must be .xlsx or .csv format"
+            )
+        
+        # Import required libraries
+        import pandas as pd
+        import io
+        
+        # Read file content
+        content = await file.read()
+        
+        # Parse file based on type
+        if file.filename.lower().endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(content))
+        else:  # CSV
+            df = pd.read_csv(io.BytesIO(content))
+        
+        # Validate required columns
+        required_columns = [
+            'Event Name', 'Match Number', 'Shooter Name', 'Shooter ID', 'Club', 
+            'Division/Class', 'Veteran', 'Series 1', 'Series 2', 'Series 3', 
+            'Series 4', 'Series 5', 'Series 6', 'Total', 'Place'
+        ]
+        
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing required columns: {', '.join(missing_columns)}"
+            )
+        
+        # Process rows
+        records_added = 0
+        records_failed = 0
+        errors = []
+        
+        for index, row in df.iterrows():
+            row_number = index + 2  # +2 because Excel/CSV is 1-indexed and we have header
+            
+            try:
+                # Convert row to dict and handle NaN values
+                row_dict = {}
+                for col in required_columns:
+                    value = row[col]
+                    if pd.isna(value):
+                        row_dict[col.lower().replace(' ', '_').replace('/', '_')] = None
+                    else:
+                        row_dict[col.lower().replace(' ', '_').replace('/', '_')] = value
+                
+                # Validate and create ISSFScoreRow
+                score_row = ISSFScoreRow(**row_dict)
+                
+                # Create score record in database
+                score_data = {
+                    "eventName": score_row.event_name,
+                    "matchNumber": score_row.match_number,
+                    "shooterName": score_row.shooter_name,
+                    "shooterId": score_row.shooter_id,
+                    "club": score_row.club,
+                    "divisionClass": score_row.division_class,
+                    "veteran": score_row.veteran,
+                    "series1": score_row.series_1,
+                    "series2": score_row.series_2,
+                    "series3": score_row.series_3,
+                    "series4": score_row.series_4,
+                    "series5": score_row.series_5,
+                    "series6": score_row.series_6,
+                    "total": score_row.total,
+                    "place": score_row.place,
+                    "importedBy": current_user["id"],
+                    "importedAt": datetime.utcnow(),
+                    "status": "approved",  # Auto-approve imported scores
+                    "createdAt": datetime.utcnow(),
+                    "updatedAt": datetime.utcnow()
+                }
+                
+                # Store in database
+                await db.create_document(
+                    settings.firestore_collection_scores,
+                    score_data
+                )
+                
+                records_added += 1
+                
+            except Exception as e:
+                records_failed += 1
+                
+                # Extract field name from validation error
+                field_name = "unknown"
+                if "field" in str(e):
+                    # Try to extract field name from Pydantic error
+                    error_str = str(e)
+                    if "field required" in error_str:
+                        field_match = error_str.split("field required")[0].split()[-1]
+                        field_name = field_match
+                    elif "ensure this value" in error_str:
+                        field_match = error_str.split("ensure this value")[0].split()[-1]
+                        field_name = field_match
+                
+                errors.append(ISSFScoreImportError(
+                    row_number=row_number,
+                    field=field_name,
+                    error=str(e),
+                    data=row.to_dict()
+                ))
+        
+        # Generate summary
+        summary = f"Import completed: {records_added} records added, {records_failed} records failed"
+        if errors:
+            summary += f". {len(errors)} validation errors occurred."
+        
+        return ISSFScoreImportResponse(
+            success=True,
+            message="ISSF scores import completed",
+            data=ISSFScoreImportResult(
+                records_added=records_added,
+                records_failed=records_failed,
+                errors=errors,
+                summary=summary
+            )
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error importing ISSF scores: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
         ) 

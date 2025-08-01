@@ -67,4 +67,56 @@ export interface Discipline {
   targets: string[];
   scoring: string;
   image: string;
+}
+
+export interface MatchResult {
+  // Event information
+  eventName: 'Prone Match 1' | 'Prone Match 2' | '3P' | 'Air Rifle';
+  matchNumber: number;
+  
+  // Shooter information
+  shooterName: string;
+  shooterId?: string | number;
+  club: string;
+  division?: string;
+  veteran: boolean;
+  
+  // Scores
+  series1: number;
+  series2: number;
+  series3: number;
+  series4: number;
+  series5: number;
+  series6: number;
+  
+  // Calculated fields
+  total: number;
+  place?: number;
+  
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  source: 'manual' | 'upload';
+}
+
+export interface MatchResultFormData extends Omit<MatchResult, 'total' | 'createdAt' | 'updatedAt' | 'source'> {
+  // Form version without calculated fields
+}
+
+export interface MatchResultUpload {
+  eventName: MatchResult['eventName'];
+  matchNumber: number;
+  shooterName: string;
+  shooterId?: string | number;
+  club: string;
+  division?: string;
+  veteran: 'Y' | 'N';
+  series1: number;
+  series2: number;
+  series3: number;
+  series4: number;
+  series5: number;
+  series6: number;
+  place?: number;
 } 

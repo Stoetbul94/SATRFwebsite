@@ -245,4 +245,20 @@ export const dashboardAPI = {
   },
 };
 
+// Results API
+export const resultsAPI = {
+  getResults: async (filters?: { event?: string; match?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.event && filters.event !== 'all') {
+      params.append('event', filters.event);
+    }
+    if (filters?.match && filters.match !== 'all') {
+      params.append('match', filters.match);
+    }
+    
+    const response = await api.get(`/results?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export default api; 

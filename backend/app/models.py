@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 from enum import Enum
 
@@ -278,6 +278,73 @@ class AdminSystemHealth(BaseModel):
     timestamp: str
 
 
+# ISSF Score Import Models
+class ISSFEventType(str, Enum):
+    PRONE_MATCH_1 = "Prone Match 1"
+    PRONE_MATCH_2 = "Prone Match 2"
+    THREE_POSITION = "3P"
+    AIR_RIFLE = "Air Rifle"
+
+
+class ISSFScoreRow(BaseModel):
+    event_name: str = Field(..., description="Event name")
+    match_number: int = Field(..., gt=0, description="Match number")
+    shooter_name: str = Field(..., min_length=1, description="Shooter name")
+    shooter_id: Optional[str] = Field(None, description="Shooter ID")
+    club: str = Field(..., min_length=1, description="Club name")
+    division_class: Optional[str] = Field(None, description="Division/Class")
+    veteran: str = Field(..., description="Veteran status (Y/N)")
+    series_1: float = Field(..., ge=0.0, le=109.0, description="Series 1 score")
+    series_2: float = Field(..., ge=0.0, le=109.0, description="Series 2 score")
+    series_3: float = Field(..., ge=0.0, le=109.0, description="Series 3 score")
+    series_4: float = Field(..., ge=0.0, le=109.0, description="Series 4 score")
+    series_5: float = Field(..., ge=0.0, le=109.0, description="Series 5 score")
+    series_6: float = Field(..., ge=0.0, le=109.0, description="Series 6 score")
+    total: float = Field(..., description="Total score")
+    place: Optional[str] = Field(None, description="Place/rank")
+
+    @validator('event_name')
+    def validate_event_name(cls, v):
+        allowed_events = [event.value for event in ISSFEventType]
+        if v not in allowed_events:
+            raise ValueError(f'Event name must be one of: {", ".join(allowed_events)}')
+        return v
+
+    @validator('veteran')
+    def validate_veteran(cls, v):
+        if v not in ['Y', 'N']:
+            raise ValueError('Veteran must be Y or N')
+        return v
+
+    @validator('total')
+    def validate_total(cls, v, values):
+        if 'series_1' in values and 'series_2' in values and 'series_3' in values and 'series_4' in values and 'series_5' in values and 'series_6' in values:
+            calculated_total = values['series_1'] + values['series_2'] + values['series_3'] + values['series_4'] + values['series_5'] + values['series_6']
+            if abs(v - calculated_total) > 0.01:  # Allow small floating point differences
+                raise ValueError(f'Total ({v}) does not match sum of series ({calculated_total})')
+        return v
+
+
+class ISSFScoreImportError(BaseModel):
+    row_number: int
+    field: str
+    error: str
+    data: dict
+
+
+class ISSFScoreImportResult(BaseModel):
+    records_added: int
+    records_failed: int
+    errors: List[ISSFScoreImportError]
+    summary: str
+
+
+class ISSFScoreImportResponse(BaseModel):
+    success: bool
+    message: str
+    data: ISSFScoreImportResult
+
+
 # API Response Models
 class APIResponse(BaseModel):
     success: bool
@@ -291,3 +358,89 @@ class PaginatedResponse(BaseModel):
     page: int
     limit: int
     total_pages: int 
+
+class EventName(str, Enum):
+    PRONE_MATCH_1 = "Prone Match 1"
+    PRONE_MATCH_2 = "Prone Match 2"
+    THREE_P = "3P"
+    AIR_RIFLE = "Air Rifle"
+
+class MatchResultBase(BaseModel):
+    event_name: EventName
+    match_number: int = Field(..., ge=1)
+    shooter_name: str = Field(..., min_length=1, max_length=100)
+    shooter_id: Optional[Union[str, int]] = None
+    club: str = Field(..., min_length=1, max_length=100)
+    division: Optional[str] = Field(None, max_length=50)
+    veteran: bool
+    series1: float = Field(..., ge=0.0, le=109.0)
+    series2: float = Field(..., ge=0.0, le=109.0)
+    series3: float = Field(..., ge=0.0, le=109.0)
+    series4: float = Field(..., ge=0.0, le=109.0)
+    series5: float = Field(..., ge=0.0, le=109.0)
+    series6: float = Field(..., ge=0.0, le=109.0)
+    place: Optional[int] = Field(None, ge=1)
+
+    @validator('total', always=True)
+    def calculate_total(cls, v, values):
+        """Calculate total from series scores"""
+        series_fields = ['series1', 'series2', 'series3', 'series4', 'series5', 'series6']
+        total = sum(values.get(field, 0) for field in series_fields)
+        return round(total, 1)
+
+class MatchResultCreate(MatchResultBase):
+    """Model for creating new match results"""
+    pass
+
+class MatchResultUpdate(BaseModel):
+    """Model for updating match results (all fields optional)"""
+    event_name: Optional[EventName] = None
+    match_number: Optional[int] = Field(None, ge=1)
+    shooter_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    shooter_id: Optional[Union[str, int]] = None
+    club: Optional[str] = Field(None, min_length=1, max_length=100)
+    division: Optional[str] = Field(None, max_length=50)
+    veteran: Optional[bool] = None
+    series1: Optional[float] = Field(None, ge=0.0, le=109.0)
+    series2: Optional[float] = Field(None, ge=0.0, le=109.0)
+    series3: Optional[float] = Field(None, ge=0.0, le=109.0)
+    series4: Optional[float] = Field(None, ge=0.0, le=109.0)
+    series5: Optional[float] = Field(None, ge=0.0, le=109.0)
+    series6: Optional[float] = Field(None, ge=0.0, le=109.0)
+    place: Optional[int] = Field(None, ge=1)
+
+class MatchResult(MatchResultBase):
+    """Complete match result model with metadata"""
+    id: str
+    total: float
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[str] = None
+    source: str = Field(..., regex='^(manual|upload)$')
+
+    class Config:
+        from_attributes = True
+
+class MatchResultUpload(BaseModel):
+    """Model for uploaded match results (from CSV/Excel)"""
+    event_name: EventName
+    match_number: int = Field(..., ge=1)
+    shooter_name: str = Field(..., min_length=1, max_length=100)
+    shooter_id: Optional[Union[str, int]] = None
+    club: str = Field(..., min_length=1, max_length=100)
+    division: Optional[str] = Field(None, max_length=50)
+    veteran: str = Field(..., regex='^(Y|N)$')
+    series1: float = Field(..., ge=0.0, le=109.0)
+    series2: float = Field(..., ge=0.0, le=109.0)
+    series3: float = Field(..., ge=0.0, le=109.0)
+    series4: float = Field(..., ge=0.0, le=109.0)
+    series5: float = Field(..., ge=0.0, le=109.0)
+    series6: float = Field(..., ge=0.0, le=109.0)
+    place: Optional[int] = Field(None, ge=1)
+
+    @validator('veteran', pre=True)
+    def convert_veteran_to_bool(cls, v):
+        """Convert Y/N to boolean"""
+        if isinstance(v, str):
+            return v.upper() == 'Y'
+        return v 
