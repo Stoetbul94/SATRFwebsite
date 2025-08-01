@@ -48,9 +48,10 @@ export const measureCoreWebVitals = () => {
     const fidObserver = new PerformanceObserver((list) => {
       const entries = list.getEntries()
       entries.forEach((entry) => {
+        const fidEntry = entry as PerformanceEventTiming
         trackEvent('core_web_vital', {
           name: 'FID',
-          value: entry.processingStart - entry.startTime,
+          value: fidEntry.processingStart - fidEntry.startTime,
           url: window.location.href
         })
       })
