@@ -43,11 +43,29 @@ const OlympicCountdown = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const OlympicRings = () => (
+    <div className="flex justify-center mb-6">
+      <svg width="120" height="60" viewBox="0 0 120 60" className="mx-auto">
+        {/* Blue ring */}
+        <circle cx="20" cy="30" r="8" fill="none" stroke="#0066CC" strokeWidth="2" />
+        {/* Yellow ring */}
+        <circle cx="40" cy="30" r="8" fill="none" stroke="#FFD700" strokeWidth="2" />
+        {/* Black ring */}
+        <circle cx="60" cy="30" r="8" fill="none" stroke="#000000" strokeWidth="2" />
+        {/* Green ring */}
+        <circle cx="80" cy="30" r="8" fill="none" stroke="#009B3A" strokeWidth="2" />
+        {/* Red ring */}
+        <circle cx="100" cy="30" r="8" fill="none" stroke="#CE1126" strokeWidth="2" />
+      </svg>
+    </div>
+  );
+
   if (hasStarted) {
     return (
       <section className="py-16 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-2xl">
+            <OlympicRings />
             <div className="flex justify-center mb-6">
               <FiAward className="text-6xl text-yellow-600 animate-bounce" />
             </div>
@@ -71,6 +89,7 @@ const OlympicCountdown = () => {
     <section className="py-16 bg-gradient-to-br from-satrf-navy via-blue-900 to-satrf-lightBlue">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="mb-8">
+          <OlympicRings />
           <div className="flex justify-center mb-4">
             <FiClock className="text-5xl text-white" />
           </div>
