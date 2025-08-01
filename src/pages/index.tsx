@@ -46,6 +46,18 @@ export default function Home() {
       <section className="bg-satrf-navy text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
+            {/* SATRF Logo */}
+            <div className="mb-8">
+              <Image
+                src="/images/affiliates/SATRFLOGO.png"
+                alt="SATRF Logo"
+                width={200}
+                height={80}
+                className="mx-auto"
+                style={{ height: 'auto', maxWidth: '200px' }}
+              />
+            </div>
+            
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               South African Target Rifle Federation
             </h1>
