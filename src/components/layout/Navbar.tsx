@@ -88,6 +88,7 @@ export default function Navbar({ user }: NavbarProps) {
               <NavLink href="/leaderboard">Leaderboard</NavLink>
               <NavLink href="/about">About</NavLink>
               <NavLink href="/contact">Contact</NavLink>
+              <NavLink href="/donate">Donate</NavLink>
             </HStack>
           </Box>
 
@@ -142,7 +143,7 @@ export default function Navbar({ user }: NavbarProps) {
         </Flex>
       </Box>
 
-      {/* Mobile Navigation */}
+                {/* Mobile Navigation */}
       <Collapse in={isMobileMenuOpen} animateOpacity>
         <Box display={{ base: 'block', md: 'none' }}>
                       <VStack spacing={1} px={2} pt={2} pb={3} bg={bgColor}>
@@ -152,6 +153,7 @@ export default function Navbar({ user }: NavbarProps) {
             <NavLink href="/leaderboard" onClick={closeMobileMenu}>Leaderboard</NavLink>
             <NavLink href="/about" onClick={closeMobileMenu}>About</NavLink>
             <NavLink href="/contact" onClick={closeMobileMenu}>Contact</NavLink>
+            <NavLink href="/donate" onClick={closeMobileMenu}>Donate</NavLink>
             
             {user ? (
               <>
