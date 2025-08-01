@@ -4,6 +4,13 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/lib/firebase/auth';
 import * as Sentry from '@sentry/nextjs';
 import '@/styles/globals.css';
+import { Oxanium } from 'next/font/google';
+
+const oxanium = Oxanium({ 
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  variable: '--font-oxanium',
+});
 
 // Extend the theme to include custom colors, fonts, etc
 const theme = extendTheme({
@@ -90,10 +97,11 @@ function CustomErrorBoundary({ children }: { children: React.ReactNode }) {
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <CustomErrorBoundary>
-      <ChakraProvider theme={theme}>
-        <AuthProvider>
-          <Component {...pageProps} />
-          <Toaster
+      <div className={oxanium.variable}>
+        <ChakraProvider theme={theme}>
+          <AuthProvider>
+            <Component {...pageProps} />
+            <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,
@@ -116,9 +124,10 @@ export default function App({ Component, pageProps }: AppProps) {
                 },
               },
             }}
-          />
-        </AuthProvider>
-      </ChakraProvider>
+                      />
+          </AuthProvider>
+        </ChakraProvider>
+      </div>
     </CustomErrorBoundary>
   );
 } 

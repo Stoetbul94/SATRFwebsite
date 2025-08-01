@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
+import HeroSection from '@/components/home/HeroSection';
 import OlympicCountdown from '@/components/OlympicCountdown';
 import { eventsAPI, dashboardAPI } from '@/lib/api';
 import type { Event } from '@/lib/api';
@@ -31,7 +32,14 @@ export default function Home() {
         setUpcomingEvents(eventsData.slice(0, 3)); // Show first 3 events
       } catch (error) {
         console.error('Error fetching home page data:', error);
-        // Use fallback data if API fails
+        // Use fallback data if API fails - this allows the page to work without backend
+        setStats({
+          members: 1250,
+          events: 12,
+          scores: 'Updated',
+          news: 'Latest'
+        });
+        setUpcomingEvents([]);
       } finally {
         setLoading(false);
       }
@@ -42,39 +50,8 @@ export default function Home() {
 
   return (
     <Layout>
-      {/* Hero Section */}
-      <section className="bg-satrf-navy text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            {/* SATRF Logo */}
-            <div className="mb-8">
-              <Image
-                src="/images/affiliates/SATRFLOGO.png"
-                alt="SATRF Logo"
-                width={200}
-                height={80}
-                className="mx-auto"
-                style={{ height: 'auto', maxWidth: '200px' }}
-              />
-            </div>
-            
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              South African Target Rifle Federation
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-gray-300">
-              Excellence in Precision Shooting Since 1960
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/register" className="btn-primary text-lg px-8 py-4">
-                Join SATRF
-              </Link>
-              <Link href="/events" className="btn-secondary text-lg px-8 py-4">
-                View Events
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* New Hero Section */}
+      <HeroSection />
 
       {/* Olympic Countdown Section */}
       <OlympicCountdown />
