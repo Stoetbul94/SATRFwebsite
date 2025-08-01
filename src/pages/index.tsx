@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
+import OlympicCountdown from '@/components/OlympicCountdown';
 import { eventsAPI, dashboardAPI } from '@/lib/api';
 import type { Event } from '@/lib/api';
 
@@ -62,6 +63,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Olympic Countdown Section */}
+      <OlympicCountdown />
 
       {/* Dashboard Stats Section */}
       <section className="py-16 bg-white">
