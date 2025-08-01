@@ -10,8 +10,8 @@ export const measurePageLoad = () => {
           dns: navigation.domainLookupEnd - navigation.domainLookupStart,
           tcp: navigation.connectEnd - navigation.connectStart,
           ttfb: navigation.responseStart - navigation.requestStart,
-          domLoad: navigation.domContentLoadedEventEnd - navigation.navigationStart,
-          windowLoad: navigation.loadEventEnd - navigation.navigationStart,
+          domLoad: navigation.domContentLoadedEventEnd - navigation.fetchStart,
+          windowLoad: navigation.loadEventEnd - navigation.fetchStart,
         }
         
         // Send to analytics
@@ -94,8 +94,8 @@ export const getPerformanceMetrics = () => {
         dns: navigation.domainLookupEnd - navigation.domainLookupStart,
         tcp: navigation.connectEnd - navigation.connectStart,
         ttfb: navigation.responseStart - navigation.requestStart,
-        domLoad: navigation.domContentLoadedEventEnd - navigation.navigationStart,
-        windowLoad: navigation.loadEventEnd - navigation.navigationStart,
+        domLoad: navigation.domContentLoadedEventEnd - navigation.fetchStart,
+        windowLoad: navigation.loadEventEnd - navigation.fetchStart,
         totalSize: navigation.transferSize,
         cacheHit: navigation.transferSize === 0
       }
