@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
 import Layout from '@/components/layout/Layout';
-import { FiHeart, FiCreditCard, FiBank, FiMail, FiCopy, FiCheck, FiTarget, FiUsers } from 'react-icons/fi';
+import { FiHeart, FiCreditCard, FiHome, FiMail, FiCopy, FiCheck, FiTarget, FiUsers } from 'react-icons/fi';
 
 const payfastUrl = "https://www.payfast.co.za/eng/process";
 const merchant_id = "24319614";
@@ -133,8 +133,8 @@ export default function Donate() {
                     : 'border-gray-300 hover:border-satrf-lightBlue'
                 }`}
               >
-                <FiBank className="text-xl" />
-                <span className="font-semibold">EFT Transfer</span>
+                                 <FiHome className="text-xl" />
+                 <span className="font-semibold">EFT Transfer</span>
               </button>
             </div>
 
@@ -215,8 +215,8 @@ export default function Donate() {
             {paymentMethod === 'eft' && (
               <div>
                 <h3 className="text-xl font-semibold text-satrf-navy mb-6 flex items-center">
-                  <FiBank className="mr-2" />
-                  Banking Details
+                                   <FiHome className="mr-2" />
+                 Banking Details
                 </h3>
                 
                 <div className="space-y-4">
