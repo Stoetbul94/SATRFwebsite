@@ -77,7 +77,7 @@ jest.mock('react-icons/fa', () => ({
   FaDownload: ({ 'aria-label': ariaLabel, ...props }: any) => (
     <div data-testid="download-icon" aria-label={ariaLabel} {...props} />
   ),
-  FaRefresh: ({ 'aria-label': ariaLabel, ...props }: any) => (
+            FaRedo: ({ 'aria-label': ariaLabel, ...props }: any) => (
     <div data-testid="refresh-icon" aria-label={ariaLabel} {...props} />
   ),
   FaEye: ({ 'aria-label': ariaLabel, ...props }: any) => (

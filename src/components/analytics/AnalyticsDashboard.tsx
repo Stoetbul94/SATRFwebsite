@@ -13,7 +13,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { FaDownload, FaRefresh, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaDownload, FaRedo, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { analyticsAPI, analyticsUtils, UserAnalytics, AnalyticsFilters, ScoreDataPoint } from '../../lib/analytics';
 
 interface AnalyticsDashboardProps {
@@ -151,7 +151,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 className="flex items-center px-3 py-2 bg-midnight-light/30 border border-gray-600 rounded-lg text-gray-300 hover:text-electric-cyan transition-colors duration-200"
                 title="Refresh data"
               >
-                <FaRefresh className="w-4 h-4" />
+                <FaRedo className="w-4 h-4" />
               </button>
               
               <button

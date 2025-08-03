@@ -55,7 +55,7 @@ import {
   FaHome,
   FaDownload,
   FaShare,
-  FaRefresh
+  FaRedo
 } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
 import EventsCalendar from '@/components/events/EventsCalendar';
@@ -413,7 +413,7 @@ END:VCALENDAR`;
                   size="sm"
                   variant="outline"
                   colorScheme="satrf"
-                  leftIcon={<FaRefresh />}
+                  leftIcon={<FaRedo />}
                   onClick={refreshEvents}
                   isLoading={refreshing}
                 >

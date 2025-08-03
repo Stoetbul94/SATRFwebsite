@@ -89,7 +89,7 @@ jest.mock('recharts', () => ({
 // Mock react-icons
 jest.mock('react-icons/fa', () => ({
   FaDownload: () => <div data-testid="download-icon" />,
-  FaRefresh: () => <div data-testid="refresh-icon" />,
+  FaRedo: () => <div data-testid="refresh-icon" />,
   FaEye: () => <div data-testid="eye-icon" />,
   FaEyeSlash: () => <div data-testid="eye-slash-icon" />,
 }));
