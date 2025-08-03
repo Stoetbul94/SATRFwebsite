@@ -1,9 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiClock, FiAward } from 'react-icons/fi';
+import { FiAward } from 'react-icons/fi';
 
-const OlympicCountdown = () => {
+interface OlympicCountdownProps {
+  showFifthRing?: boolean;
+  fifthRingContent?: React.ReactNode;
+}
+
+const OlympicCountdown: React.FC<OlympicCountdownProps> = ({ 
+  showFifthRing = false, 
+  fifthRingContent 
+}) => {
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -43,20 +51,86 @@ const OlympicCountdown = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const OlympicRings = () => (
-    <div className="flex justify-center mb-6">
-      <svg width="120" height="60" viewBox="0 0 120 60" className="mx-auto">
-        {/* Blue ring */}
-        <circle cx="20" cy="30" r="8" fill="none" stroke="#0066CC" strokeWidth="2" />
-        {/* Yellow ring */}
-        <circle cx="40" cy="30" r="8" fill="none" stroke="#FFD700" strokeWidth="2" />
-        {/* Black ring */}
-        <circle cx="60" cy="30" r="8" fill="none" stroke="#000000" strokeWidth="2" />
-        {/* Green ring */}
-        <circle cx="80" cy="30" r="8" fill="none" stroke="#009B3A" strokeWidth="2" />
-        {/* Red ring */}
-        <circle cx="100" cy="30" r="8" fill="none" stroke="#CE1126" strokeWidth="2" />
+  // Olympic ring colors (official colors)
+  const ringColors = ['#0066CC', '#FFD700', '#000000', '#009B3A', '#CE1126'];
+  const ringLabels = ['Days', 'Hours', 'Minutes', 'Seconds', ''];
+  const ringValues = [timeLeft.days, timeLeft.hours, timeLeft.minutes, timeLeft.seconds, null];
+
+  const OlympicRingsWithCountdown = () => (
+    <div className="flex justify-center items-center mb-8">
+      <svg 
+        width="400" 
+        height="120" 
+        viewBox="0 0 400 120" 
+        className="w-full max-w-md mx-auto"
+        aria-label="Olympic rings countdown timer"
+      >
+        {/* Olympic rings with countdown numbers */}
+        {ringColors.map((color, index) => {
+          const cx = 40 + (index * 80); // Horizontal spacing
+          const cy = 60; // Vertical center
+          const r = 35; // Ring radius
+          
+          return (
+            <g key={index} className="transition-all duration-300 ease-in-out">
+              {/* Ring */}
+              <circle 
+                cx={cx} 
+                cy={cy} 
+                r={r} 
+                fill="none" 
+                stroke={color} 
+                strokeWidth="4"
+                className="drop-shadow-lg"
+              />
+              
+              {/* Countdown number or content inside ring */}
+              {index < 4 ? (
+                <text
+                  x={cx}
+                  y={cy + 8}
+                  textAnchor="middle"
+                  className="text-2xl font-bold fill-white font-oxanium"
+                  aria-label={`${ringLabels[index]}: ${ringValues[index]}`}
+                >
+                  {ringValues[index]?.toString().padStart(2, '0') || '00'}
+                </text>
+              ) : showFifthRing && fifthRingContent ? (
+                <foreignObject x={cx - 25} y={cy - 25} width="50" height="50">
+                  <div className="flex items-center justify-center h-full">
+                    {fifthRingContent}
+                  </div>
+                </foreignObject>
+              ) : null}
+            </g>
+          );
+        })}
       </svg>
+    </div>
+  );
+
+  const CountdownLabels = () => (
+    <div className="flex justify-center items-center mb-8 -mt-4">
+      <div className="flex space-x-16 sm:space-x-20 md:space-x-24">
+        {ringLabels.slice(0, 4).map((label, index) => (
+          <div 
+            key={index}
+            className="text-center transition-all duration-300 ease-in-out"
+            style={{ width: '60px' }}
+          >
+            <span className="text-sm sm:text-base text-gray-300 font-medium">
+              {label}
+            </span>
+          </div>
+        ))}
+        {showFifthRing && (
+          <div className="text-center" style={{ width: '60px' }}>
+            <span className="text-sm sm:text-base text-gray-300 font-medium">
+              {fifthRingContent ? 'Logo' : ''}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -65,7 +139,7 @@ const OlympicCountdown = () => {
       <section className="py-16 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-2xl">
-            <OlympicRings />
+            <OlympicRingsWithCountdown />
             <div className="flex justify-center mb-6">
               <FiAward className="text-6xl text-yellow-600 animate-bounce" />
             </div>
@@ -86,62 +160,23 @@ const OlympicCountdown = () => {
   }
 
   return (
-    <section className="py-16 bg-gradient-to-br from-satrf-navy via-blue-900 to-satrf-lightBlue">
+    <section className="py-16 bg-midnight-steel">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="mb-8">
-          <OlympicRings />
-          <div className="flex justify-center mb-4">
-            <FiClock className="text-5xl text-white" />
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          <OlympicRingsWithCountdown />
+          <CountdownLabels />
+          
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 animate-fade-in">
             Countdown to the 2028 Olympics
           </h2>
-          <p className="text-xl text-gray-200 max-w-2xl mx-auto">
-            The Olympic Games begin on July 21, 2028. 
-            Support our South African target shooting athletes as they prepare for glory!
+          
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed animate-slide-up">
+            The Olympic Games begin on July 21, 2028. Support our South African target shooting athletes as they prepare for glory!
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-4xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-              {timeLeft.days.toString().padStart(2, '0')}
-            </div>
-            <div className="text-sm md:text-base text-gray-200 font-medium">
-              Days
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-              {timeLeft.hours.toString().padStart(2, '0')}
-            </div>
-            <div className="text-sm md:text-base text-gray-200 font-medium">
-              Hours
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-              {timeLeft.minutes.toString().padStart(2, '0')}
-            </div>
-            <div className="text-sm md:text-base text-gray-200 font-medium">
-              Minutes
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-              {timeLeft.seconds.toString().padStart(2, '0')}
-            </div>
-            <div className="text-sm md:text-base text-gray-200 font-medium">
-              Seconds
-            </div>
-          </div>
-        </div>
-
         <div className="mt-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 inline-block">
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 inline-block animate-fade-in">
             <p className="text-white text-lg font-medium">
               🎯 Target Shooting Events: July 27 - August 5, 2028
             </p>
