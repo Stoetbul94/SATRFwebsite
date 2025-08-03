@@ -63,8 +63,10 @@ class Settings(BaseSettings):
     # Database Configuration
     firestore_collection_users: str = "users"
     firestore_collection_events: str = "events"
+    firestore_collection_event_registrations: str = "event_registrations"
     firestore_collection_scores: str = "scores"
     firestore_collection_leaderboard: str = "leaderboard"
+    firestore_collection_system: str = "system"
 
     class Config:
         env_file = ".env"

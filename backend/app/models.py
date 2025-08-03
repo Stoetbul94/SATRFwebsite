@@ -20,6 +20,23 @@ class EventStatus(str, Enum):
     OPEN = "open"
     FULL = "full"
     CLOSED = "closed"
+    UPCOMING = "upcoming"
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class EventDiscipline(str, Enum):
+    THREE_POSITION = "3P"
+    PRONE = "Prone"
+    AIR_RIFLE = "Air Rifle"
+    AIR_PISTOL = "Air Pistol"
+    TARGET_RIFLE = "Target Rifle"
+
+
+class EventSource(str, Enum):
+    SATRF = "satrf"
+    ISSF = "issf"
 
 
 class ScoreStatus(str, Enum):
@@ -87,12 +104,33 @@ class TokenResponse(BaseModel):
 class EventBase(BaseModel):
     title: str = Field(..., min_length=3, max_length=200, description="Event title")
     description: Optional[str] = Field(None, max_length=1000, description="Event description")
-    date: datetime = Field(..., description="Event date and time")
+    start: datetime = Field(..., description="Event start date and time")
+    end: datetime = Field(..., description="Event end date and time")
     location: str = Field(..., min_length=2, max_length=200, description="Event location")
-    type: str = Field(..., min_length=2, max_length=100, description="Event type")
-    maxParticipants: Optional[int] = Field(None, gt=0, description="Maximum number of participants")
-    status: EventStatus = EventStatus.OPEN
-    eventImageUrl: Optional[str] = Field(None, description="URL to event image")
+    discipline: EventDiscipline = Field(..., description="Shooting discipline")
+    category: str = Field(..., min_length=2, max_length=100, description="Event category (Senior, Junior, etc.)")
+    price: float = Field(0.0, ge=0.0, description="Event price")
+    maxSpots: Optional[int] = Field(None, gt=0, description="Maximum number of participants")
+    status: EventStatus = EventStatus.UPCOMING
+    registrationDeadline: datetime = Field(..., description="Registration deadline")
+    image: Optional[str] = Field(None, description="URL to event image")
+    requirements: Optional[List[str]] = Field(None, description="Event requirements")
+    schedule: Optional[List[str]] = Field(None, description="Event schedule")
+    contactInfo: Optional[dict] = Field(None, description="Contact information")
+    isLocal: bool = Field(True, description="Whether this is a local SATRF event")
+    source: EventSource = Field(EventSource.SATRF, description="Event source (SATRF or ISSF)")
+    
+    @validator('end')
+    def validate_end_after_start(cls, v, values):
+        if 'start' in values and v <= values['start']:
+            raise ValueError('End time must be after start time')
+        return v
+    
+    @validator('registrationDeadline')
+    def validate_registration_deadline(cls, v, values):
+        if 'start' in values and v >= values['start']:
+            raise ValueError('Registration deadline must be before event start time')
+        return v
 
 
 class EventCreate(EventBase):
@@ -102,22 +140,93 @@ class EventCreate(EventBase):
 class EventUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
-    date: Optional[datetime] = None
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
     location: Optional[str] = Field(None, min_length=2, max_length=200)
-    type: Optional[str] = Field(None, min_length=2, max_length=100)
-    maxParticipants: Optional[int] = Field(None, gt=0)
+    discipline: Optional[EventDiscipline] = None
+    category: Optional[str] = Field(None, min_length=2, max_length=100)
+    price: Optional[float] = Field(None, ge=0.0)
+    maxSpots: Optional[int] = Field(None, gt=0)
     status: Optional[EventStatus] = None
-    eventImageUrl: Optional[str] = Field(None, description="URL to event image")
+    registrationDeadline: Optional[datetime] = None
+    image: Optional[str] = Field(None, description="URL to event image")
+    requirements: Optional[List[str]] = None
+    schedule: Optional[List[str]] = None
+    contactInfo: Optional[dict] = None
+    isLocal: Optional[bool] = None
+    source: Optional[EventSource] = None
 
 
 class EventResponse(EventBase):
     id: str
-    currentParticipants: int = 0
+    currentSpots: int = 0
     createdAt: datetime
     updatedAt: Optional[datetime] = None
     
     class Config:
         from_attributes = True
+
+
+class EventRegistration(BaseModel):
+    eventId: str = Field(..., description="Event ID")
+    userId: str = Field(..., description="User ID")
+    status: str = Field("registered", description="Registration status")
+    registeredAt: datetime = Field(default_factory=datetime.utcnow)
+    paymentStatus: Optional[str] = Field("pending", description="Payment status")
+    confirmationNumber: Optional[str] = Field(None, description="Confirmation number")
+    
+    class Config:
+        from_attributes = True
+
+
+class EventRegistrationCreate(BaseModel):
+    eventId: str = Field(..., description="Event ID")
+    paymentMethod: Optional[str] = Field(None, description="Payment method")
+    specialRequirements: Optional[str] = Field(None, description="Special requirements")
+
+
+class EventRegistrationResponse(BaseModel):
+    eventId: str
+    userId: str
+    status: str
+    registeredAt: datetime
+    paymentStatus: str
+    confirmationNumber: Optional[str] = None
+    event: Optional[EventResponse] = None
+
+
+class EventFilters(BaseModel):
+    discipline: Optional[EventDiscipline] = None
+    category: Optional[str] = None
+    status: Optional[EventStatus] = None
+    source: Optional[EventSource] = None
+    location: Optional[str] = None
+    startDate: Optional[datetime] = None
+    endDate: Optional[datetime] = None
+    showCompleted: Optional[bool] = False
+
+
+class EventsResponse(BaseModel):
+    events: List[EventResponse]
+    total: int
+    page: int
+    limit: int
+    hasMore: bool
+
+
+class ISSFEventSync(BaseModel):
+    lastSync: datetime
+    nextSync: datetime
+    syncStatus: str
+    totalISSFEvents: int
+    lastError: Optional[str] = None
+
+
+class ISSFEventSyncResponse(BaseModel):
+    message: str
+    eventsAdded: int
+    eventsUpdated: int
+    eventsRemoved: int
 
 
 # Score Models
@@ -444,3 +553,125 @@ class MatchResultUpload(BaseModel):
         if isinstance(v, str):
             return v.upper() == 'Y'
         return v 
+
+# Enhanced User Management Models
+class UserProfile(BaseModel):
+    """User profile with detailed information"""
+    id: str
+    firstName: str
+    lastName: str
+    email: EmailStr
+    membershipType: MembershipType
+    club: str
+    role: UserRole = UserRole.USER
+    profileImageUrl: Optional[str] = None
+    phoneNumber: Optional[str] = Field(None, max_length=20)
+    dateOfBirth: Optional[str] = Field(None, description="Date of birth in YYYY-MM-DD format")
+    address: Optional[str] = Field(None, max_length=500)
+    emergencyContact: Optional[str] = Field(None, max_length=100)
+    emergencyPhone: Optional[str] = Field(None, max_length=20)
+    isActive: bool = True
+    emailConfirmed: bool = False
+    createdAt: datetime
+    updatedAt: Optional[datetime] = None
+    lastLoginAt: Optional[datetime] = None
+    loginCount: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class UserProfileUpdate(BaseModel):
+    """Model for updating user profile information"""
+    firstName: Optional[str] = Field(None, min_length=2, max_length=50)
+    lastName: Optional[str] = Field(None, min_length=2, max_length=50)
+    membershipType: Optional[MembershipType] = None
+    club: Optional[str] = Field(None, min_length=2, max_length=100)
+    profileImageUrl: Optional[str] = None
+    phoneNumber: Optional[str] = Field(None, max_length=20)
+    dateOfBirth: Optional[str] = Field(None, description="Date of birth in YYYY-MM-DD format")
+    address: Optional[str] = Field(None, max_length=500)
+    emergencyContact: Optional[str] = Field(None, max_length=100)
+    emergencyPhone: Optional[str] = Field(None, max_length=20)
+
+
+class UserScoreSummary(BaseModel):
+    """User's shooting score summary"""
+    totalMatches: int = 0
+    totalScore: int = 0
+    averageScore: float = 0.0
+    personalBest: int = 0
+    personalBestEvent: Optional[str] = None
+    personalBestDate: Optional[datetime] = None
+    totalXCount: int = 0
+    averageXCount: float = 0.0
+    disciplines: List[str] = []
+    recentScores: List[dict] = []
+
+
+class UserDashboardData(BaseModel):
+    """Complete user dashboard data"""
+    profile: UserProfile
+    scoreSummary: UserScoreSummary
+    recentEvents: List[dict] = []
+    upcomingEvents: List[dict] = []
+    notifications: List[dict] = []
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request model for refresh token"""
+    refresh_token: str
+
+
+class RefreshTokenResponse(BaseModel):
+    """Response model for refresh token"""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request model for changing password"""
+    current_password: str = Field(..., min_length=1, description="Current password")
+    new_password: str = Field(..., min_length=8, description="New password")
+    
+    @validator('new_password')
+    def validate_new_password(cls, v):
+        if not any(c.isupper() for c in v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain at least one number')
+        return v
+
+
+class EmailConfirmationRequest(BaseModel):
+    """Request model for email confirmation"""
+    token: str = Field(..., description="Email confirmation token")
+
+
+class UserSession(BaseModel):
+    """User session information"""
+    session_id: str
+    user_id: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime
+    last_activity: datetime
+    is_active: bool = True
+
+
+class UserActivityLog(BaseModel):
+    """User activity log entry"""
+    id: str
+    user_id: str
+    action: str = Field(..., description="Action performed")
+    details: Optional[dict] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True 

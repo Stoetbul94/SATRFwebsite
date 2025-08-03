@@ -1,7 +1,7 @@
 import type { AppProps } from 'next/app';
 import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from '@/lib/firebase/auth';
+import { AuthProvider } from '../contexts/AuthContext';
 import * as Sentry from '@sentry/nextjs';
 import '@/styles/globals.css';
 import { Oxanium } from 'next/font/google';

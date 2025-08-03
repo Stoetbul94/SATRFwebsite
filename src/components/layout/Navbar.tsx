@@ -15,15 +15,10 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { FiMenu, FiX, FiUser, FiLogOut } from 'react-icons/fi';
+import { useAuth } from '../../contexts/AuthContext';
 
-interface NavbarProps {
-  user?: {
-    firstName: string;
-    lastName: string;
-  } | null;
-}
-
-export default function Navbar({ user }: NavbarProps) {
+export default function Navbar() {
+  const { user, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -34,9 +29,8 @@ export default function Navbar({ user }: NavbarProps) {
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    window.location.href = '/';
+  const handleLogout = async () => {
+    await logout();
   };
 
   const bgColor = useColorModeValue('blue.900', 'blue.800');
@@ -96,7 +90,7 @@ export default function Navbar({ user }: NavbarProps) {
           {/* User Menu / Auth Buttons */}
           <Box display={{ base: 'none', md: 'block' }}>
             <HStack spacing={4} ml={4}>
-              {user ? (
+              {isAuthenticated && user ? (
                 <>
                   <Text color={textColor} fontSize="sm">
                     Welcome, {user.firstName}
@@ -157,8 +151,9 @@ export default function Navbar({ user }: NavbarProps) {
             <NavLink href="/contact" onClick={closeMobileMenu}>Contact</NavLink>
             <NavLink href="/donate" onClick={closeMobileMenu}>Donate</NavLink>
             
-            {user ? (
+            {isAuthenticated && user ? (
               <>
+                <NavLink href="/profile" onClick={closeMobileMenu}>Profile</NavLink>
                 <NavLink href="/dashboard" onClick={closeMobileMenu}>Dashboard</NavLink>
                 <Button
                   variant="ghost"

@@ -1,334 +1,441 @@
-'use client';
-
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { NextPage } from 'next';
+import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import toast from 'react-hot-toast';
-import { FiEye, FiEyeOff, FiUser, FiMail, FiLock, FiMapPin } from 'react-icons/fi';
-import Layout from '@/components/layout/Layout';
-import { authAPI } from '@/lib/api';
+import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
+import { UserRegistrationData, passwordValidator } from '../lib/auth';
 
-// Registration form schema
-const registrationSchema = z.object({
-  firstName: z.string()
-    .min(2, 'First name must be at least 2 characters')
-    .max(50, 'First name must be less than 50 characters'),
-  lastName: z.string()
-    .min(2, 'Last name must be at least 2 characters')
-    .max(50, 'Last name must be less than 50 characters'),
-  email: z.string()
-    .email('Please enter a valid email address')
-    .min(1, 'Email is required'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-  confirmPassword: z.string()
-    .min(1, 'Please confirm your password'),
-  membershipType: z.enum(['junior', 'senior', 'veteran'], {
-    required_error: 'Please select a membership type',
-  }),
-  club: z.string()
-    .min(2, 'Club name must be at least 2 characters')
-    .max(100, 'Club name must be less than 100 characters'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
-type RegistrationFormData = z.infer<typeof registrationSchema>;
-
-export default function Register() {
+const RegisterPage: NextPage = () => {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { register, isLoading, error, clearError } = useAuth();
+  
+  // Redirect if already authenticated
+  useRedirectIfAuthenticated();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<RegistrationFormData>({
-    resolver: zodResolver(registrationSchema),
-    mode: 'onChange',
+  // Form state
+  const [formData, setFormData] = useState<UserRegistrationData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    membershipType: 'senior',
+    club: '',
   });
 
-  const onSubmit = async (data: RegistrationFormData) => {
-    setIsSubmitting(true);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [passwordValidation, setPasswordValidation] = useState({
+    isValid: false,
+    errors: [] as string[],
+    warnings: [] as string[],
+  });
+
+  // Clear errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  // Validate password on change
+  useEffect(() => {
+    if (formData.password) {
+      const validation = passwordValidator.validatePassword(formData.password);
+      setPasswordValidation(validation);
+    }
+  }, [formData.password]);
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
     
-    try {
-      await authAPI.register(data);
-      
-      toast.success('Registration successful! Welcome to SATRF!');
-      
-      // Redirect to login page
-      router.push('/login');
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Registration failed. Please try again.';
-      
-      toast.error(errorMessage);
-    } finally {
-      setIsSubmitting(false);
+    // Clear field error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: '',
+      }));
     }
   };
 
-  const togglePasswordVisibility = () => setShowPassword(!showPassword);
-  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
+  // Handle confirm password change
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPassword(e.target.value);
+    
+    // Clear field error when user starts typing
+    if (formErrors.confirmPassword) {
+      setFormErrors(prev => ({
+        ...prev,
+        confirmPassword: '',
+      }));
+    }
+  };
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // First name validation
+    if (!formData.firstName.trim()) {
+      errors.firstName = 'First name is required';
+    } else if (formData.firstName.trim().length < 2) {
+      errors.firstName = 'First name must be at least 2 characters';
+    } else if (formData.firstName.trim().length > 50) {
+      errors.firstName = 'First name must be less than 50 characters';
+    }
+
+    // Last name validation
+    if (!formData.lastName.trim()) {
+      errors.lastName = 'Last name is required';
+    } else if (formData.lastName.trim().length < 2) {
+      errors.lastName = 'Last name must be at least 2 characters';
+    } else if (formData.lastName.trim().length > 50) {
+      errors.lastName = 'Last name must be less than 50 characters';
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!passwordValidator.validateEmail(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    // Password validation
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (!passwordValidation.isValid) {
+      errors.password = 'Password does not meet requirements';
+    }
+
+    // Confirm password validation
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password';
+    } else if (!passwordValidator.validatePasswordMatch(formData.password, confirmPassword)) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Club validation
+    if (!formData.club.trim()) {
+      errors.club = 'Club name is required';
+    } else if (formData.club.trim().length < 2) {
+      errors.club = 'Club name must be at least 2 characters';
+    } else if (formData.club.trim().length > 100) {
+      errors.club = 'Club name must be less than 100 characters';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    const success = await register(formData);
+    if (success) {
+      router.push('/dashboard');
+    }
+  };
+
+  // Password strength indicator
+  const getPasswordStrengthColor = () => {
+    if (!formData.password) return 'bg-gray-200';
+    if (passwordValidation.errors.length > 2) return 'bg-red-500';
+    if (passwordValidation.errors.length > 0) return 'bg-yellow-500';
+    if (passwordValidation.warnings.length > 0) return 'bg-blue-500';
+    return 'bg-green-500';
+  };
+
+  const getPasswordStrengthText = () => {
+    if (!formData.password) return 'Enter password';
+    if (passwordValidation.errors.length > 2) return 'Very Weak';
+    if (passwordValidation.errors.length > 0) return 'Weak';
+    if (passwordValidation.warnings.length > 0) return 'Good';
+    return 'Strong';
+  };
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md mx-auto">
+    <>
+      <Head>
+        <title>Register - SATRF</title>
+        <meta name="description" content="Create your SATRF account to access shooting scores and events" />
+      </Head>
+
+      <div className="min-h-screen bg-gradient-to-br from-midnight-steel via-midnight-dark to-midnight-light flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Join SATRF
-            </h1>
-            <p className="text-gray-600">
-              Create your account to access member benefits and participate in events
+          <div className="text-center">
+            <div className="mx-auto h-16 w-16 bg-electric-cyan rounded-full flex items-center justify-center mb-4">
+              <svg className="h-8 w-8 text-midnight-steel" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="text-3xl font-oxanium font-bold text-electric-cyan mb-2">
+              Create Account
+            </h2>
+            <p className="text-gray-300 font-oxanium">
+              Join the South African Target Rifle Federation
             </p>
           </div>
 
+          {/* Error Alert */}
+          {error && (
+            <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-oxanium">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Registration Form */}
-          <div className="card">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            <div className="space-y-4">
               {/* Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="form-label">
-                    <FiUser className="inline mr-2" />
-                    First Name
+                  <label htmlFor="firstName" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                    First Name *
                   </label>
                   <input
                     id="firstName"
+                    name="firstName"
                     type="text"
-                    {...register('firstName')}
-                    className={`input-field ${errors.firstName ? 'border-red-500' : ''}`}
-                    aria-describedby={errors.firstName ? 'firstName-error' : undefined}
-                    aria-invalid={!!errors.firstName}
+                    required
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                      formErrors.firstName ? 'border-red-500 focus:ring-red-500' : ''
+                    }`}
+                    placeholder="Enter first name"
                   />
-                  {errors.firstName && (
-                    <p id="firstName-error" className="form-error" role="alert">
-                      {errors.firstName.message}
-                    </p>
+                  {formErrors.firstName && (
+                    <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.firstName}</p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="lastName" className="form-label">
-                    <FiUser className="inline mr-2" />
-                    Last Name
+                  <label htmlFor="lastName" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                    Last Name *
                   </label>
                   <input
                     id="lastName"
+                    name="lastName"
                     type="text"
-                    {...register('lastName')}
-                    className={`input-field ${errors.lastName ? 'border-red-500' : ''}`}
-                    aria-describedby={errors.lastName ? 'lastName-error' : undefined}
-                    aria-invalid={!!errors.lastName}
+                    required
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                      formErrors.lastName ? 'border-red-500 focus:ring-red-500' : ''
+                    }`}
+                    placeholder="Enter last name"
                   />
-                  {errors.lastName && (
-                    <p id="lastName-error" className="form-error" role="alert">
-                      {errors.lastName.message}
-                    </p>
+                  {formErrors.lastName && (
+                    <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.lastName}</p>
                   )}
                 </div>
               </div>
 
-              {/* Email Field */}
+              {/* Email */}
               <div>
-                <label htmlFor="email" className="form-label">
-                  <FiMail className="inline mr-2" />
-                  Email Address
+                <label htmlFor="email" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                  Email Address *
                 </label>
                 <input
                   id="email"
+                  name="email"
                   type="email"
-                  {...register('email')}
-                  className={`input-field ${errors.email ? 'border-red-500' : ''}`}
-                  aria-describedby={errors.email ? 'email-error' : undefined}
-                  aria-invalid={!!errors.email}
+                  required
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                    formErrors.email ? 'border-red-500 focus:ring-red-500' : ''
+                  }`}
+                  placeholder="Enter email address"
                 />
-                {errors.email && (
-                  <p id="email-error" className="form-error" role="alert">
-                    {errors.email.message}
-                  </p>
+                {formErrors.email && (
+                  <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.email}</p>
                 )}
               </div>
 
-              {/* Password Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="password" className="form-label">
-                    <FiLock className="inline mr-2" />
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      {...register('password')}
-                      className={`input-field pr-10 ${errors.password ? 'border-red-500' : ''}`}
-                      aria-describedby={errors.password ? 'password-error' : undefined}
-                      aria-invalid={!!errors.password}
-                    />
-                    <button
-                      type="button"
-                      onClick={togglePasswordVisibility}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <FiEyeOff className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <FiEye className="h-5 w-5 text-gray-400" />
-                      )}
-                    </button>
+              {/* Password */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                  Password *
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                    formErrors.password ? 'border-red-500 focus:ring-red-500' : ''
+                  }`}
+                  placeholder="Enter password"
+                />
+                
+                {/* Password Strength Indicator */}
+                {formData.password && (
+                  <div className="mt-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 bg-gray-700 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor()}`}
+                          style={{
+                            width: `${Math.max(25, 100 - (passwordValidation.errors.length * 25))}%`
+                          }}
+                        />
+                      </div>
+                      <span className={`text-xs font-oxanium ${
+                        passwordValidation.errors.length > 2 ? 'text-red-400' :
+                        passwordValidation.errors.length > 0 ? 'text-yellow-400' :
+                        passwordValidation.warnings.length > 0 ? 'text-blue-400' : 'text-green-400'
+                      }`}>
+                        {getPasswordStrengthText()}
+                      </span>
+                    </div>
+                    
+                    {/* Password Requirements */}
+                    <div className="mt-2 space-y-1">
+                      {passwordValidation.errors.map((error, index) => (
+                        <p key={index} className="text-xs text-red-400 font-oxanium flex items-center">
+                          <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          {error}
+                        </p>
+                      ))}
+                      {passwordValidation.warnings.map((warning, index) => (
+                        <p key={index} className="text-xs text-blue-400 font-oxanium flex items-center">
+                          <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {warning}
+                        </p>
+                      ))}
+                    </div>
                   </div>
-                  {errors.password && (
-                    <p id="password-error" className="form-error" role="alert">
-                      {errors.password.message}
-                    </p>
-                  )}
-                </div>
+                )}
+                
+                {formErrors.password && (
+                  <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.password}</p>
+                )}
+              </div>
 
-                <div>
-                  <label htmlFor="confirmPassword" className="form-label">
-                    <FiLock className="inline mr-2" />
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      {...register('confirmPassword')}
-                      className={`input-field pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
-                      aria-describedby={errors.confirmPassword ? 'confirmPassword-error' : undefined}
-                      aria-invalid={!!errors.confirmPassword}
-                    />
-                    <button
-                      type="button"
-                      onClick={toggleConfirmPasswordVisibility}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showConfirmPassword ? (
-                        <FiEyeOff className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <FiEye className="h-5 w-5 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && (
-                    <p id="confirmPassword-error" className="form-error" role="alert">
-                      {errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
+              {/* Confirm Password */}
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                  Confirm Password *
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={handleConfirmPasswordChange}
+                  className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                    formErrors.confirmPassword ? 'border-red-500 focus:ring-red-500' : ''
+                  }`}
+                  placeholder="Confirm password"
+                />
+                {formErrors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.confirmPassword}</p>
+                )}
               </div>
 
               {/* Membership Type */}
               <div>
-                <label htmlFor="membershipType" className="form-label">
-                  Membership Type
+                <label htmlFor="membershipType" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                  Membership Type *
                 </label>
                 <select
                   id="membershipType"
-                  {...register('membershipType')}
-                  className={`input-field ${errors.membershipType ? 'border-red-500' : ''}`}
-                  aria-describedby={errors.membershipType ? 'membershipType-error' : undefined}
-                  aria-invalid={!!errors.membershipType}
+                  name="membershipType"
+                  required
+                  value={formData.membershipType}
+                  onChange={handleInputChange}
+                  className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium"
                 >
-                  <option value="">Select membership type</option>
-                  <option value="junior">Junior (Under 18)</option>
-                  <option value="senior">Senior (18-59)</option>
-                  <option value="veteran">Veteran (60+)</option>
+                  <option value="junior">Junior</option>
+                  <option value="senior">Senior</option>
+                  <option value="veteran">Veteran</option>
                 </select>
-                {errors.membershipType && (
-                  <p id="membershipType-error" className="form-error" role="alert">
-                    {errors.membershipType.message}
-                  </p>
-                )}
               </div>
 
-              {/* Club Field */}
+              {/* Club */}
               <div>
-                <label htmlFor="club" className="form-label">
-                  <FiMapPin className="inline mr-2" />
-                  Club
+                <label htmlFor="club" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                  Club Name *
                 </label>
                 <input
                   id="club"
+                  name="club"
                   type="text"
-                  {...register('club')}
-                  className={`input-field ${errors.club ? 'border-red-500' : ''}`}
-                  placeholder="Enter your club name"
-                  aria-describedby={errors.club ? 'club-error' : undefined}
-                  aria-invalid={!!errors.club}
+                  required
+                  value={formData.club}
+                  onChange={handleInputChange}
+                  className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                    formErrors.club ? 'border-red-500 focus:ring-red-500' : ''
+                  }`}
+                  placeholder="Enter club name"
                 />
-                {errors.club && (
-                  <p id="club-error" className="form-error" role="alert">
-                    {errors.club.message}
-                  </p>
+                {formErrors.club && (
+                  <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.club}</p>
                 )}
               </div>
+            </div>
 
-              {/* Submit Button */}
+            {/* Submit Button */}
+            <div>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-describedby="submit-status"
+                disabled={isLoading}
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-oxanium font-medium rounded-lg text-midnight-steel bg-electric-cyan hover:bg-electric-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-electric-cyan disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
-                {isSubmitting ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-midnight-steel" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
                     Creating Account...
                   </div>
                 ) : (
                   'Create Account'
                 )}
               </button>
-              <div id="submit-status" className="sr-only" aria-live="polite">
-                {isSubmitting ? 'Creating account...' : 'Ready to submit'}
-              </div>
-            </form>
+            </div>
 
             {/* Login Link */}
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
+            <div className="text-center">
+              <p className="text-sm text-gray-400 font-oxanium">
                 Already have an account?{' '}
-                <a
-                  href="/login"
-                  className="text-satrf-lightBlue hover:text-satrf-navy font-medium transition-colors duration-200"
-                >
+                <Link href="/login" className="font-medium text-electric-cyan hover:text-electric-neon transition-colors duration-200">
                   Sign in here
-                </a>
+                </Link>
               </p>
             </div>
-          </div>
-
-          {/* Terms and Privacy */}
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p>
-              By creating an account, you agree to our{' '}
-              <a href="/terms" className="text-satrf-lightBlue hover:text-satrf-navy">
-                Terms of Service
-              </a>{' '}
-              and{' '}
-              <a href="/privacy" className="text-satrf-lightBlue hover:text-satrf-navy">
-                Privacy Policy
-              </a>
-            </p>
-          </div>
+          </form>
         </div>
       </div>
-    </Layout>
+    </>
   );
-} 
+};
+
+export default RegisterPage; 

@@ -1,551 +1,519 @@
-import {
-  Avatar,
-  Badge,
-  Box,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Container,
-  Divider,
-  Flex,
-  Grid,
-  GridItem,
-  Heading,
-  HStack,
-  Icon,
-  Image,
-  Link,
-  SimpleGrid,
-  Stack,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
-  Text,
-  useColorModeValue,
-  VStack,
-} from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { FiEdit3, FiCalendar, FiTarget, FiTrendingUp, FiUser, FiSettings } from 'react-icons/fi';
-import Layout from '@/components/layout/Layout';
-import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { scoresAPI, eventsAPI } from '@/lib/api';
+import React, { useState, useEffect } from 'react';
+import { NextPage } from 'next';
+import Head from 'next/head';
+import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
+import { UserProfileUpdate } from '../lib/auth';
 
-interface UserProfile {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  membershipType: 'junior' | 'senior' | 'veteran';
-  club: string;
-  phone?: string;
-  address?: string;
-  photoURL?: string;
-  createdAt: string;
-}
+const ProfilePage: NextPage = () => {
+  const { user, updateProfile, isLoading, error, clearError } = useAuth();
+  
+  // Protect this route
+  useProtectedRoute();
 
-interface UserScore {
-  id: string;
-  eventId: string;
-  discipline: string;
-  score: number;
-  xCount?: number;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
-  eventTitle?: string;
-}
+  // Form state
+  const [formData, setFormData] = useState<UserProfileUpdate>({
+    firstName: '',
+    lastName: '',
+    membershipType: 'senior',
+    club: '',
+    phoneNumber: '',
+    dateOfBirth: '',
+    address: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+  });
 
-interface UserEvent {
-  id: string;
-  title: string;
-  date: string;
-  location: string;
-  type: string;
-  status: 'open' | 'full' | 'closed';
-}
+  const [isEditing, setIsEditing] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
-export default function Profile() {
-  const router = useRouter();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [recentScores, setRecentScores] = useState<UserScore[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<UserEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
-
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-
+  // Initialize form data when user loads
   useEffect(() => {
-    const fetchProfileData = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        membershipType: user.membershipType || 'senior',
+        club: user.club || '',
+        phoneNumber: user.phoneNumber || '',
+        dateOfBirth: user.dateOfBirth || '',
+        address: user.address || '',
+        emergencyContact: user.emergencyContact || '',
+        emergencyPhone: user.emergencyPhone || '',
+      });
+    }
+  }, [user]);
 
-      try {
-        // Fetch user profile
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserProfile({
-            id: user.uid,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: user.email || '',
-            membershipType: data.membershipType,
-            club: data.club,
-            phone: data.phone,
-            address: data.address,
-            photoURL: user.photoURL || undefined,
-            createdAt: data.createdAt,
-          });
-        }
+  // Clear errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
-        // Fetch recent scores
-        try {
-          const scoresResponse = await scoresAPI.getMyScores(1, 5);
-          setRecentScores(scoresResponse.data);
-        } catch (error) {
-          console.error('Error fetching scores:', error);
-        }
-
-        // Fetch upcoming events (this would need to be implemented in the backend)
-        // For now, we'll use a placeholder
-        setUpcomingEvents([
-          {
-            id: '1',
-            title: 'Spring Championship 2024',
-            date: '2024-03-15',
-            location: 'National Range',
-            type: 'Competition',
-            status: 'open',
-          },
-          {
-            id: '2',
-            title: 'Training Camp',
-            date: '2024-03-22',
-            location: 'Local Club',
-            type: 'Training',
-            status: 'open',
-          },
-        ]);
-
-      } catch (error) {
-        console.error('Error fetching profile data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfileData();
-  }, [router]);
-
-  const handleEditProfile = () => {
-    router.push('/profile/edit');
-  };
-
-  const handleViewStatistics = () => {
-    router.push('/dashboard');
-  };
-
-  const handleAccountManagement = () => {
-    router.push('/account');
-  };
-
-  const getMembershipTypeColor = (type: string) => {
-    switch (type) {
-      case 'junior':
-        return 'green';
-      case 'senior':
-        return 'blue';
-      case 'veteran':
-        return 'purple';
-      default:
-        return 'gray';
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    
+    // Clear field error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: '',
+      }));
     }
   };
 
-  const getScoreStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'green';
-      case 'pending':
-        return 'yellow';
-      case 'rejected':
-        return 'red';
-      default:
-        return 'gray';
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // First name validation
+    if (!formData.firstName?.trim()) {
+      errors.firstName = 'First name is required';
+    } else if (formData.firstName.trim().length < 2) {
+      errors.firstName = 'First name must be at least 2 characters';
+    } else if (formData.firstName.trim().length > 50) {
+      errors.firstName = 'First name must be less than 50 characters';
+    }
+
+    // Last name validation
+    if (!formData.lastName?.trim()) {
+      errors.lastName = 'Last name is required';
+    } else if (formData.lastName.trim().length < 2) {
+      errors.lastName = 'Last name must be at least 2 characters';
+    } else if (formData.lastName.trim().length > 50) {
+      errors.lastName = 'Last name must be less than 50 characters';
+    }
+
+    // Club validation
+    if (!formData.club?.trim()) {
+      errors.club = 'Club name is required';
+    } else if (formData.club.trim().length < 2) {
+      errors.club = 'Club name must be at least 2 characters';
+    } else if (formData.club.trim().length > 100) {
+      errors.club = 'Club name must be less than 100 characters';
+    }
+
+    // Phone number validation (optional)
+    if (formData.phoneNumber && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.phoneNumber.replace(/\s/g, ''))) {
+      errors.phoneNumber = 'Please enter a valid phone number';
+    }
+
+    // Emergency phone validation (optional)
+    if (formData.emergencyPhone && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.emergencyPhone.replace(/\s/g, ''))) {
+      errors.emergencyPhone = 'Please enter a valid phone number';
+    }
+
+    // Date of birth validation (optional)
+    if (formData.dateOfBirth) {
+      const date = new Date(formData.dateOfBirth);
+      const now = new Date();
+      if (date > now) {
+        errors.dateOfBirth = 'Date of birth cannot be in the future';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    const success = await updateProfile(formData);
+    if (success) {
+      setUpdateSuccess(true);
+      setIsEditing(false);
+      setTimeout(() => setUpdateSuccess(false), 3000);
     }
   };
 
-  if (isLoading) {
-    return (
-      <Layout>
-        <Container maxW="container.xl" py={8}>
-          <Text>Loading profile...</Text>
-        </Container>
-      </Layout>
-    );
-  }
+  // Cancel editing
+  const handleCancel = () => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        membershipType: user.membershipType || 'senior',
+        club: user.club || '',
+        phoneNumber: user.phoneNumber || '',
+        dateOfBirth: user.dateOfBirth || '',
+        address: user.address || '',
+        emergencyContact: user.emergencyContact || '',
+        emergencyPhone: user.emergencyPhone || '',
+      });
+    }
+    setFormErrors({});
+    setIsEditing(false);
+  };
 
-  if (!userProfile) {
+  if (!user) {
     return (
-      <Layout>
-        <Container maxW="container.xl" py={8}>
-          <Text>Profile not found</Text>
-        </Container>
-      </Layout>
+      <div className="min-h-screen bg-gradient-to-br from-midnight-steel via-midnight-dark to-midnight-light flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-electric-cyan mx-auto mb-4"></div>
+          <p className="text-gray-300 font-oxanium">Loading profile...</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <Box bg={bgColor} minH="100vh" py={8}>
-        <Container maxW="container.xl">
-          {/* Profile Header */}
-          <Card bg={cardBg} mb={8} shadow="lg">
-            <CardBody p={8}>
-              <Flex direction={{ base: 'column', md: 'row' }} gap={8} align="center">
-                <Avatar
-                  size="2xl"
-                  name={`${userProfile.firstName} ${userProfile.lastName}`}
-                  src={userProfile.photoURL}
-                  bg="blue.500"
-                />
-                
-                <VStack flex={1} align={{ base: 'center', md: 'flex-start' }} spacing={4}>
-                  <VStack align={{ base: 'center', md: 'flex-start' }} spacing={2}>
-                    <Heading size="lg">
-                      {userProfile.firstName} {userProfile.lastName}
-                    </Heading>
-                    <Text color="gray.500" fontSize="lg">
-                      {userProfile.email}
-                    </Text>
-                    <HStack spacing={4}>
-                      <Badge colorScheme={getMembershipTypeColor(userProfile.membershipType)} size="lg">
-                        {userProfile.membershipType.charAt(0).toUpperCase() + userProfile.membershipType.slice(1)} Member
-                      </Badge>
-                      <Badge colorScheme="blue" variant="outline">
-                        {userProfile.club}
-                      </Badge>
-                    </HStack>
-                  </VStack>
-                  
-                  <HStack spacing={4} wrap="wrap">
-                    <Button
-                      leftIcon={<FiEdit3 />}
-                      colorScheme="blue"
-                      onClick={handleEditProfile}
-                    >
-                      Edit Profile
-                    </Button>
-                    <Button
-                      leftIcon={<FiTrendingUp />}
-                      variant="outline"
-                      onClick={handleViewStatistics}
-                    >
-                      My Statistics
-                    </Button>
-                    <Button
-                      leftIcon={<FiSettings />}
-                      variant="outline"
-                      onClick={handleAccountManagement}
-                    >
-                      Account Settings
-                    </Button>
-                  </HStack>
-                </VStack>
-              </Flex>
-            </CardBody>
-          </Card>
+    <>
+      <Head>
+        <title>Profile - SATRF</title>
+        <meta name="description" content="Manage your SATRF profile and account settings" />
+      </Head>
 
-          {/* Profile Content Tabs */}
-          <Tabs index={activeTab} onChange={setActiveTab} variant="enclosed">
-            <TabList>
-              <Tab>
-                <HStack>
-                  <Icon as={FiUser} />
-                  <Text>Overview</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack>
-                  <Icon as={FiTarget} />
-                  <Text>Recent Scores</Text>
-                </HStack>
-              </Tab>
-              <Tab>
-                <HStack>
-                  <Icon as={FiCalendar} />
-                  <Text>Upcoming Events</Text>
-                </HStack>
-              </Tab>
-            </TabList>
+      <div className="min-h-screen bg-gradient-to-br from-midnight-steel via-midnight-dark to-midnight-light">
+        <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-oxanium font-bold text-electric-cyan mb-2">
+              Profile Settings
+            </h1>
+            <p className="text-gray-300 font-oxanium">
+              Manage your account information and preferences
+            </p>
+          </div>
 
-            <TabPanels>
-              {/* Overview Tab */}
-              <TabPanel p={6}>
-                <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={8}>
-                  <VStack align="stretch" spacing={6}>
-                    {/* Personal Information */}
-                    <Card bg={cardBg} shadow="md">
-                      <CardHeader>
-                        <Heading size="md">Personal Information</Heading>
-                      </CardHeader>
-                      <CardBody>
-                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                          <Box>
-                            <Text fontWeight="bold" color="gray.500">Full Name</Text>
-                            <Text>{userProfile.firstName} {userProfile.lastName}</Text>
-                          </Box>
-                          <Box>
-                            <Text fontWeight="bold" color="gray.500">Email</Text>
-                            <Text>{userProfile.email}</Text>
-                          </Box>
-                          <Box>
-                            <Text fontWeight="bold" color="gray.500">Membership Type</Text>
-                            <Text>{userProfile.membershipType.charAt(0).toUpperCase() + userProfile.membershipType.slice(1)}</Text>
-                          </Box>
-                          <Box>
-                            <Text fontWeight="bold" color="gray.500">Club</Text>
-                            <Text>{userProfile.club}</Text>
-                          </Box>
-                          {userProfile.phone && (
-                            <Box>
-                              <Text fontWeight="bold" color="gray.500">Phone</Text>
-                              <Text>{userProfile.phone}</Text>
-                            </Box>
-                          )}
-                          {userProfile.address && (
-                            <Box>
-                              <Text fontWeight="bold" color="gray.500">Address</Text>
-                              <Text>{userProfile.address}</Text>
-                            </Box>
-                          )}
-                        </SimpleGrid>
-                      </CardBody>
-                    </Card>
+          {/* Success Alert */}
+          {updateSuccess && (
+            <div className="mb-6 bg-green-900/50 border border-green-500 text-green-200 px-4 py-3 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-oxanium">Profile updated successfully!</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-                    {/* Quick Stats */}
-                    <Card bg={cardBg} shadow="md">
-                      <CardHeader>
-                        <Heading size="md">Quick Statistics</Heading>
-                      </CardHeader>
-                      <CardBody>
-                        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6}>
-                          <VStack>
-                            <Text fontSize="2xl" fontWeight="bold" color="blue.500">
-                              {recentScores.length}
-                            </Text>
-                            <Text fontSize="sm" color="gray.500">Recent Scores</Text>
-                          </VStack>
-                          <VStack>
-                            <Text fontSize="2xl" fontWeight="bold" color="green.500">
-                              {upcomingEvents.length}
-                            </Text>
-                            <Text fontSize="sm" color="gray.500">Upcoming Events</Text>
-                          </VStack>
-                          <VStack>
-                            <Text fontSize="2xl" fontWeight="bold" color="purple.500">
-                              {recentScores.filter(s => s.status === 'approved').length}
-                            </Text>
-                            <Text fontSize="sm" color="gray.500">Approved Scores</Text>
-                          </VStack>
-                          <VStack>
-                            <Text fontSize="2xl" fontWeight="bold" color="orange.500">
-                              {userProfile.membershipType}
-                            </Text>
-                            <Text fontSize="sm" color="gray.500">Member Since</Text>
-                          </VStack>
-                        </SimpleGrid>
-                      </CardBody>
-                    </Card>
-                  </VStack>
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-oxanium">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  {/* Quick Actions */}
-                  <VStack align="stretch" spacing={6}>
-                    <Card bg={cardBg} shadow="md">
-                      <CardHeader>
-                        <Heading size="md">Quick Actions</Heading>
-                      </CardHeader>
-                      <CardBody>
-                        <VStack spacing={4}>
-                          <Button
-                            leftIcon={<FiTarget />}
-                            colorScheme="blue"
-                            size="lg"
-                            width="full"
-                            onClick={() => router.push('/scores/upload')}
-                          >
-                            Upload Score
-                          </Button>
-                          <Button
-                            leftIcon={<FiCalendar />}
-                            colorScheme="green"
-                            size="lg"
-                            width="full"
-                            onClick={() => router.push('/events')}
-                          >
-                            Register for Event
-                          </Button>
-                          <Button
-                            leftIcon={<FiTrendingUp />}
-                            variant="outline"
-                            size="lg"
-                            width="full"
-                            onClick={() => router.push('/scores/leaderboard')}
-                          >
-                            View Leaderboard
-                          </Button>
-                        </VStack>
-                      </CardBody>
-                    </Card>
-                  </VStack>
-                </Grid>
-              </TabPanel>
-
-              {/* Recent Scores Tab */}
-              <TabPanel p={6}>
-                <Card bg={cardBg} shadow="md">
-                  <CardHeader>
-                    <Flex justify="space-between" align="center">
-                      <Heading size="md">Recent Scores</Heading>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        variant="outline"
-                        onClick={() => router.push('/scores')}
-                      >
-                        View All
-                      </Button>
-                    </Flex>
-                  </CardHeader>
-                  <CardBody>
-                    {recentScores.length === 0 ? (
-                      <VStack py={8} spacing={4}>
-                        <Text color="gray.500">No scores uploaded yet</Text>
-                        <Button
-                          colorScheme="blue"
-                          onClick={() => router.push('/scores/upload')}
-                        >
-                          Upload Your First Score
-                        </Button>
-                      </VStack>
-                    ) : (
-                      <VStack spacing={4} align="stretch">
-                        {recentScores.map((score) => (
-                          <Box
-                            key={score.id}
-                            p={4}
-                            border="1px"
-                            borderColor={borderColor}
-                            borderRadius="md"
-                          >
-                            <Flex justify="space-between" align="center">
-                              <VStack align="flex-start" spacing={1}>
-                                <Text fontWeight="bold">
-                                  {score.eventTitle || `Event ${score.eventId}`}
-                                </Text>
-                                <Text fontSize="sm" color="gray.500">
-                                  {score.discipline} • {new Date(score.createdAt).toLocaleDateString()}
-                                </Text>
-                              </VStack>
-                              <HStack spacing={4}>
-                                <VStack align="center" spacing={0}>
-                                  <Text fontSize="lg" fontWeight="bold">
-                                    {score.score}
-                                  </Text>
-                                  <Text fontSize="xs" color="gray.500">Score</Text>
-                                </VStack>
-                                {score.xCount && (
-                                  <VStack align="center" spacing={0}>
-                                    <Text fontSize="lg" fontWeight="bold" color="green.500">
-                                      {score.xCount}
-                                    </Text>
-                                    <Text fontSize="xs" color="gray.500">X Count</Text>
-                                  </VStack>
-                                )}
-                                <Badge colorScheme={getScoreStatusColor(score.status)}>
-                                  {score.status}
-                                </Badge>
-                              </HStack>
-                            </Flex>
-                          </Box>
-                        ))}
-                      </VStack>
+          {/* Profile Form */}
+          <div className="bg-midnight-light/30 rounded-lg border border-gray-600 p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Basic Information */}
+              <div>
+                <h3 className="text-lg font-oxanium font-medium text-electric-cyan mb-4">
+                  Basic Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      First Name *
+                    </label>
+                    <input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      required
+                      disabled={!isEditing}
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formErrors.firstName ? 'border-red-500 focus:ring-red-500' : ''
+                      }`}
+                      placeholder="Enter first name"
+                    />
+                    {formErrors.firstName && (
+                      <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.firstName}</p>
                     )}
-                  </CardBody>
-                </Card>
-              </TabPanel>
+                  </div>
 
-              {/* Upcoming Events Tab */}
-              <TabPanel p={6}>
-                <Card bg={cardBg} shadow="md">
-                  <CardHeader>
-                    <Flex justify="space-between" align="center">
-                      <Heading size="md">Upcoming Events</Heading>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        variant="outline"
-                        onClick={() => router.push('/events')}
-                      >
-                        View All
-                      </Button>
-                    </Flex>
-                  </CardHeader>
-                  <CardBody>
-                    {upcomingEvents.length === 0 ? (
-                      <VStack py={8} spacing={4}>
-                        <Text color="gray.500">No upcoming events registered</Text>
-                        <Button
-                          colorScheme="blue"
-                          onClick={() => router.push('/events')}
-                        >
-                          Browse Events
-                        </Button>
-                      </VStack>
-                    ) : (
-                      <VStack spacing={4} align="stretch">
-                        {upcomingEvents.map((event) => (
-                          <Box
-                            key={event.id}
-                            p={4}
-                            border="1px"
-                            borderColor={borderColor}
-                            borderRadius="md"
-                          >
-                            <Flex justify="space-between" align="center">
-                              <VStack align="flex-start" spacing={1}>
-                                <Text fontWeight="bold">{event.title}</Text>
-                                <Text fontSize="sm" color="gray.500">
-                                  {event.type} • {event.location}
-                                </Text>
-                                <Text fontSize="sm" color="gray.500">
-                                  {new Date(event.date).toLocaleDateString()}
-                                </Text>
-                              </VStack>
-                              <Badge colorScheme={event.status === 'open' ? 'green' : 'red'}>
-                                {event.status}
-                              </Badge>
-                            </Flex>
-                          </Box>
-                        ))}
-                      </VStack>
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Last Name *
+                    </label>
+                    <input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      required
+                      disabled={!isEditing}
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formErrors.lastName ? 'border-red-500 focus:ring-red-500' : ''
+                      }`}
+                      placeholder="Enter last name"
+                    />
+                    {formErrors.lastName && (
+                      <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.lastName}</p>
                     )}
-                  </CardBody>
-                </Card>
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
-        </Container>
-      </Box>
-    </Layout>
+                  </div>
+
+                  <div>
+                    <label htmlFor="membershipType" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Membership Type *
+                    </label>
+                    <select
+                      id="membershipType"
+                      name="membershipType"
+                      required
+                      disabled={!isEditing}
+                      value={formData.membershipType}
+                      onChange={handleInputChange}
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="junior">Junior</option>
+                      <option value="senior">Senior</option>
+                      <option value="veteran">Veteran</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="club" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Club Name *
+                    </label>
+                    <input
+                      id="club"
+                      name="club"
+                      type="text"
+                      required
+                      disabled={!isEditing}
+                      value={formData.club}
+                      onChange={handleInputChange}
+                      className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formErrors.club ? 'border-red-500 focus:ring-red-500' : ''
+                      }`}
+                      placeholder="Enter club name"
+                    />
+                    {formErrors.club && (
+                      <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.club}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div>
+                <h3 className="text-lg font-oxanium font-medium text-electric-cyan mb-4">
+                  Contact Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="phoneNumber" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Phone Number
+                    </label>
+                    <input
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
+                      disabled={!isEditing}
+                      value={formData.phoneNumber}
+                      onChange={handleInputChange}
+                      className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formErrors.phoneNumber ? 'border-red-500 focus:ring-red-500' : ''
+                      }`}
+                      placeholder="Enter phone number"
+                    />
+                    {formErrors.phoneNumber && (
+                      <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.phoneNumber}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="dateOfBirth" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Date of Birth
+                    </label>
+                    <input
+                      id="dateOfBirth"
+                      name="dateOfBirth"
+                      type="date"
+                      disabled={!isEditing}
+                      value={formData.dateOfBirth}
+                      onChange={handleInputChange}
+                      className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formErrors.dateOfBirth ? 'border-red-500 focus:ring-red-500' : ''
+                      }`}
+                    />
+                    {formErrors.dateOfBirth && (
+                      <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.dateOfBirth}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label htmlFor="address" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    id="address"
+                    name="address"
+                    rows={3}
+                    disabled={!isEditing}
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                    placeholder="Enter your address"
+                  />
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              <div>
+                <h3 className="text-lg font-oxanium font-medium text-electric-cyan mb-4">
+                  Emergency Contact
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="emergencyContact" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Emergency Contact Name
+                    </label>
+                    <input
+                      id="emergencyContact"
+                      name="emergencyContact"
+                      type="text"
+                      disabled={!isEditing}
+                      value={formData.emergencyContact}
+                      onChange={handleInputChange}
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="Enter emergency contact name"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="emergencyPhone" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Emergency Contact Phone
+                    </label>
+                    <input
+                      id="emergencyPhone"
+                      name="emergencyPhone"
+                      type="tel"
+                      disabled={!isEditing}
+                      value={formData.emergencyPhone}
+                      onChange={handleInputChange}
+                      className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
+                        formErrors.emergencyPhone ? 'border-red-500 focus:ring-red-500' : ''
+                      }`}
+                      placeholder="Enter emergency contact phone"
+                    />
+                    {formErrors.emergencyPhone && (
+                      <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.emergencyPhone}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Information (Read-only) */}
+              <div>
+                <h3 className="text-lg font-oxanium font-medium text-electric-cyan mb-4">
+                  Account Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={user.email}
+                      disabled
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-400 bg-midnight-light/30 border-gray-600 font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Member Since
+                    </label>
+                    <input
+                      type="text"
+                      value={new Date(user.createdAt).toLocaleDateString()}
+                      disabled
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-400 bg-midnight-light/30 border-gray-600 font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Last Login
+                    </label>
+                    <input
+                      type="text"
+                      value={user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}
+                      disabled
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-400 bg-midnight-light/30 border-gray-600 font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Login Count
+                    </label>
+                    <input
+                      type="text"
+                      value={user.loginCount.toString()}
+                      disabled
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-400 bg-midnight-light/30 border-gray-600 font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-600">
+                {!isEditing ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="px-6 py-2 bg-electric-cyan text-midnight-steel font-oxanium font-medium rounded-lg hover:bg-electric-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-electric-cyan transition-all duration-200"
+                  >
+                    Edit Profile
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="px-6 py-2 bg-gray-600 text-gray-200 font-oxanium font-medium rounded-lg hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="px-6 py-2 bg-electric-cyan text-midnight-steel font-oxanium font-medium rounded-lg hover:bg-electric-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-electric-cyan disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      {isLoading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </>
   );
-} 
+};
+
+export default ProfilePage; 

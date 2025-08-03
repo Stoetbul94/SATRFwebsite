@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
 from app.models import UserRole
 from app.database import db
+import secrets
+import hashlib
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -34,7 +36,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+    
+    return encoded_jwt
+
+
+def create_refresh_token(data: dict) -> str:
+    """Create a JWT refresh token"""
+    to_encode = data.copy()
+    # Refresh tokens last longer (7 days)
+    expire = datetime.utcnow() + timedelta(days=7)
+    
+    to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     
     return encoded_jwt
@@ -49,6 +63,17 @@ def verify_token(token: str) -> Optional[dict]:
         return None
 
 
+def verify_refresh_token(token: str) -> Optional[dict]:
+    """Verify and decode a refresh token"""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        if payload.get("type") != "refresh":
+            return None
+        return payload
+    except JWTError:
+        return None
+
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """Get the current authenticated user from the JWT token"""
     token = credentials.credentials
@@ -58,6 +83,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if it's an access token
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -143,4 +176,115 @@ def create_user_token_data(user: dict) -> dict:
         "sub": user["id"],
         "email": user["email"],
         "role": user.get("role", UserRole.USER)
-    } 
+    }
+
+
+async def create_user_session(user_id: str, request: Request) -> str:
+    """Create a new user session"""
+    session_id = secrets.token_urlsafe(32)
+    
+    session_data = {
+        "session_id": session_id,
+        "user_id": user_id,
+        "ip_address": request.client.host if request.client else None,
+        "user_agent": request.headers.get("user-agent"),
+        "created_at": datetime.utcnow().isoformat(),
+        "last_activity": datetime.utcnow().isoformat(),
+        "is_active": True
+    }
+    
+    await db.create_document("user_sessions", session_data)
+    return session_id
+
+
+async def update_user_session_activity(session_id: str):
+    """Update session last activity"""
+    await db.update_document(
+        "user_sessions",
+        session_id,
+        {"last_activity": datetime.utcnow().isoformat()}
+    )
+
+
+async def invalidate_user_session(session_id: str):
+    """Invalidate a user session"""
+    await db.update_document(
+        "user_sessions",
+        session_id,
+        {"is_active": False}
+    )
+
+
+async def log_user_activity(user_id: str, action: str, request: Request, details: Optional[Dict[str, Any]] = None):
+    """Log user activity for audit purposes"""
+    activity_data = {
+        "user_id": user_id,
+        "action": action,
+        "details": details or {},
+        "ip_address": request.client.host if request.client else None,
+        "user_agent": request.headers.get("user-agent"),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    await db.create_document("user_activity_logs", activity_data)
+
+
+def sanitize_input(input_string: str) -> str:
+    """Sanitize user input to prevent injection attacks"""
+    if not input_string:
+        return input_string
+    
+    # Remove potentially dangerous characters
+    dangerous_chars = ['<', '>', '"', "'", '&', ';', '(', ')', '{', '}', '[', ']']
+    sanitized = input_string
+    for char in dangerous_chars:
+        sanitized = sanitized.replace(char, '')
+    
+    return sanitized.strip()
+
+
+def validate_password_strength(password: str) -> Dict[str, Any]:
+    """Validate password strength and return detailed feedback"""
+    errors = []
+    warnings = []
+    
+    if len(password) < 8:
+        errors.append("Password must be at least 8 characters long")
+    
+    if not any(c.isupper() for c in password):
+        errors.append("Password must contain at least one uppercase letter")
+    
+    if not any(c.islower() for c in password):
+        errors.append("Password must contain at least one lowercase letter")
+    
+    if not any(c.isdigit() for c in password):
+        errors.append("Password must contain at least one number")
+    
+    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
+        warnings.append("Consider adding special characters for better security")
+    
+    if len(password) < 12:
+        warnings.append("Consider using a longer password (12+ characters)")
+    
+    return {
+        "is_valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "strength_score": max(0, 10 - len(errors) * 2)
+    }
+
+
+def generate_password_reset_token() -> str:
+    """Generate a secure password reset token"""
+    return secrets.token_urlsafe(32)
+
+
+def hash_password_reset_token(token: str) -> str:
+    """Hash a password reset token for storage"""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def verify_password_reset_token(stored_hash: str, provided_token: str) -> bool:
+    """Verify a password reset token"""
+    provided_hash = hashlib.sha256(provided_token.encode()).hexdigest()
+    return stored_hash == provided_hash 

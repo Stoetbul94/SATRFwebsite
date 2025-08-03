@@ -8,7 +8,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.config import settings
-from app.routers import auth, events, scores, leaderboard, files, admin, contact
+from app.routers import auth, events, scores, leaderboard, files, admin, contact, users
 from app.database import db
 
 # Initialize Sentry
@@ -84,6 +84,7 @@ async def global_exception_handler(request, exc):
 
 # Include routers
 app.include_router(auth.router, prefix=f"/api/{settings.app_version}")
+app.include_router(users.router, prefix=f"/api/{settings.app_version}")
 app.include_router(events.router, prefix=f"/api/{settings.app_version}")
 app.include_router(scores.router, prefix=f"/api/{settings.app_version}")
 app.include_router(leaderboard.router, prefix=f"/api/{settings.app_version}")
