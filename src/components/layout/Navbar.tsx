@@ -86,6 +86,7 @@ export default function Navbar({ user }: NavbarProps) {
               <NavLink href="/events">Events</NavLink>
               <NavLink href="/scores">Scores</NavLink>
               <NavLink href="/leaderboard">Leaderboard</NavLink>
+              <NavLink href="/rules">Rules</NavLink>
               <NavLink href="/about">About</NavLink>
               <NavLink href="/contact">Contact</NavLink>
               <NavLink href="/donate">Donate</NavLink>
@@ -151,6 +152,7 @@ export default function Navbar({ user }: NavbarProps) {
             <NavLink href="/events" onClick={closeMobileMenu}>Events</NavLink>
             <NavLink href="/scores" onClick={closeMobileMenu}>Scores</NavLink>
             <NavLink href="/leaderboard" onClick={closeMobileMenu}>Leaderboard</NavLink>
+            <NavLink href="/rules" onClick={closeMobileMenu}>Rules</NavLink>
             <NavLink href="/about" onClick={closeMobileMenu}>About</NavLink>
             <NavLink href="/contact" onClick={closeMobileMenu}>Contact</NavLink>
             <NavLink href="/donate" onClick={closeMobileMenu}>Donate</NavLink>

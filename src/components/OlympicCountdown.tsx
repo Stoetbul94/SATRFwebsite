@@ -57,18 +57,18 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
   const ringValues = [timeLeft.days, timeLeft.hours, timeLeft.minutes, timeLeft.seconds, null];
 
   const OlympicRingsWithCountdown = () => (
-    <div className="flex justify-center items-center mb-8">
+    <div className="flex justify-center items-center mb-6">
       <svg 
         width="400" 
-        height="120" 
-        viewBox="0 0 400 120" 
+        height="140" 
+        viewBox="0 0 400 140" 
         className="w-full max-w-md mx-auto"
         aria-label="Olympic rings countdown timer"
       >
         {/* Olympic rings with countdown numbers */}
         {ringColors.map((color, index) => {
           const cx = 40 + (index * 80); // Horizontal spacing
-          const cy = 60; // Vertical center
+          const cy = 50; // Vertical center for rings
           const r = 35; // Ring radius
           
           return (
@@ -88,8 +88,9 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
               {index < 4 ? (
                 <text
                   x={cx}
-                  y={cy + 8}
+                  y={cy + 12}
                   textAnchor="middle"
+                  dominantBaseline="middle"
                   className="text-2xl font-bold fill-white font-oxanium"
                   aria-label={`${ringLabels[index]}: ${ringValues[index]}`}
                 >
@@ -102,35 +103,34 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
                   </div>
                 </foreignObject>
               ) : null}
+              
+              {/* Label below ring */}
+              {index < 4 && (
+                <text
+                  x={cx}
+                  y={cy + 70}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="text-sm sm:text-base font-medium fill-gray-300"
+                >
+                  {ringLabels[index]}
+                </text>
+              )}
+              {showFifthRing && index === 4 && (
+                <text
+                  x={cx}
+                  y={cy + 70}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="text-sm sm:text-base font-medium fill-gray-300"
+                >
+                  {fifthRingContent ? 'Logo' : ''}
+                </text>
+              )}
             </g>
           );
         })}
       </svg>
-    </div>
-  );
-
-  const CountdownLabels = () => (
-    <div className="flex justify-center items-center mb-8 -mt-4">
-      <div className="flex space-x-16 sm:space-x-20 md:space-x-24">
-        {ringLabels.slice(0, 4).map((label, index) => (
-          <div 
-            key={index}
-            className="text-center transition-all duration-300 ease-in-out"
-            style={{ width: '60px' }}
-          >
-            <span className="text-sm sm:text-base text-gray-300 font-medium">
-              {label}
-            </span>
-          </div>
-        ))}
-        {showFifthRing && (
-          <div className="text-center" style={{ width: '60px' }}>
-            <span className="text-sm sm:text-base text-gray-300 font-medium">
-              {fifthRingContent ? 'Logo' : ''}
-            </span>
-          </div>
-        )}
-      </div>
     </div>
   );
 
@@ -164,7 +164,6 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="mb-8">
           <OlympicRingsWithCountdown />
-          <CountdownLabels />
           
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 animate-fade-in">
             Countdown to the 2028 Olympics
@@ -173,14 +172,6 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
           <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed animate-slide-up">
             The Olympic Games begin on July 21, 2028. Support our South African target shooting athletes as they prepare for glory!
           </p>
-        </div>
-
-        <div className="mt-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 inline-block animate-fade-in">
-            <p className="text-white text-lg font-medium">
-              🎯 Target Shooting Events: July 27 - August 5, 2028
-            </p>
-          </div>
         </div>
       </div>
     </section>
