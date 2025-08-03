@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
-import { FiDownload, FiExternalLink, FiSearch, FiFileText, FiShield, FiGavel, FiTarget } from 'react-icons/fi';
+import { FiDownload, FiExternalLink, FiSearch, FiFileText, FiShield, FiTarget } from 'react-icons/fi';
+import { FiAlertTriangle } from 'react-icons/fi';
 
 interface RuleDocument {
   id: string;
@@ -51,7 +52,7 @@ const RulesPage: React.FC = () => {
       description: 'Rules and procedures for handling violations, appeals, and disciplinary actions in shooting sports.',
       category: 'disciplinary',
       webUrl: 'https://www.issf-sports.org/rules/disciplinary-regulations',
-      icon: <FiGavel className="w-6 h-6" />
+      icon: <FiAlertTriangle className="w-6 h-6" />
     }
   ];
 
