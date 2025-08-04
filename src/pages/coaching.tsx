@@ -1,7 +1,7 @@
 import React from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
-import { FaTrophy, FaTarget, FaUsers, FaChartLine, FaEnvelope, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaTrophy, FaCrosshairs, FaUsers, FaChartLine, FaEnvelope, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
 import Layout from '../components/layout/Layout';
 
 // Coach profile data - easily updatable
@@ -39,7 +39,7 @@ const coaches = [
 // Benefits of coaching services
 const coachingBenefits = [
   {
-    icon: FaTarget,
+    icon: FaCrosshairs,
     title: 'Personalized Training Plans',
     description: 'Custom programs tailored to your skill level, goals, and competition schedule.'
   },
