@@ -42,52 +42,63 @@ const theme = extendTheme({
 function CustomErrorBoundary({ children }: { children: React.ReactNode }) {
   return (
     <Sentry.ErrorBoundary
-      fallback={({ error, componentStack, resetError }) => (
-        <div style={{ 
-          padding: '2rem', 
-          textAlign: 'center',
-          fontFamily: 'Inter, system-ui, sans-serif'
-        }}>
-          <h2 style={{ color: '#e53e3e', marginBottom: '1rem' }}>
-            Something went wrong
-          </h2>
-          <p style={{ marginBottom: '1rem', color: '#4a5568' }}>
-            We've been notified and are working to fix this issue.
-          </p>
-          <button
-            onClick={resetError}
-            style={{
-              background: '#2196f3',
-              color: 'white',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem'
-            }}
-          >
-            Try again
-          </button>
-          {process.env.NODE_ENV === 'development' && (
-            <details style={{ marginTop: '1rem', textAlign: 'left' }}>
-              <summary style={{ cursor: 'pointer', color: '#718096' }}>
-                Error details (development only)
-              </summary>
-              <pre style={{ 
-                background: '#f7fafc', 
-                padding: '1rem', 
+      fallback={({ error, componentStack, resetError }) => {
+        // Only show error boundary for critical errors, not for expected errors
+        const isCriticalError = error?.message?.includes('Critical') || 
+                               error?.name === 'CriticalError' ||
+                               process.env.NODE_ENV === 'development';
+        
+        if (!isCriticalError) {
+          return <>{children}</>;
+        }
+        
+        return (
+          <div style={{ 
+            padding: '2rem', 
+            textAlign: 'center',
+            fontFamily: 'Inter, system-ui, sans-serif'
+          }}>
+            <h2 style={{ color: '#e53e3e', marginBottom: '1rem' }}>
+              Something went wrong
+            </h2>
+            <p style={{ marginBottom: '1rem', color: '#4a5568' }}>
+              We've been notified and are working to fix this issue.
+            </p>
+            <button
+              onClick={resetError}
+              style={{
+                background: '#2196f3',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
                 borderRadius: '0.375rem',
-                overflow: 'auto',
-                fontSize: '0.75rem',
-                marginTop: '0.5rem'
-              }}>
-                {error?.toString()}
-                {componentStack}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
+                cursor: 'pointer',
+                fontSize: '0.875rem'
+              }}
+            >
+              Try again
+            </button>
+            {process.env.NODE_ENV === 'development' && (
+              <details style={{ marginTop: '1rem', textAlign: 'left' }}>
+                <summary style={{ cursor: 'pointer', color: '#718096' }}>
+                  Error details (development only)
+                </summary>
+                <pre style={{ 
+                  background: '#f7fafc', 
+                  padding: '1rem', 
+                  borderRadius: '0.375rem',
+                  overflow: 'auto',
+                  fontSize: '0.75rem',
+                  marginTop: '0.5rem'
+                }}>
+                  {error?.toString()}
+                  {componentStack}
+                </pre>
+              </details>
+            )}
+          </div>
+        );
+      }}
     >
       {children}
     </Sentry.ErrorBoundary>

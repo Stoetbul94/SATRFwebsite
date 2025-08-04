@@ -1,231 +1,290 @@
-# End-to-End Tests for Score Import and Display Flow
+# SATRF Website E2E Test Suite
 
-This directory contains comprehensive end-to-end tests for the SATRF website's score import and display functionality using Playwright.
+This directory contains comprehensive End-to-End (E2E) tests for the SATRF website using Playwright. The test suite covers all major user workflows including authentication, events management, coaching services, leaderboards, rules documentation, and donation processing.
 
-## Test Overview
+## 📋 Test Coverage
 
-The tests cover the complete score import and display workflow:
+### Core User Flows
+- **Authentication** (`auth.spec.ts`)
+  - User registration, login, logout
+  - Profile management
+  - Protected route access
+  - Form validation and error handling
 
-1. **Admin Authentication** - Login as admin user
-2. **File Upload** - Upload Excel/CSV files with score data
-3. **Data Validation** - Verify file parsing and validation
-4. **Preview Functionality** - Check data preview before import
-5. **Import Process** - Execute score import and verify success
-6. **Results Display** - Verify imported data appears on results page
-7. **Error Handling** - Test various error scenarios
+- **Events Calendar** (`events-calendar.spec.ts`)
+  - Event browsing and filtering
+  - Event registration/unregistration
+  - Calendar view navigation
+  - Search functionality
 
-## Test Files
+- **Coaching Page** (`coaching.spec.ts`)
+  - Coach profiles and information
+  - Service descriptions
+  - Contact and booking flows
+  - Responsive design
 
-### Core Test Files
+- **Leaderboard** (`leaderboard.spec.ts`)
+  - Player rankings display
+  - Sorting and filtering
+  - Pagination
+  - Performance with large datasets
 
-- `score-import-simple.spec.ts` - Main test suite with core functionality
-- `score-import-flow.spec.ts` - Comprehensive test suite with advanced scenarios
-- `setup/score-import-setup.ts` - Test setup helpers and utilities
+- **Rules Page** (`rules.spec.ts`)
+  - Content navigation
+  - Search and filtering
+  - Document downloads
+  - Navbar presence verification
 
-### Supporting Files
+- **Donate Page** (`donate.spec.ts`)
+  - Donation form functionality
+  - Payment method selection
+  - PayFast integration
+  - EFT banking details
+  - Success/failure flows
 
-- `leaderboard.spec.ts` - Existing leaderboard tests
-- `registration.spec.ts` - Existing registration tests
+### Cross-Cutting Concerns
+- **Responsive Design**: Mobile, tablet, and desktop viewports
+- **Accessibility**: Keyboard navigation, ARIA labels, screen reader support
+- **Performance**: Load times, API response handling
+- **Error Handling**: API failures, validation errors, user notifications
+- **Security**: HTTPS, data validation, sensitive information protection
 
-## Test Scenarios
+## 🚀 Quick Start
 
-### 1. Complete Score Import Flow
-- Login as admin
-- Upload valid Excel file
-- Preview data in modal
-- Import scores successfully
-- Verify data appears on results page
+### Prerequisites
+- Node.js 18+ and npm
+- SATRF website running on `http://localhost:3000`
 
-### 2. Invalid File Handling
-- Upload file with validation errors
-- Verify error messages are displayed
-- Confirm import button is disabled for invalid data
+### Installation
+```bash
+# Install dependencies (if not already installed)
+npm install
 
-### 3. Mixed Data Handling
-- Upload file with both valid and invalid rows
-- Import only valid scores
-- Verify partial import success
-
-### 4. Error Scenarios
-- Network errors during import
-- Unsupported file types
-- Empty files
-- Large file uploads
-
-## Prerequisites
-
-### Required Dependencies
-
-The tests require the following dependencies (already included in package.json):
-
-```json
-{
-  "@playwright/test": "^1.42.1",
-  "xlsx": "^0.18.5"
-}
+# Install Playwright browsers
+npx playwright install
 ```
 
-### Environment Setup
+### Running Tests
 
-1. **Node.js** - Version 16 or higher
-2. **Playwright** - Install browsers: `npx playwright install`
-3. **Development Server** - Must be running on `http://localhost:3000`
-
-## Running the Tests
-
-### 1. Start Development Server
-
+#### Run All Tests
 ```bash
-# Start the Next.js development server
-npm run dev
-```
-
-### 2. Run All E2E Tests
-
-```bash
-# Run all end-to-end tests
 npm run test:e2e
 ```
 
-### 3. Run Specific Test File
-
+#### Run Specific Test File
 ```bash
-# Run only score import tests
-npx playwright test tests/e2e/score-import-simple.spec.ts
-
-# Run with UI mode for debugging
-npx playwright test tests/e2e/score-import-simple.spec.ts --ui
+npx playwright test auth.spec.ts
 ```
 
-### 4. Run Tests in Specific Browser
-
+#### Run Tests in UI Mode
 ```bash
-# Run tests in Chrome only
-npx playwright test tests/e2e/score-import-simple.spec.ts --project=chromium
-
-# Run tests in all browsers
-npx playwright test tests/e2e/score-import-simple.spec.ts --project=all
+npm run test:e2e:ui
 ```
 
-### 5. Run Tests with Debug Mode
-
+#### Run Tests in Specific Browser
 ```bash
-# Run with debug mode (slower, shows browser)
-npx playwright test tests/e2e/score-import-simple.spec.ts --debug
-
-# Run with headed mode (shows browser window)
-npx playwright test tests/e2e/score-import-simple.spec.ts --headed
+npx playwright test --project=chromium
+npx playwright test --project=firefox
+npx playwright test --project=webkit
 ```
 
-## Test Data
-
-### Valid Score Data Format
-
-The tests use Excel files with the following structure:
-
-| Column | Description | Example |
-|--------|-------------|---------|
-| Event Name | Valid event type | "Prone Match 1", "Air Rifle", "3P" |
-| Match Number | Match identifier | 1, 2, 3 |
-| Shooter Name | Participant name | "John Doe" |
-| Club | Club name | "SATRF Club A" |
-| Division/Class | Division category | "Open", "Junior", "Veteran" |
-| Veteran | Veteran status | "Y" or "N" |
-| Series 1-6 | Individual series scores | 100.5, 98.2, etc. |
-| Total | Sum of all series | 597.5 |
-| Place | Final ranking | 1, 2, 3 |
-
-### Sample Test Data
-
-```javascript
-const VALID_SCORE_DATA = [
-  {
-    'Event Name': 'Prone Match 1',
-    'Match Number': 1,
-    'Shooter Name': 'John Doe',
-    'Club': 'SATRF Club A',
-    'Division/Class': 'Open',
-    'Veteran': 'N',
-    'Series 1': 100.5,
-    'Series 2': 98.2,
-    'Series 3': 101.0,
-    'Series 4': 99.8,
-    'Series 5': 100.1,
-    'Series 6': 97.9,
-    'Total': 597.5,
-    'Place': 1
-  }
-];
+#### Run Mobile Tests
+```bash
+npx playwright test --project="Mobile Chrome"
+npx playwright test --project="Mobile Safari"
 ```
 
-## Test Configuration
+#### Run Tests in Headed Mode
+```bash
+npx playwright test --headed
+```
+
+#### Run Tests with Debug Mode
+```bash
+npx playwright test --debug
+```
+
+## 📁 Project Structure
+
+```
+tests/e2e/
+├── auth.spec.ts                 # Authentication tests
+├── events-calendar.spec.ts      # Events calendar tests
+├── coaching.spec.ts             # Coaching page tests
+├── leaderboard.spec.ts          # Leaderboard tests
+├── rules.spec.ts               # Rules page tests
+├── donate.spec.ts              # Donation page tests
+├── utils/
+│   └── test-helpers.ts         # Common test utilities
+├── setup/
+│   ├── global-setup.ts         # Global test setup
+│   └── global-teardown.ts      # Global test cleanup
+└── README.md                   # This file
+```
+
+## 🛠️ Test Utilities
+
+### TestHelpers Class
+The `TestHelpers` class provides common utilities for E2E testing:
+
+```typescript
+import TestHelpers from './utils/test-helpers';
+
+// Authentication
+await TestHelpers.login(page, user);
+await TestHelpers.register(page, user);
+await TestHelpers.logout(page);
+
+// API Mocking
+await TestHelpers.mockAPI(page, 'events', eventsData);
+await TestHelpers.mockAPIFailure(page, 'events');
+await TestHelpers.mockSlowAPI(page, 'events', eventsData, 2000);
+
+// Test Data Generation
+const events = TestHelpers.generateTestEvents(10);
+const scores = TestHelpers.generateTestScores(20);
+const user = TestHelpers.createTestUser('prefix');
+
+// Form Handling
+await TestHelpers.fillForm(page, { email: 'test@example.com', password: 'pass' });
+await TestHelpers.checkValidationErrors(page, ['Email is required']);
+
+// Utilities
+await TestHelpers.waitForElement(page, '[data-testid="loading"]');
+await TestHelpers.takeScreenshot(page, 'test-name');
+await TestHelpers.setViewport(page, 375, 667);
+```
+
+## 🔧 Configuration
 
 ### Playwright Configuration
-
-The tests use the configuration from `playwright.config.ts`:
+The main configuration is in `playwright.config.ts`:
 
 - **Base URL**: `http://localhost:3000`
 - **Test Directory**: `./tests/e2e`
 - **Browsers**: Chrome, Firefox, Safari, Mobile Chrome, Mobile Safari
-- **Screenshots**: On failure only
-- **Videos**: Retained on failure
-- **Traces**: On first retry
+- **Reporters**: HTML, JSON, JUnit
+- **Global Setup/Teardown**: Automatic test data and cleanup
+- **Storage State**: Shared authentication state across tests
 
-### Test Setup
-
-The tests automatically:
-
-1. Create temporary Excel files for testing
-2. Mock API responses for consistent testing
-3. Setup admin authentication
-4. Clean up test files after completion
-
-## Debugging Tests
-
-### 1. View Test Reports
-
+### Environment Variables
 ```bash
-# Generate HTML report
+# CI/CD environment
+CI=true
+
+# Custom base URL
+BASE_URL=https://staging.satrf.co.za
+
+# Test data configuration
+TEST_DATA_SIZE=large
+```
+
+## 📊 Test Reports
+
+### HTML Report
+After running tests, view the HTML report:
+```bash
 npx playwright show-report
 ```
 
-### 2. Debug Individual Tests
+### JUnit Report
+For CI/CD integration, JUnit reports are generated in `test-results/junit.xml`.
 
-```bash
-# Run specific test with debug mode
-npx playwright test --debug -g "should complete full score import"
+### JSON Report
+Detailed test results are available in `test-results.json`.
+
+## 🧪 Writing Tests
+
+### Test Structure
+```typescript
+import { test, expect } from '@playwright/test';
+import TestHelpers from './utils/test-helpers';
+
+test.describe('Feature Name', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/feature-url');
+  });
+
+  test('should perform specific action', async ({ page }) => {
+    // Arrange
+    await TestHelpers.mockAPI(page, 'endpoint', mockData);
+    
+    // Act
+    await page.click('[data-testid="button"]');
+    
+    // Assert
+    await expect(page.locator('[data-testid="result"]')).toBeVisible();
+  });
+});
 ```
 
-### 3. View Test Traces
+### Best Practices
 
+#### 1. Use Data Test IDs
+```typescript
+// Good
+await page.click('[data-testid="submit-button"]');
+
+// Avoid
+await page.click('button:has-text("Submit")');
+```
+
+#### 2. Mock External Dependencies
+```typescript
+// Mock API responses
+await TestHelpers.mockAPI(page, 'events', mockEvents);
+
+// Mock authentication
+await TestHelpers.mockAuthenticated(page, testUser);
+```
+
+#### 3. Handle Async Operations
+```typescript
+// Wait for API calls
+await TestHelpers.waitForAPI(page, 'events');
+
+// Wait for loading states
+await TestHelpers.waitForLoadingToComplete(page);
+```
+
+#### 4. Test Error Scenarios
+```typescript
+test('should handle API errors gracefully', async ({ page }) => {
+  await TestHelpers.mockAPIFailure(page, 'events');
+  await page.reload();
+  await expect(page.locator('text=Failed to load')).toBeVisible();
+});
+```
+
+#### 5. Test Responsive Design
+```typescript
+test('should work on mobile', async ({ page }) => {
+  await TestHelpers.setViewport(page, 375, 667);
+  await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible();
+});
+```
+
+## 🔍 Debugging Tests
+
+### Debug Mode
 ```bash
-# Open trace viewer
+npx playwright test --debug
+```
+
+### Trace Viewer
+```bash
 npx playwright show-trace trace.zip
 ```
 
-### 4. Common Issues
+### Screenshots
+Screenshots are automatically taken on test failures. View them in `test-results/`.
 
-#### Test Fails on File Upload
-- Ensure the development server is running
-- Check that the file upload component is properly rendered
-- Verify the file input selector is correct
+### Videos
+Videos are recorded for failed tests. View them in `test-results/`.
 
-#### Test Fails on API Calls
-- Check that API routes are properly mocked
-- Verify the API endpoints match the expected URLs
-- Ensure authentication is properly set up
+## 🚀 CI/CD Integration
 
-#### Test Fails on Data Validation
-- Verify the test data format matches the expected schema
-- Check that validation rules haven't changed
-- Ensure error messages match expected text
-
-## Continuous Integration
-
-### GitHub Actions
-
-The tests can be integrated into CI/CD pipelines:
-
+### GitHub Actions Example
 ```yaml
 name: E2E Tests
 on: [push, pull_request]
@@ -233,99 +292,164 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '18'
       - run: npm ci
       - run: npx playwright install --with-deps
-      - run: npm run dev &
-      - run: npx playwright test
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
 ```
 
-### Docker Support
+### Environment Setup
+```bash
+# Install dependencies
+npm ci
 
-Tests can be run in Docker containers:
+# Install Playwright browsers
+npx playwright install --with-deps
 
-```dockerfile
-FROM mcr.microsoft.com/playwright:v1.42.1
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npx playwright install --with-deps
-CMD ["npx", "playwright", "test"]
+# Run tests
+npm run test:e2e
+
+# Upload results
+npx playwright show-report
 ```
 
-## Performance Considerations
+## 📈 Performance Testing
 
-### Test Execution Time
+### Load Testing
+```typescript
+test('should handle large datasets', async ({ page }) => {
+  const largeDataset = TestHelpers.generateTestData('large');
+  await TestHelpers.mockAPI(page, 'events', largeDataset);
+  
+  const startTime = Date.now();
+  await page.reload();
+  await page.waitForSelector('[data-testid="events-list"]');
+  const loadTime = Date.now() - startTime;
+  
+  expect(loadTime).toBeLessThan(5000);
+});
+```
 
-- **Individual Test**: ~30-60 seconds
-- **Full Test Suite**: ~5-10 minutes
-- **With Debug Mode**: ~2-3x slower
+### Memory Testing
+```typescript
+test('should not have memory leaks', async ({ page }) => {
+  const initialMemory = await page.evaluate(() => performance.memory?.usedJSHeapSize);
+  
+  // Perform actions that might cause memory leaks
+  for (let i = 0; i < 10; i++) {
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+  }
+  
+  const finalMemory = await page.evaluate(() => performance.memory?.usedJSHeapSize);
+  const memoryIncrease = finalMemory - initialMemory;
+  
+  expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024); // 10MB
+});
+```
 
-### Resource Usage
+## 🔒 Security Testing
 
-- **Memory**: ~200-500MB per browser instance
-- **CPU**: Moderate usage during test execution
-- **Disk**: Temporary files cleaned up automatically
+### Authentication Testing
+```typescript
+test('should protect sensitive routes', async ({ page }) => {
+  await page.goto('/admin');
+  await expect(page).toHaveURL('/login');
+});
+```
 
-## Best Practices
+### Data Validation
+```typescript
+test('should validate input data', async ({ page }) => {
+  await page.fill('input[name="email"]', 'invalid-email');
+  await page.click('button[type="submit"]');
+  await expect(page.locator('text=Invalid email')).toBeVisible();
+});
+```
 
-### 1. Test Isolation
-- Each test is independent
-- Test data is created fresh for each test
-- Cleanup happens automatically
+## 🎯 Accessibility Testing
 
-### 2. Reliable Selectors
-- Use data-testid attributes when possible
-- Prefer text content over CSS selectors
-- Avoid brittle selectors that depend on styling
+### Keyboard Navigation
+```typescript
+test('should support keyboard navigation', async ({ page }) => {
+  await page.keyboard.press('Tab');
+  await expect(page.locator('[data-testid="first-element"]')).toBeFocused();
+});
+```
 
-### 3. Error Handling
-- Tests include proper error scenarios
-- Network failures are handled gracefully
-- Validation errors are thoroughly tested
+### Screen Reader Support
+```typescript
+test('should have proper ARIA labels', async ({ page }) => {
+  await expect(page.locator('button')).toHaveAttribute('aria-label');
+});
+```
 
-### 4. Maintainability
-- Test setup is centralized in helper functions
-- Mock data is reusable across tests
-- Clear test descriptions and organization
+## 📝 Maintenance
 
-## Troubleshooting
+### Updating Test Data
+1. Modify `TestHelpers.generateTestEvents()` or `TestHelpers.generateTestScores()`
+2. Update mock data in `global-setup.ts`
+3. Run tests to ensure they pass
 
-### Common Error Messages
+### Adding New Tests
+1. Create new test file following naming convention
+2. Import `TestHelpers` for common utilities
+3. Use data test IDs for selectors
+4. Add comprehensive test coverage
+5. Update this README if needed
 
-#### "Target closed"
-- Browser was closed unexpectedly
-- Solution: Check for JavaScript errors in the application
+### Troubleshooting
 
-#### "Element not found"
-- Selector doesn't match any element
-- Solution: Verify the element exists and selector is correct
+#### Common Issues
 
-#### "Timeout exceeded"
-- Element didn't appear within timeout
-- Solution: Increase timeout or check if element should be visible
+**Tests failing due to timing**
+```typescript
+// Increase timeout
+await page.waitForSelector('[data-testid="element"]', { timeout: 15000 });
+```
 
-#### "File upload failed"
-- File input not found or not accessible
-- Solution: Check file input selector and permissions
+**API mocking not working**
+```typescript
+// Ensure correct endpoint pattern
+await TestHelpers.mockAPI(page, 'events', data);
+// Matches: /api/events, /api/events/123, etc.
+```
 
-### Getting Help
+**Authentication issues**
+```typescript
+// Clear authentication state
+await TestHelpers.mockUnauthenticated(page);
+```
 
-1. Check the test logs for detailed error information
-2. Run tests in debug mode to see what's happening
-3. Verify the application is working manually
-4. Check that all dependencies are installed correctly
+#### Getting Help
+- Check test reports for detailed error information
+- Use debug mode for step-by-step execution
+- Review browser console for JavaScript errors
+- Check network tab for API call issues
 
-## Contributing
+## 📚 Additional Resources
+
+- [Playwright Documentation](https://playwright.dev/)
+- [Playwright Test API](https://playwright.dev/docs/api/class-test)
+- [Playwright Best Practices](https://playwright.dev/docs/best-practices)
+- [Playwright CI/CD](https://playwright.dev/docs/ci)
+
+## 🤝 Contributing
 
 When adding new tests:
-
-1. Follow the existing test structure
-2. Use the helper functions from `setup/score-import-setup.ts`
-3. Include proper cleanup in `afterAll` hooks
-4. Add clear test descriptions
-5. Test both success and failure scenarios 
+1. Follow existing patterns and conventions
+2. Use `TestHelpers` for common operations
+3. Add comprehensive test coverage
+4. Update documentation
+5. Ensure tests pass in all browsers
+6. Add appropriate error handling
+7. Test responsive design
+8. Include accessibility considerations 

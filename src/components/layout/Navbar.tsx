@@ -79,7 +79,8 @@ export default function Navbar() {
               <NavLink href="/">Home</NavLink>
               <NavLink href="/events">Events</NavLink>
               <NavLink href="/scores">Scores</NavLink>
-              <NavLink href="/leaderboard">Leaderboard</NavLink>
+              <NavLink href="/coaching">Coaching</NavLink>
+              <NavLink href="/scores/leaderboard">Leaderboard</NavLink>
               <NavLink href="/rules">Rules</NavLink>
               <NavLink href="/about">About</NavLink>
               <NavLink href="/contact">Contact</NavLink>
@@ -145,7 +146,8 @@ export default function Navbar() {
             <NavLink href="/" onClick={closeMobileMenu}>Home</NavLink>
             <NavLink href="/events" onClick={closeMobileMenu}>Events</NavLink>
             <NavLink href="/scores" onClick={closeMobileMenu}>Scores</NavLink>
-            <NavLink href="/leaderboard" onClick={closeMobileMenu}>Leaderboard</NavLink>
+            <NavLink href="/coaching" onClick={closeMobileMenu}>Coaching</NavLink>
+            <NavLink href="/scores/leaderboard" onClick={closeMobileMenu}>Leaderboard</NavLink>
             <NavLink href="/rules" onClick={closeMobileMenu}>Rules</NavLink>
             <NavLink href="/about" onClick={closeMobileMenu}>About</NavLink>
             <NavLink href="/contact" onClick={closeMobileMenu}>Contact</NavLink>

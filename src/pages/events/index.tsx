@@ -261,6 +261,8 @@ export default function Events() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isRegistering, setIsRegistering] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
   const { user } = useAuth();
@@ -408,6 +410,27 @@ export default function Events() {
               Discover and register for upcoming shooting events and competitions
             </Text>
           </Box>
+
+          {/* Error Display */}
+          {error && (
+            <Alert status="error" borderRadius="lg">
+              <AlertIcon />
+              <Box>
+                <AlertTitle>Error loading events</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Box>
+            </Alert>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <Box textAlign="center" py={8}>
+              <Spinner size="xl" color="blue.500" />
+              <Text mt={4} color={useColorModeValue('gray.600', 'gray.400')}>
+                Loading events...
+              </Text>
+            </Box>
+          )}
 
           {/* Search and Filters */}
           <Box

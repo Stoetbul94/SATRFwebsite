@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { FiDownload, FiExternalLink, FiSearch, FiFileText, FiShield, FiTarget } from 'react-icons/fi';
 import { FiAlertTriangle } from 'react-icons/fi';
+import Layout from '../components/layout/Layout';
 
 interface RuleDocument {
   id: string;
@@ -90,7 +91,7 @@ const RulesPage: React.FC = () => {
   };
 
   return (
-    <>
+    <Layout>
       <Head>
         <title>ISSF Rules & Documentation - SATRF</title>
         <meta name="description" content="Access official ISSF shooting sport rules, technical regulations, anti-doping policies, and disciplinary procedures. Essential documentation for competitive shooting in South Africa." />
@@ -284,7 +285,7 @@ const RulesPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </>
+    </Layout>
   );
 };
 

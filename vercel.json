@@ -10,6 +10,13 @@
       "maxDuration": 30
     }
   },
+  "redirects": [
+    {
+      "source": "/leaderboard",
+      "destination": "/scores/leaderboard",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
