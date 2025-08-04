@@ -40,6 +40,7 @@ import { FaSearch, FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAl
 import Layout from '@/components/layout/Layout';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/firebase/auth';
+import { GetServerSideProps } from 'next';
 
 interface Event {
   id: string;
@@ -763,4 +764,11 @@ export default function Events() {
       </Container>
     </Layout>
   );
-} 
+}
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 

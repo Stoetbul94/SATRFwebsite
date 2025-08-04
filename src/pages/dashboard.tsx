@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
+import { GetServerSideProps } from 'next';
 import { UserDashboardData, UserScoreSummary } from '../lib/auth';
 
 const DashboardPage: NextPage = () => {
@@ -566,4 +567,11 @@ const StatisticsTab: React.FC<{ dashboard: UserDashboardData | null }> = ({ dash
   );
 };
 
-export default DashboardPage; 
+export default DashboardPage;
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 

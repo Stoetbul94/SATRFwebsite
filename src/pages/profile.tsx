@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
+import { GetServerSideProps } from 'next';
 import { UserProfileUpdate } from '../lib/auth';
 
 const ProfilePage: NextPage = () => {
@@ -516,4 +517,11 @@ const ProfilePage: NextPage = () => {
   );
 };
 
-export default ProfilePage; 
+export default ProfilePage;
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 

@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
+import { GetServerSideProps } from 'next';
 import { UserRegistrationData, passwordValidator } from '../lib/auth';
 
 const RegisterPage: NextPage = () => {
@@ -438,4 +439,11 @@ const RegisterPage: NextPage = () => {
   );
 };
 
-export default RegisterPage; 
+export default RegisterPage;
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 

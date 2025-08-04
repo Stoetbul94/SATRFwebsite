@@ -60,6 +60,7 @@ import {
 import Layout from '@/components/layout/Layout';
 import EventsCalendar from '@/components/events/EventsCalendar';
 import { useAuth } from '@/contexts/AuthContext';
+import { GetServerSideProps } from 'next';
 import { eventsAPI, MOCK_EVENTS, Event, EventFilters, EventRegistration, eventUtils } from '@/lib/events';
 
 const EventsCalendarPage: NextPage = () => {
@@ -724,4 +725,11 @@ END:VCALENDAR`;
   );
 };
 
-export default EventsCalendarPage; 
+export default EventsCalendarPage;
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 

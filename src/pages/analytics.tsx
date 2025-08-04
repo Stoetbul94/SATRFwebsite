@@ -2,6 +2,7 @@ import React from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
+import { GetServerSideProps } from 'next';
 import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
 
 const AnalyticsPage: NextPage = () => {
@@ -22,4 +23,11 @@ const AnalyticsPage: NextPage = () => {
   );
 };
 
-export default AnalyticsPage; 
+export default AnalyticsPage;
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 

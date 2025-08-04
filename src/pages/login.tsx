@@ -4,6 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
+import { GetServerSideProps } from 'next';
 
 const LoginPage: NextPage = () => {
   const router = useRouter();
@@ -263,4 +264,11 @@ const LoginPage: NextPage = () => {
   );
 };
 
-export default LoginPage; 
+export default LoginPage;
+
+// Make this page server-side rendered to avoid useAuth issues during static generation
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    props: {}
+  };
+}; 
