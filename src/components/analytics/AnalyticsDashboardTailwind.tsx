@@ -483,14 +483,24 @@ const ScoresTab: React.FC<{
               <Bar 
                 dataKey="score" 
                 fill={colors.primary}
-                onClick={(data) => onDataPointClick(data)}
+                onClick={(data) => {
+                  // Extract the actual ScoreDataPoint from Recharts event payload
+                  // Recharts passes BarRectangleItem but we need the original data
+                  const scoreData = data.payload as ScoreDataPoint;
+                  onDataPointClick(scoreData);
+                }}
                 cursor="pointer"
               />
               {showXCount && (
                 <Bar 
                   dataKey="xCount" 
                   fill={colors.warning}
-                  onClick={(data) => onDataPointClick(data)}
+                  onClick={(data) => {
+                    // Extract the actual ScoreDataPoint from Recharts event payload
+                    // Recharts passes BarRectangleItem but we need the original data
+                    const scoreData = data.payload as ScoreDataPoint;
+                    onDataPointClick(scoreData);
+                  }}
                   cursor="pointer"
                 />
               )}
