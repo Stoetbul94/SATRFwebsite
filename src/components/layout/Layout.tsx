@@ -5,16 +5,12 @@ import Footer from './Footer';
 
 interface LayoutProps {
   children: ReactNode;
-  user?: {
-    firstName: string;
-    lastName: string;
-  } | null;
 }
 
-export default function Layout({ children, user }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
   return (
     <Box minH="100vh" display="flex" flexDirection="column">
-      <Navbar user={user} />
+      <Navbar />
       <Box as="main" flex="1">
         {children}
       </Box>
