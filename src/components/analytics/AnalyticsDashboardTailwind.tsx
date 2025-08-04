@@ -707,8 +707,15 @@ const TrendsTab: React.FC<{ analytics: UserAnalytics; colors: any }> = ({ analyt
               <Tooltip />
               <Bar 
                 dataKey="improvement" 
-                fill={(entry: any) => entry.improvement >= 0 ? colors.success : colors.accent}
-              />
+                fill={colors.gray}
+              >
+                {performanceTrends.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`}
+                    fill={entry.improvement >= 0 ? colors.success : colors.accent}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
