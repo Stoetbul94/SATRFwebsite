@@ -1,5 +1,3 @@
-import { trackPagePerformance, trackSlowPageLoad } from './analytics'
-
 export const measurePageLoad = () => {
   if (typeof window !== 'undefined') {
     window.addEventListener('load', () => {
@@ -15,11 +13,17 @@ export const measurePageLoad = () => {
         }
         
         // Send to analytics
-        trackPagePerformance(metrics)
+        trackEvent('page_performance', {
+          ...metrics,
+          url: window.location.href
+        })
         
         // Alert if slow (over 5 seconds)
         if (metrics.windowLoad > 5000) {
-          trackSlowPageLoad(window.location.href, metrics.windowLoad)
+          trackEvent('slow_page_load', {
+            url: window.location.href,
+            loadTime: metrics.windowLoad
+          })
         }
       }
     })
