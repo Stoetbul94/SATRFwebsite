@@ -296,9 +296,9 @@ const CoachingPage: NextPage = () => {
             {/* Testimonial 2 */}
             <div className="bg-midnight-light/30 border border-gray-700 rounded-lg p-6">
               <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-electric-cyan/20 rounded-full flex items-center justify-center mr-4">
-                  <FaTarget className="w-6 h-6 text-electric-cyan" />
-                </div>
+                                 <div className="w-12 h-12 bg-electric-cyan/20 rounded-full flex items-center justify-center mr-4">
+                   <FaCrosshairs className="w-6 h-6 text-electric-cyan" />
+                 </div>
                 <div>
                   <h4 className="font-oxanium font-bold text-electric-cyan">Lisa Pretorius</h4>
                   <p className="text-sm text-gray-400 font-oxanium">International Competitor</p>
