@@ -1,43 +1,49 @@
 import React, { ReactNode } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useAuth, useProtectedRoute } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: ReactNode;
   redirectTo?: string;
+  fallback?: ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  redirectTo = '/login' 
+/**
+ * ProtectedRoute Component
+ * 
+ * Wraps protected content and ensures users are authenticated before rendering.
+ * Automatically redirects unauthenticated users to login page.
+ * 
+ * @param children - The content to render if authenticated
+ * @param redirectTo - Where to redirect unauthenticated users (default: '/login')
+ * @param fallback - Optional loading component to show while checking auth
+ */
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  redirectTo = '/login',
+  fallback
 }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push(`${redirectTo}?redirect=${encodeURIComponent(router.asPath)}`);
-    }
-  }, [isAuthenticated, isLoading, router, redirectTo]);
+  // Use the protected route hook for automatic redirects
+  useProtectedRoute(redirectTo);
 
-  // Show loading spinner while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-midnight-steel via-midnight-dark to-midnight-light flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-electric-cyan mx-auto mb-4"></div>
-          <p className="text-gray-300 font-oxanium">Loading...</p>
-        </div>
+  // Show fallback while checking authentication
+  if (!isInitialized || isLoading) {
+    return fallback ? (
+      <>{fallback}</>
+    ) : (
+      <div className="min-h-screen flex items-center justify-center" data-testid="loading-spinner">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  // Don't render children if not authenticated
+  // Don't render anything if not authenticated (will be redirected by useProtectedRoute)
   if (!isAuthenticated) {
     return null;
   }
 
+  // Render children if authenticated
   return <>{children}</>;
 };
 

@@ -1,0 +1,13 @@
+node_modules
+.next
+coverage
+playwright
+playwright-report
+src/__tests__/**
+tests/**
+backend/**
+**/*.d.ts
+src/__tests__/utils/
+src/__tests__/analytics/test-utils.ts
+src/__tests__/setup.ts
+

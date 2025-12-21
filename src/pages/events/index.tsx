@@ -35,12 +35,13 @@ import {
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FaSearch, FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
 import { useRouter } from 'next/router';
-import { useAuth } from '@/lib/firebase/auth';
-import { GetServerSideProps } from 'next';
+import { useAuth } from '@/contexts/AuthContext';
+import { eventsAPI, Event } from '@/lib/api';
+import Head from 'next/head';
 
 interface Event {
   id: string;
@@ -73,206 +74,75 @@ interface UserRegistration {
   registeredAt: Date;
 }
 
-const MOCK_EVENTS: Event[] = [
-  {
-    id: '1',
-    title: 'National Championship 2024',
-    description: 'The premier target rifle shooting championship of the year. This three-day event features multiple disciplines and categories, bringing together the best shooters from across the country.',
-    date: 'March 15-17, 2024',
-    startDate: new Date('2024-03-15'),
-    endDate: new Date('2024-03-17'),
-    location: 'Johannesburg Shooting Range',
-    category: 'Senior',
-    discipline: 'Target Rifle',
-    price: 500,
-    maxSpots: 50,
-    currentSpots: 35,
-    status: 'upcoming',
-    registrationDeadline: new Date('2024-03-01'),
-    image: '/images/events/national-championship.jpg',
-    requirements: ['Valid shooting license', 'Minimum 6 months experience', 'Own equipment'],
-    schedule: [
-      'Day 1: Registration and Practice (8:00 AM - 5:00 PM)',
-      'Day 2: Qualification Rounds (7:00 AM - 6:00 PM)',
-      'Day 3: Finals and Awards (8:00 AM - 4:00 PM)'
-    ],
-    contactInfo: {
-      name: 'John Smith',
-      email: 'john.smith@satrf.org.za',
-      phone: '+27 11 123 4567'
-    }
-  },
-  {
-    id: '2',
-    title: 'Junior Development Camp',
-    description: 'A comprehensive training camp designed specifically for junior shooters. Learn advanced techniques, safety protocols, and competition strategies from experienced coaches.',
-    date: 'April 5-7, 2024',
-    startDate: new Date('2024-04-05'),
-    endDate: new Date('2024-04-07'),
-    location: 'Cape Town Range',
-    category: 'Junior',
-    discipline: 'Target Rifle',
-    price: 300,
-    maxSpots: 30,
-    currentSpots: 30,
-    status: 'upcoming',
-    registrationDeadline: new Date('2024-03-20'),
-    image: '/images/events/junior-camp.jpg',
-    requirements: ['Age 12-18 years', 'Parental consent', 'Basic shooting experience'],
-    schedule: [
-      'Day 1: Safety Training and Basic Skills (9:00 AM - 4:00 PM)',
-      'Day 2: Advanced Techniques (8:00 AM - 5:00 PM)',
-      'Day 3: Competition Practice (8:00 AM - 3:00 PM)'
-    ],
-    contactInfo: {
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@satrf.org.za',
-      phone: '+27 21 987 6543'
-    }
-  },
-  {
-    id: '3',
-    title: 'Regional Qualifier',
-    description: 'Regional qualification event for the upcoming national championships. This event determines which shooters will represent their region at the national level.',
-    date: 'May 20-21, 2024',
-    startDate: new Date('2024-05-20'),
-    endDate: new Date('2024-05-21'),
-    location: 'Durban Shooting Club',
-    category: 'All Categories',
-    discipline: 'Target Rifle',
-    price: 400,
-    maxSpots: 40,
-    currentSpots: 25,
-    status: 'upcoming',
-    registrationDeadline: new Date('2024-05-05'),
-    image: '/images/events/regional-qualifier.jpg',
-    requirements: ['Valid SATRF membership', 'Previous competition experience', 'Equipment inspection'],
-    schedule: [
-      'Day 1: Registration and Equipment Check (7:00 AM - 6:00 PM)',
-      'Day 2: Competition Rounds (6:00 AM - 5:00 PM)'
-    ],
-    contactInfo: {
-      name: 'Mike Wilson',
-      email: 'mike.wilson@satrf.org.za',
-      phone: '+27 31 456 7890'
-    }
-  },
-  {
-    id: '4',
-    title: 'F-Class Championship',
-    description: 'Specialized F-Class shooting competition featuring long-range precision shooting. This event tests shooters\' skills at extended distances.',
-    date: 'June 10-12, 2024',
-    startDate: new Date('2024-06-10'),
-    endDate: new Date('2024-06-12'),
-    location: 'Pretoria Long Range Facility',
-    category: 'Senior',
-    discipline: 'F-Class',
-    price: 600,
-    maxSpots: 35,
-    currentSpots: 20,
-    status: 'upcoming',
-    registrationDeadline: new Date('2024-05-25'),
-    image: '/images/events/f-class-championship.jpg',
-    requirements: ['F-Class certification', 'Long-range equipment', 'Wind reading experience'],
-    schedule: [
-      'Day 1: Equipment Setup and Practice (8:00 AM - 5:00 PM)',
-      'Day 2: Long Range Competition (7:00 AM - 6:00 PM)',
-      'Day 3: Finals and Awards (8:00 AM - 4:00 PM)'
-    ],
-    contactInfo: {
-      name: 'David Brown',
-      email: 'david.brown@satrf.org.za',
-      phone: '+27 12 345 6789'
-    }
-  },
-  {
-    id: '5',
-    title: 'Women\'s Shooting Championship',
-    description: 'Dedicated championship event celebrating women in target rifle shooting. Open to all female shooters regardless of experience level.',
-    date: 'July 8-9, 2024',
-    startDate: new Date('2024-07-08'),
-    endDate: new Date('2024-07-09'),
-    location: 'Port Elizabeth Range',
-    category: 'Women',
-    discipline: 'Target Rifle',
-    price: 350,
-    maxSpots: 45,
-    currentSpots: 28,
-    status: 'upcoming',
-    registrationDeadline: new Date('2024-06-20'),
-    image: '/images/events/womens-championship.jpg',
-    requirements: ['Female shooter', 'Basic shooting experience', 'Safety certification'],
-    schedule: [
-      'Day 1: Registration and Practice (9:00 AM - 5:00 PM)',
-      'Day 2: Competition and Awards (8:00 AM - 4:00 PM)'
-    ],
-    contactInfo: {
-      name: 'Lisa Thompson',
-      email: 'lisa.thompson@satrf.org.za',
-      phone: '+27 41 234 5678'
-    }
-  },
-  {
-    id: '6',
-    title: 'Winter Training Series',
-    description: 'Monthly training series during winter months to keep skills sharp. Each session focuses on different aspects of target rifle shooting.',
-    date: 'August 3, 2024',
-    startDate: new Date('2024-08-03'),
-    endDate: new Date('2024-08-03'),
-    location: 'Bloemfontein Range',
-    category: 'All Categories',
-    discipline: 'Target Rifle',
-    price: 150,
-    maxSpots: 25,
-    currentSpots: 15,
-    status: 'upcoming',
-    registrationDeadline: new Date('2024-07-25'),
-    image: '/images/events/winter-training.jpg',
-    requirements: ['Valid shooting license', 'Own equipment'],
-    schedule: [
-      'Morning: Theory and Safety (8:00 AM - 10:00 AM)',
-      'Afternoon: Practical Training (11:00 AM - 4:00 PM)'
-    ],
-    contactInfo: {
-      name: 'Robert van der Merwe',
-      email: 'robert.vdm@satrf.org.za',
-      phone: '+27 51 876 5432'
-    }
-  }
-];
-
-// Mock user registrations
-const MOCK_USER_REGISTRATIONS: UserRegistration[] = [
-  {
-    eventId: '1',
-    status: 'registered',
-    registeredAt: new Date('2024-02-15')
-  },
-  {
-    eventId: '3',
-    status: 'registered',
-    registeredAt: new Date('2024-04-20')
-  }
-];
-
 export default function Events() {
+  const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isRegistering, setIsRegistering] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const isMobile = useBreakpointValue({ base: true, md: false });
 
+  // Fetch events from API
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const filters: any = {};
+      if (statusFilter !== 'all') filters.status = statusFilter;
+      if (categoryFilter !== 'all') filters.type = categoryFilter;
+      
+      const eventsData = await eventsAPI.getAll(filters);
+      
+      // Transform API response to match our Event interface
+      const transformedEvents: Event[] = Array.isArray(eventsData) 
+        ? eventsData.map((e: any) => ({
+            id: e.id,
+            title: e.title || e.name,
+            description: e.description || '',
+            date: e.date || e.startDate,
+            startDate: new Date(e.startDate || e.date),
+            endDate: new Date(e.endDate || e.date),
+            location: e.location || '',
+            category: e.category || e.type || 'All Categories',
+            discipline: e.discipline || e.type || 'Target Rifle',
+            price: e.price || 0,
+            maxSpots: e.maxParticipants || e.maxSpots || 0,
+            currentSpots: e.currentParticipants || e.currentSpots || 0,
+            status: e.status || 'upcoming',
+            registrationDeadline: new Date(e.registrationDeadline || e.deadline || e.date),
+            image: e.image || e.imageUrl,
+            requirements: e.requirements || [],
+            schedule: e.schedule || [],
+            contactInfo: e.contactInfo,
+          }))
+        : [];
+      
+      setEvents(transformedEvents);
+    } catch (err: any) {
+      console.error('Error fetching events:', err);
+      setError(err.message || 'Failed to load events');
+      // Fallback to empty array on error
+      setEvents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filter events based on search and filters
   const filteredEvents = useMemo(() => {
-    return MOCK_EVENTS.filter(event => {
+    return events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -282,19 +152,17 @@ export default function Events() {
       
       return matchesSearch && matchesStatus && matchesCategory;
     });
-  }, [searchTerm, statusFilter, categoryFilter]);
+  }, [events, searchTerm, statusFilter, categoryFilter]);
 
-  // Check if user is registered for an event
-  const isUserRegistered = (eventId: string) => {
-    return MOCK_USER_REGISTRATIONS.some(reg => reg.eventId === eventId && reg.status === 'registered');
-  };
+  // Re-fetch events when filters change
+  useEffect(() => {
+    if (!isLoading) {
+      fetchEvents();
+    }
+  }, [statusFilter, categoryFilter]);
 
   // Get registration status for an event
   const getRegistrationStatus = (event: Event) => {
-    if (isUserRegistered(event.id)) {
-      return 'registered';
-    }
-    
     if (event.currentSpots >= event.maxSpots) {
       return 'full';
     }
@@ -307,12 +175,11 @@ export default function Events() {
   };
 
   const handleEventClick = (event: Event) => {
-    setSelectedEvent(event);
-    onOpen();
+    router.push(`/events/${event.id}`);
   };
 
   const handleRegister = async (event: Event) => {
-    if (!user) {
+    if (!isAuthenticated) {
       toast({
         title: 'Login Required',
         description: 'Please log in to register for events.',
@@ -320,22 +187,14 @@ export default function Events() {
         duration: 5000,
         isClosable: true,
       });
-      router.push('/login');
+      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
 
     setIsRegistering(event.id);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Add to mock registrations
-      MOCK_USER_REGISTRATIONS.push({
-        eventId: event.id,
-        status: 'registered',
-        registeredAt: new Date()
-      });
+      await eventsAPI.register(event.id);
       
       toast({
         title: 'Registration Successful',
@@ -345,11 +204,13 @@ export default function Events() {
         isClosable: true,
       });
       
+      // Refresh events to update spots
+      await fetchEvents();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Registration Failed',
-        description: 'There was an error processing your registration. Please try again.',
+        description: error.message || 'There was an error processing your registration. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -399,6 +260,13 @@ export default function Events() {
 
   return (
     <Layout>
+      <Head>
+        <title>Events & Competitions - SATRF</title>
+        <meta name="description" content="Discover and register for upcoming shooting events and competitions organized by the South African Target Rifle Federation." />
+        <meta property="og:title" content="Events & Competitions - SATRF" />
+        <meta property="og:description" content="Discover and register for upcoming shooting events and competitions." />
+        <meta property="og:type" content="website" />
+      </Head>
       <Container maxW="container.xl" py={8}>
         <Stack spacing={8}>
           {/* Header */}
@@ -487,14 +355,13 @@ export default function Events() {
 
           {/* Results Count */}
           <Text color={useColorModeValue('gray.600', 'gray.400')}>
-            Showing {filteredEvents.length} of {MOCK_EVENTS.length} events
+            Showing {filteredEvents.length} of {events.length} events
           </Text>
 
           {/* Events Grid */}
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
             {filteredEvents.map((event) => {
               const registrationStatus = getRegistrationStatus(event);
-              const isRegistered = isUserRegistered(event.id);
               
               return (
                 <Box
@@ -511,23 +378,40 @@ export default function Events() {
                     transition: 'all 0.2s'
                   }}
                   cursor="pointer"
-                  onClick={() => handleEventClick(event)}
+                  onClick={() => router.push(`/events/${event.id}`)}
                 >
                   <VStack align="start" spacing={4}>
-                    {/* Event Image Placeholder */}
-                    <Box
-                      w="100%"
-                      h="200px"
-                      bg={useColorModeValue('gray.100', 'gray.600')}
-                      rounded="md"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Text color={useColorModeValue('gray.500', 'gray.400')}>
-                        Event Image
-                      </Text>
-                    </Box>
+                    {/* Event Image */}
+                    {event.image ? (
+                      <Box
+                        w="100%"
+                        h="200px"
+                        bg={useColorModeValue('gray.100', 'gray.600')}
+                        rounded="md"
+                        overflow="hidden"
+                        position="relative"
+                      >
+                        <img
+                          src={event.image}
+                          alt={event.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </Box>
+                    ) : (
+                      <Box
+                        w="100%"
+                        h="200px"
+                        bg={useColorModeValue('gray.100', 'gray.600')}
+                        rounded="md"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Text color={useColorModeValue('gray.500', 'gray.400')}>
+                          Event Image
+                        </Text>
+                      </Box>
+                    )}
 
                     {/* Event Title and Badges */}
                     <VStack align="start" spacing={2} w="100%">
@@ -585,17 +469,15 @@ export default function Events() {
                       </Text>
                       
                       <Button
-                        colorScheme={registrationStatus === 'registered' ? 'green' : 'blue'}
+                        colorScheme={registrationStatus === 'open' ? 'blue' : 'gray'}
                         w="100%"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (registrationStatus === 'open') {
-                            handleRegister(event);
+                            router.push(`/events/${event.id}`);
                           }
                         }}
                         disabled={registrationStatus !== 'open'}
-                        isLoading={isRegistering === event.id}
-                        loadingText="Registering..."
                       >
                         {getRegistrationBadgeText(registrationStatus)}
                       </Button>

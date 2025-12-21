@@ -18,6 +18,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   dashboard: UserDashboardData | null;
+  isInitialized: boolean; // Track if initial auth check is complete
 }
 
 // Auth action types
@@ -29,7 +30,8 @@ type AuthAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'CLEAR_ERROR' }
   | { type: 'UPDATE_PROFILE'; payload: UserProfile }
-  | { type: 'SET_DASHBOARD'; payload: UserDashboardData };
+  | { type: 'SET_DASHBOARD'; payload: UserDashboardData }
+  | { type: 'SET_INITIALIZED'; payload: boolean };
 
 // Initial state
 const initialState: AuthState = {
@@ -38,6 +40,7 @@ const initialState: AuthState = {
   isLoading: true,
   error: null,
   dashboard: null,
+  isInitialized: false, // Start as false until initial check is complete
 };
 
 // Auth reducer
@@ -56,6 +59,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: true,
         isLoading: false,
         error: null,
+        isInitialized: true, // Mark as initialized when auth succeeds
       };
     case 'AUTH_FAILURE':
       return {
@@ -64,6 +68,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: false,
         isLoading: false,
         error: action.payload,
+        isInitialized: true, // Mark as initialized even on failure
       };
     case 'AUTH_LOGOUT':
       return {
@@ -73,6 +78,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isLoading: false,
         error: null,
         dashboard: null,
+        isInitialized: true, // Keep initialized state
       };
     case 'SET_LOADING':
       return {
@@ -93,6 +99,11 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
       return {
         ...state,
         dashboard: action.payload,
+      };
+    case 'SET_INITIALIZED':
+      return {
+        ...state,
+        isInitialized: action.payload,
       };
     default:
       return state;
@@ -127,37 +138,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const router = useRouter();
 
-  // Check authentication status on mount
+  // Check authentication status on mount and when router is ready
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (router.isReady) {
+      checkAuth();
+    }
+  }, [router.isReady]);
 
-  // Check if user is authenticated
+  // Check if user is authenticated - improved with better error handling
   const checkAuth = async (): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
       
+      // Check if we have valid tokens first
       if (authFlow.isAuthenticated()) {
+        // Try to get current user from stored tokens
         const user = await authFlow.getCurrentUser();
         if (user) {
           dispatch({ type: 'AUTH_SUCCESS', payload: user });
+          return;
         } else {
-          dispatch({ type: 'AUTH_FAILURE', payload: 'Authentication failed' });
+          // Token exists but user fetch failed - clear invalid tokens
+          tokenManager.clearTokens();
+          dispatch({ type: 'AUTH_FAILURE', payload: 'Session expired' });
+          return;
         }
       } else {
+        // No valid tokens found
         dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
+        return;
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Auth check error:', error);
+      // Clear any invalid tokens on error
+      tokenManager.clearTokens();
       dispatch({ type: 'AUTH_FAILURE', payload: 'Authentication check failed' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
-  // Login function
+  // Login function - improved with better state management
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       dispatch({ type: 'AUTH_START' });
+      dispatch({ type: 'CLEAR_ERROR' });
       
       const result = await authFlow.login(email, password);
       
@@ -169,6 +195,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       dispatch({ type: 'AUTH_FAILURE', payload: error.message || 'Login failed' });
       return false;
     }
@@ -178,6 +205,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: UserRegistrationData): Promise<boolean> => {
     try {
       dispatch({ type: 'AUTH_START' });
+      dispatch({ type: 'CLEAR_ERROR' });
       
       const result = await authFlow.register(userData);
       
@@ -189,20 +217,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
     } catch (error: any) {
+      console.error('Registration error:', error);
       dispatch({ type: 'AUTH_FAILURE', payload: error.message || 'Registration failed' });
       return false;
     }
   };
 
-  // Logout function
+  // Logout function - improved with proper cleanup
   const logout = async (): Promise<void> => {
     try {
-      await authFlow.logout();
+      // Clear tokens first
+      tokenManager.clearTokens();
+      
+      // Try to call logout API (optional)
+      try {
+        await authFlow.logout();
+      } catch (error) {
+        // Ignore logout API errors
+        console.warn('Logout API call failed:', error);
+      }
     } catch (error) {
-      // Ignore logout errors
+      console.error('Logout error:', error);
     } finally {
+      // Always update state and redirect
       dispatch({ type: 'AUTH_LOGOUT' });
-      router.push('/login');
+      
+      // Redirect to login page
+      if (router.pathname !== '/login') {
+        router.replace('/login');
+      }
     }
   };
 
@@ -216,6 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return true;
     } catch (error: any) {
+      console.error('Profile update error:', error);
       dispatch({ type: 'AUTH_FAILURE', payload: error.message || 'Profile update failed' });
       return false;
     } finally {
@@ -231,6 +275,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const dashboard = await authAPI.getDashboard();
       dispatch({ type: 'SET_DASHBOARD', payload: dashboard });
     } catch (error: any) {
+      console.error('Dashboard load error:', error);
       dispatch({ type: 'AUTH_FAILURE', payload: error.message || 'Failed to load dashboard' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -243,9 +288,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const user = await authFlow.getCurrentUser();
       if (user) {
         dispatch({ type: 'UPDATE_PROFILE', payload: user });
+      } else {
+        // User fetch failed, might need to logout
+        console.warn('User refresh failed, logging out');
+        await logout();
       }
     } catch (error) {
-      // Silently fail refresh
+      console.error('User refresh error:', error);
+      // Don't logout on refresh errors, just log them
     }
   };
 
@@ -283,28 +333,42 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
-// Hook for protected routes
+// Hook for protected routes - improved with better loading handling
 export const useProtectedRoute = (redirectTo: string = '/login'): void => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push(redirectTo);
+    // Only redirect after initial auth check is complete and not loading
+    if (isInitialized && !isLoading && !isAuthenticated) {
+      // Store the current path for redirect after login
+      const currentPath = router.asPath;
+      if (currentPath !== redirectTo) {
+        router.replace(`${redirectTo}?redirect=${encodeURIComponent(currentPath)}`);
+      } else {
+        router.replace(redirectTo);
+      }
     }
-  }, [isAuthenticated, isLoading, router, redirectTo]);
+  }, [isAuthenticated, isLoading, isInitialized, router, redirectTo]);
 };
 
-// Hook for redirecting authenticated users
+// Hook for redirecting authenticated users - improved with better loading handling
 export const useRedirectIfAuthenticated = (redirectTo: string = '/dashboard'): void => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.push(redirectTo);
+    // Only redirect after initial auth check is complete and not loading
+    if (isInitialized && !isLoading && isAuthenticated) {
+      // Check if there's a redirect query parameter
+      const { redirect } = router.query;
+      const targetPath = redirect ? String(redirect) : redirectTo;
+      
+      if (router.asPath !== targetPath) {
+        router.replace(targetPath);
+      }
     }
-  }, [isAuthenticated, isLoading, router, redirectTo]);
+  }, [isAuthenticated, isLoading, isInitialized, router, redirectTo]);
 };
 
 export default AuthContext; 

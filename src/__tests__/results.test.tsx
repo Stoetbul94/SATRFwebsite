@@ -14,11 +14,16 @@ jest.mock('../components/layout/Layout', () => {
   };
 });
 
-// Mock fetch
-global.fetch = jest.fn();
+// Mock the resultsAPI
+jest.mock('../lib/api', () => ({
+  resultsAPI: {
+    getResults: jest.fn(),
+  },
+}));
 
 describe('Results Page', () => {
   const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
+  const mockGetResults = require('../lib/api').resultsAPI.getResults;
 
   beforeEach(() => {
     mockUseRouter.mockReturnValue({
@@ -45,25 +50,25 @@ describe('Results Page', () => {
       isPreview: false,
     });
 
-    (fetch as jest.Mock).mockClear();
+    mockGetResults.mockClear();
   });
 
-  it('renders the results page with header', () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: [],
-      }),
+  it('renders the results page with header', async () => {
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
     });
 
     render(<Results />);
     
-    expect(screen.getByText('Match Results')).toBeInTheDocument();
-    expect(screen.getByText('View and filter competition results by event and match number')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Match Results')).toBeInTheDocument();
+      expect(screen.getByText('View and filter competition results by event and match number')).toBeInTheDocument();
+    });
   });
 
   it('shows loading state initially', () => {
-    (fetch as jest.Mock).mockImplementation(() => new Promise(() => {})); // Never resolves
+    mockGetResults.mockImplementation(() => new Promise(() => {})); // Never resolves
 
     render(<Results />);
     
@@ -97,11 +102,9 @@ describe('Results Page', () => {
       },
     ];
 
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: mockResults,
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
     });
 
     render(<Results />);
@@ -115,11 +118,9 @@ describe('Results Page', () => {
   });
 
   it('shows no results message when API returns empty data', async () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: [],
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
     });
 
     render(<Results />);
@@ -131,66 +132,69 @@ describe('Results Page', () => {
   });
 
   it('filters results by event', async () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: [],
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
     });
 
     render(<Results />);
 
-    const eventSelect = screen.getByLabelText('Event');
+    const eventSelect = screen.getByLabelText(/Event/i);
     fireEvent.change(eventSelect, { target: { value: 'Prone Match 1' } });
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/results?event=Prone%20Match%201');
+      expect(mockGetResults).toHaveBeenCalledWith({
+        event: 'Prone Match 1',
+        match: 'all',
+      });
     });
   });
 
   it('filters results by match number', async () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: [],
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
     });
 
     render(<Results />);
 
-    const matchSelect = screen.getByLabelText('Match Number');
-    fireEvent.change(matchSelect, { target: { value: '2' } });
+    const matchSelect = screen.getByLabelText(/Match Number/i);
+    fireEvent.change(matchSelect, { target: { value: '1' } });
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/results?match=2');
+      expect(mockGetResults).toHaveBeenCalledWith({
+        event: 'all',
+        match: '1',
+      });
     });
   });
 
   it('clears filters when clear button is clicked', async () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: [],
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
     });
 
     render(<Results />);
 
-    const clearButton = screen.getByText('Clear Filters');
+    const clearButton = screen.getByText(/Clear Filters/i);
     fireEvent.click(clearButton);
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/results?');
+      expect(mockGetResults).toHaveBeenCalledWith({
+        event: 'all',
+        match: 'all',
+      });
     });
   });
 
   it('handles API errors gracefully', async () => {
-    (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+    mockGetResults.mockRejectedValueOnce(new Error('Network error'));
 
     render(<Results />);
 
     await waitFor(() => {
-      expect(screen.getByText('No results found')).toBeInTheDocument();
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
     });
   });
 
@@ -221,17 +225,17 @@ describe('Results Page', () => {
       },
     ];
 
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: mockResults,
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
     });
 
     render(<Results />);
 
     await waitFor(() => {
-      expect(screen.getByText('Veteran')).toBeInTheDocument();
+      // Look for the veteran badge specifically (the span with yellow background)
+      const veteranBadge = screen.getByText('Veteran', { selector: 'span' });
+      expect(veteranBadge).toHaveClass('bg-yellow-100', 'text-yellow-800');
     });
   });
 
@@ -262,11 +266,9 @@ describe('Results Page', () => {
       },
     ];
 
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: mockResults,
-      }),
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
     });
 
     render(<Results />);
@@ -278,11 +280,35 @@ describe('Results Page', () => {
   });
 
   it('shows legend for score highlighting', async () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      json: async () => ({
-        success: true,
-        data: [],
-      }),
+    const mockResults = [
+      {
+        event: 'Prone Match 1',
+        matchNumber: 1,
+        results: [
+          {
+            id: '1',
+            place: 1,
+            name: 'John Smith',
+            club: 'SATRF Club A',
+            division: 'Senior',
+            veteran: false,
+            series1: 98,
+            series2: 99,
+            series3: 97,
+            series4: 100,
+            series5: 98,
+            series6: 99,
+            total: 591,
+            isPersonalBest: true,
+            isMatchBest: true,
+          },
+        ],
+      },
+    ];
+
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
     });
 
     render(<Results />);

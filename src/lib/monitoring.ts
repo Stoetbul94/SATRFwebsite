@@ -143,7 +143,9 @@ class SATRFMonitoring {
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries()
         entries.forEach((entry) => {
-          const fid = entry.processingStart - entry.startTime
+          // Type assertion for first-input entries
+          const firstInputEntry = entry as PerformanceEventTiming
+          const fid = firstInputEntry.processingStart - firstInputEntry.startTime
           this.trackPerformanceMetric('fid', fid)
           
           if (fid > 100) {
@@ -182,9 +184,9 @@ class SATRFMonitoring {
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
       
       const metrics: PerformanceMetrics = {
-        pageLoadTime: navigation.loadEventEnd - navigation.navigationStart,
+        pageLoadTime: navigation.loadEventEnd - navigation.fetchStart,
         timeToFirstByte: navigation.responseStart - navigation.requestStart,
-        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.navigationStart,
+        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.fetchStart,
         url: window.location.href,
         timestamp: Date.now()
       }

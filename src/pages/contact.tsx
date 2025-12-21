@@ -1,4 +1,5 @@
 import React from 'react';
+import Head from 'next/head';
 import { Box, Container, VStack, Heading, Text, SimpleGrid, Icon, useColorModeValue } from '@chakra-ui/react';
 import { FiMail, FiPhone, FiMapPin, FiClock } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
@@ -37,6 +38,13 @@ const ContactPage: React.FC = () => {
 
   return (
     <Layout>
+      <Head>
+        <title>Contact Us - SATRF</title>
+        <meta name="description" content="Get in touch with the South African Target Rifle Federation. Have questions, need technical support, or want to report an issue? We're here to help." />
+        <meta property="og:title" content="Contact Us - SATRF" />
+        <meta property="og:description" content="Get in touch with the South African Target Rifle Federation." />
+        <meta property="og:type" content="website" />
+      </Head>
       <Box bg={bgColor} minH="100vh" py={8}>
         <Container maxW="container.xl">
           <VStack spacing={8} align="stretch">

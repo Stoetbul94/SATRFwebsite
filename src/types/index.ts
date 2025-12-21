@@ -100,9 +100,7 @@ export interface MatchResult {
   source: 'manual' | 'upload';
 }
 
-export interface MatchResultFormData extends Omit<MatchResult, 'total' | 'createdAt' | 'updatedAt' | 'source'> {
-  // Form version without calculated fields
-}
+export type MatchResultFormData = Omit<MatchResult, 'total' | 'createdAt' | 'updatedAt' | 'source'>
 
 export interface MatchResultUpload {
   eventName: MatchResult['eventName'];

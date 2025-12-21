@@ -1,11 +1,9 @@
-'use client';
-
 import { useState, useEffect } from 'react';
+import Head from 'next/head';
 import Link from 'next/link';
-import { FiTarget, FiCalendar, FiTrendingUp, FiUsers, FiAward, FiUpload, FiEye, FiEdit } from 'react-icons/fi';
+import { FiTarget, FiCalendar, FiTrendingUp, FiUsers, FiAward, FiUpload, FiEye, FiEdit, FiInfo } from 'react-icons/fi';
+import { useAuth, useProtectedRoute } from '../../contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
-import { dashboardAPI, scoresAPI, eventsAPI, leaderboardAPI, authAPI } from '@/lib/api';
-import type { Score, Event } from '@/lib/api';
 
 interface DashboardStats {
   totalScores: number;
@@ -18,40 +16,79 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const [user, setUser] = useState<any>(null);
+  // Use AuthContext instead of local state
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  
+  // Local state for dashboard data
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentScores, setRecentScores] = useState<Score[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Protected route guard - redirect to login if not authenticated
+  useProtectedRoute();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Get current user
-        const userData = await authAPI.getCurrentUser();
-        setUser(userData);
-
-        // Get user statistics
-        const statsData = await leaderboardAPI.getStatistics();
-        setStats(statsData.data.statistics);
-
-        // Get recent scores
-        const scoresData = await scoresAPI.getMyScores(1, 5);
-        setRecentScores(scoresData.data);
-
-        // Get upcoming events
-        const eventsData = await eventsAPI.getAll({ status: 'open' });
-        setUpcomingEvents(eventsData.slice(0, 3));
-
+        // Only fetch data if user is authenticated
+        if (isAuthenticated && user) {
+          // Fetch user's own scores from API
+          const { scoresAPI, leaderboardAPI } = await import('@/lib/api');
+          
+          // Get user's scores (only their own)
+          const myScoresResponse = await scoresAPI.getMyScores(1, 100);
+          const myScores = myScoresResponse.data || [];
+          
+          // Calculate statistics from user's own scores
+          const approvedScores = myScores.filter((s: any) => s.status === 'approved');
+          const totalScores = approvedScores.length;
+          const bestScore = approvedScores.length > 0 
+            ? Math.max(...approvedScores.map((s: any) => s.score))
+            : 0;
+          const averageScore = approvedScores.length > 0
+            ? Math.round(approvedScores.reduce((sum: number, s: any) => sum + s.score, 0) / approvedScores.length)
+            : 0;
+          const totalXCount = approvedScores.reduce((sum: number, s: any) => sum + (s.xCount || 0), 0);
+          
+          // Get user's ranking (if available)
+          const leaderboardData = await leaderboardAPI.getOverall({}).catch(() => ({ data: [] }));
+          const userRank = leaderboardData.data.findIndex((entry: any) => entry.userId === user.id) + 1;
+          
+          const calculatedStats: DashboardStats = {
+            totalScores,
+            bestScore,
+            averageScore,
+            totalXCount,
+            currentRank: userRank > 0 ? userRank : null,
+            clubRank: null, // Would need club-specific leaderboard
+            categoryRank: null, // Would need category-specific leaderboard
+          };
+          setStats(calculatedStats);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        // Set default stats on error
+        setStats({
+          totalScores: 0,
+          bestScore: 0,
+          averageScore: 0,
+          totalXCount: 0,
+          currentRank: null,
+          clubRank: null,
+          categoryRank: null,
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    // Only fetch data when auth is complete and user is authenticated
+    if (!authLoading && isAuthenticated) {
+      fetchDashboardData();
+    } else if (!authLoading && !isAuthenticated) {
+      // If not authenticated, stop loading
+      setLoading(false);
+    }
+  }, [isAuthenticated, user, authLoading]);
 
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
@@ -67,7 +104,8 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is being checked or data is loading
+  if (authLoading || loading) {
     return (
       <Layout>
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -91,277 +129,187 @@ export default function Dashboard() {
     );
   }
 
+  // Don't render anything if not authenticated (will be redirected by useProtectedRoute)
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
   return (
     <Layout>
+      <Head>
+        <title>Dashboard - SATRF</title>
+        <meta name="description" content="Your personal shooting dashboard. View your scores, statistics, and performance metrics." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          {/* Welcome Header */}
+          {/* Demo Notice */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <FiInfo className="h-5 w-5 text-blue-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Demo Dashboard
+                </h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>
+                    Welcome, {user.firstName} {user.lastName}! This is a demo dashboard showing mock data. 
+                    In a real application, this would display your actual shooting statistics, recent scores, and upcoming events.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome back, {user?.firstName}!
+              Welcome back, {user.firstName}!
             </h1>
             <p className="text-gray-600">
-              Here's your shooting performance overview and upcoming activities
+              Here's your shooting performance overview
             </p>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="card">
-              <div className="flex items-center">
-                <div className="bg-satrf-lightBlue rounded-full w-12 h-12 flex items-center justify-center">
-                  <FiTarget className="text-white text-xl" />
+          {/* Stats Cards */}
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FiTarget className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Scores</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalScores}</p>
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Best Score</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats?.bestScore || 0}
-                  </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FiTrendingUp className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Best Score</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.bestScore}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <FiAward className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Average Score</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.averageScore}</p>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            <div className="card">
-              <div className="flex items-center">
-                <div className="bg-green-500 rounded-full w-12 h-12 flex items-center justify-center">
-                  <FiTrendingUp className="text-white text-xl" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Average Score</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats?.averageScore || 0}
-                  </p>
-                </div>
+          {/* User Info */}
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Profile</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Name</p>
+                <p className="font-medium">{user.firstName} {user.lastName}</p>
               </div>
-            </div>
-
-            <div className="card">
-              <div className="flex items-center">
-                <div className="bg-purple-500 rounded-full w-12 h-12 flex items-center justify-center">
-                  <FiAward className="text-white text-xl" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Current Rank</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats?.currentRank ? `#${stats.currentRank}` : 'N/A'}
-                  </p>
-                </div>
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium">{user.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Membership Type</p>
+                <p className="font-medium capitalize">{user.membershipType}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Club</p>
+                <p className="font-medium">{user.club}</p>
               </div>
             </div>
           </div>
 
+          {/* Rankings */}
+          {stats && (
+            <div className="bg-white rounded-lg shadow p-6 mb-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Rankings</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Overall Rank</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.currentRank ? `#${stats.currentRank}` : 'N/A'}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Club Rank</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.clubRank ? `#${stats.clubRank}` : 'N/A'}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Category Rank</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.categoryRank ? `#${stats.categoryRank}` : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
-          <div className="card mb-8">
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Link
-                href="/scores/upload"
+                href="/scores"
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <FiUpload className="text-satrf-lightBlue text-xl mr-3" />
-                <div>
-                  <p className="font-medium text-gray-900">Upload Score</p>
-                  <p className="text-sm text-gray-500">Submit new score</p>
-                </div>
+                <FiUpload className="h-5 w-5 text-blue-600 mr-3" />
+                <span className="font-medium">Submit Score</span>
               </Link>
-
               <Link
-                href="/events"
+                href="/scores"
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <FiCalendar className="text-satrf-lightBlue text-xl mr-3" />
-                <div>
-                  <p className="font-medium text-gray-900">View Events</p>
-                  <p className="text-sm text-gray-500">Browse competitions</p>
-                </div>
+                <FiEye className="h-5 w-5 text-green-600 mr-3" />
+                <span className="font-medium">View Scores</span>
               </Link>
-
-              <Link
-                href="/scores/leaderboard"
-                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <FiAward className="text-satrf-lightBlue text-xl mr-3" />
-                <div>
-                  <p className="font-medium text-gray-900">Leaderboard</p>
-                  <p className="text-sm text-gray-500">Check rankings</p>
-                </div>
-              </Link>
-
               <Link
                 href="/profile"
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <FiUsers className="text-satrf-lightBlue text-xl mr-3" />
-                <div>
-                  <p className="font-medium text-gray-900">Profile</p>
-                  <p className="text-sm text-gray-500">Update details</p>
-                </div>
+                <FiEdit className="h-5 w-5 text-purple-600 mr-3" />
+                <span className="font-medium">Edit Profile</span>
+              </Link>
+              <Link
+                href="/events"
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <FiCalendar className="h-5 w-5 text-orange-600 mr-3" />
+                <span className="font-medium">View Events</span>
               </Link>
             </div>
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Recent Scores */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Recent Scores</h2>
-                <Link
-                  href="/scores"
-                  className="text-satrf-lightBlue hover:text-satrf-navy text-sm font-medium"
-                >
-                  View all
-                </Link>
-              </div>
-
-              {recentScores.length > 0 ? (
-                <div className="space-y-4">
-                  {recentScores.map((score) => (
-                    <div
-                      key={score.id}
-                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
-                    >
-                      <div className="flex items-center">
-                        <div className="bg-satrf-lightBlue rounded-full w-10 h-10 flex items-center justify-center">
-                          <FiTarget className="text-white" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="font-medium text-gray-900">
-                            {score.discipline}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Score: {score.score}
-                            {score.xCount && ` (${score.xCount} X)`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={getStatusBadge(score.status)}>
-                          {score.status}
-                        </span>
-                        <Link
-                          href={`/scores/${score.id}`}
-                          className="text-satrf-lightBlue hover:text-satrf-navy"
-                        >
-                          <FiEye className="text-lg" />
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FiTarget className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No scores yet</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Upload your first score to get started.
-                  </p>
-                  <div className="mt-6">
-                    <Link
-                      href="/scores/upload"
-                      className="btn-primary"
-                    >
-                      Upload Score
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Upcoming Events */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
-                <Link
-                  href="/events"
-                  className="text-satrf-lightBlue hover:text-satrf-navy text-sm font-medium"
-                >
-                  View all
-                </Link>
-              </div>
-
-              {upcomingEvents.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="p-4 border border-gray-200 rounded-lg"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-gray-900 mb-1">
-                            {event.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 mb-2">
-                            {new Date(event.date).toLocaleDateString()} • {event.location}
-                          </p>
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              event.status === 'open' ? 'bg-green-100 text-green-800' :
-                              event.status === 'full' ? 'bg-orange-100 text-orange-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {event.type}
-                            </span>
-                          </div>
-                        </div>
-                        <Link
-                          href={`/events/register/${event.id}`}
-                          className="btn-secondary text-sm"
-                        >
-                          Register
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No upcoming events</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Check back later for new competitions.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Performance Statistics */}
-          <div className="mt-8 card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Performance Statistics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-satrf-navy mb-2">
-                  {stats?.totalScores || 0}
-                </div>
-                <div className="text-sm text-gray-600">Total Scores</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-3xl font-bold text-satrf-navy mb-2">
-                  {stats?.totalXCount || 0}
-                </div>
-                <div className="text-sm text-gray-600">Total X-Count</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-3xl font-bold text-satrf-navy mb-2">
-                  {stats?.categoryRank ? `#${stats.categoryRank}` : 'N/A'}
-                </div>
-                <div className="text-sm text-gray-600">Category Rank</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-3xl font-bold text-satrf-navy mb-2">
-                  {stats?.clubRank ? `#${stats.clubRank}` : 'N/A'}
-                </div>
-                <div className="text-sm text-gray-600">Club Rank</div>
-              </div>
-            </div>
+          {/* Back to Home Link */}
+          <div className="text-center">
+            <Link
+              href="/"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Back to Home
+            </Link>
           </div>
         </div>
       </div>

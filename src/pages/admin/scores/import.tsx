@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/router';
 import {
   Box,
   Container,
@@ -18,11 +17,15 @@ import {
   AlertDescription,
   useToast,
   Link,
+  Spinner,
+  Center,
 } from '@chakra-ui/react';
 import { FiUpload, FiEdit3 } from 'react-icons/fi';
 import FileUploadComponent from '@/components/admin/FileUploadComponent';
 import ManualEntryComponent from '@/components/admin/ManualEntryComponent';
 import Layout from '@/components/layout/Layout';
+import { useProtectedRoute } from '@/contexts/AuthContext';
+import { useAdminRoute } from '@/hooks/useAdminRoute';
 
 interface ImportResult {
   success: boolean;
@@ -35,10 +38,29 @@ interface ImportResult {
 }
 
 export default function AdminScoreImport() {
+  const { isAdmin, isLoading: authLoading } = useAdminRoute();
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
-  const router = useRouter();
+
+  // Protect route - require authentication and admin role
+  useProtectedRoute();
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <Layout>
+        <Center minH="50vh">
+          <Spinner size="xl" color="blue.500" />
+        </Center>
+      </Layout>
+    );
+  }
+
+  // Don't render if not admin (will redirect)
+  if (!isAdmin) {
+    return null;
+  }
 
   const handleImportSuccess = (result: ImportResult) => {
     setImportResult(result);

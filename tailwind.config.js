@@ -38,9 +38,10 @@ module.exports = {
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
-        'marquee': 'marquee 20s linear infinite',
-        'glow-pulse': 'glowPulse 2s ease-in-out infinite alternate',
-        'float': 'float 6s ease-in-out infinite',
+        // Slow the marquee to improve readability/accessibility
+        'marquee': 'marquee 120s linear infinite',
+        'glow-pulse': 'glowPulse 8s ease-in-out infinite alternate',
+        'float': 'float 20s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {

@@ -106,17 +106,19 @@ export class TestHelpers {
   }
 
   /**
-   * Mock slow API response
+   * Mock slow API with slow response
    */
   static async mockSlowAPI(page: Page, endpoint: string, response: any, delay: number = 2000): Promise<void> {
-    await page.route(`**/api/${endpoint}**`, route => 
-      route.fulfill({ 
-        status: 200, 
-        body: JSON.stringify(response),
-        delay,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    );
+    await page.route(`**/api/${endpoint}**`, route => {
+      // Simulate delay using setTimeout before fulfilling the route
+      setTimeout(() => {
+        route.fulfill({ 
+          status: 200, 
+          body: JSON.stringify(response),
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }, delay);
+    });
   }
 
   /**

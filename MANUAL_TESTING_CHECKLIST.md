@@ -1,569 +1,387 @@
-# SATRF Website - Manual Testing Checklist
+# SATRF Website Manual Testing Checklist
 
-## Overview
-This comprehensive manual testing checklist ensures the SATRF website is fully ready for production deployment. Test all features systematically, focusing on critical user flows, security, accessibility, and responsive behavior.
-
----
-
-## 🚨 CRITICAL PRIORITY TESTS
-
-### 1. User Authentication System
-
-#### 1.1 User Registration
-**Priority: CRITICAL**
-
-- [ ] **Test Registration Form Access**
-  - Navigate to `/register` from homepage
-  - Verify form loads correctly with all required fields
-  - Check that "Join SATRF" button in navbar links to registration
-
-- [ ] **Test Form Validation**
-  - Submit empty form → Should show validation errors for all required fields
-  - Test first name: enter "A" → Should show "First name must be at least 2 characters"
-  - Test last name: enter "A" → Should show "Last name must be at least 2 characters"
-  - Test email: enter "invalid-email" → Should show "Please enter a valid email"
-  - Test password: enter "weak" → Should show password strength requirements
-  - Test confirm password: enter different password → Should show "Passwords must match"
-  - Test club name: enter "A" → Should show "Club name must be at least 2 characters"
-
-- [ ] **Test Successful Registration**
-  - Fill all fields with valid data
-  - Submit form → Should show success message
-  - Verify user is redirected to login page
-  - Check that account is created in database
-
-- [ ] **Test Duplicate Email**
-  - Try registering with existing email → Should show "Email already registered"
-
-#### 1.2 User Login
-**Priority: CRITICAL**
-
-- [ ] **Test Login Form Access**
-  - Navigate to `/login` from homepage
-  - Verify form loads with email and password fields
-  - Check "Remember me" checkbox is present
-
-- [ ] **Test Invalid Credentials**
-  - Enter wrong email/password → Should show "Invalid credentials" error
-  - Enter empty fields → Should show validation errors
-
-- [ ] **Test Successful Login**
-  - Enter valid credentials → Should redirect to dashboard
-  - Verify JWT token is stored securely
-  - Check navbar shows user name and logout button
-
-- [ ] **Test Remember Me**
-  - Check "Remember me" and login → Close browser, reopen → Should stay logged in
-
-#### 1.3 Password Reset
-**Priority: CRITICAL**
-
-- [ ] **Test Forgot Password**
-  - Click "Forgot Password" link on login page
-  - Enter valid email → Should show "Reset email sent" message
-  - Enter invalid email → Should show appropriate error
-
-- [ ] **Test Password Reset Flow**
-  - Check email for reset link (if email service configured)
-  - Click reset link → Should open password reset form
-  - Enter new password → Should allow login with new password
-
-#### 1.4 User Logout
-**Priority: CRITICAL**
-
-- [ ] **Test Logout Functionality**
-  - Click logout button in navbar → Should redirect to homepage
-  - Verify JWT token is cleared
-  - Try accessing protected pages → Should redirect to login
-
-- [ ] **Test Session Expiry**
-  - Wait for token to expire (if configured) → Should redirect to login
-  - Try accessing dashboard with expired token → Should show login page
+## 🎯 **Testing Overview**
+**Date:** December 2024  
+**Environment:** Development (http://localhost:3000)  
+**Tester:** [Your Name]  
+**Status:** Ready for Testing
 
 ---
 
-### 2. User Profile and Dashboard
+## 📋 **Pre-Testing Setup**
 
-#### 2.1 Profile Management
-**Priority: HIGH**
+### ✅ **Environment Verification**
+- [ ] Development server is running on http://localhost:3000
+- [ ] All pages load without errors
+- [ ] No console errors in browser developer tools
+- [ ] Images and assets load correctly
+- [ ] Responsive design works on different screen sizes
 
-- [ ] **Test Profile Access**
-  - Login and navigate to `/profile` → Should show user information
-  - Verify all profile fields are populated correctly
-
-- [ ] **Test Profile Editing**
-  - Click "Edit Profile" → Should open edit form
-  - Modify first name → Should save and update display
-  - Modify last name → Should save and update display
-  - Modify club name → Should save and update display
-  - Test phone number validation → Should accept valid formats
-  - Test date of birth validation → Should reject future dates
-
-- [ ] **Test Password Change**
-  - Navigate to password change section
-  - Enter current password + new password → Should update successfully
-  - Enter wrong current password → Should show error
-
-#### 2.2 User Dashboard
-**Priority: HIGH**
-
-- [ ] **Test Dashboard Access**
-  - Login and navigate to `/dashboard` → Should show personal overview
-  - Verify dashboard loads with user's data
-
-- [ ] **Test Dashboard Content**
-  - Check personal scores are displayed
-  - Verify recent events are shown
-  - Test analytics/statistics display
-  - Check quick action buttons work
-
-- [ ] **Test Dashboard Navigation**
-  - Click on score entries → Should navigate to detailed view
-  - Click on event entries → Should navigate to event details
+### ✅ **Test Data Preparation**
+- [ ] Demo user credentials ready: `demo@satrf.org.za` / `DemoPass123`
+- [ ] Test files for score import (Excel/CSV)
+- [ ] Different browsers available (Chrome, Firefox, Safari, Edge)
+- [ ] Mobile device or browser dev tools for mobile testing
 
 ---
 
-### 3. Events Calendar System
+## 🔐 **Authentication & User Management**
 
-#### 3.1 Events Display
-**Priority: HIGH**
+### **Registration Flow**
+- [ ] **Registration Page Access**
+  - [ ] Navigate to `/register`
+  - [ ] All form fields are present and accessible
+  - [ ] Form validation works for empty fields
+  - [ ] Email format validation works
+  - [ ] Password strength requirements are clear
+  - [ ] Password confirmation validation works
+  - [ ] "Back to Home" link works
 
-- [ ] **Test Events Page Access**
-  - Navigate to `/events` → Should show events calendar
-  - Verify events are displayed in calendar format
-  - Check list view option works
+- [ ] **Registration Process**
+  - [ ] Fill out registration form with valid data
+  - [ ] Submit form successfully
+  - [ ] Verify redirect to login page
+  - [ ] Check for success message/confirmation
 
-- [ ] **Test Event Filtering**
-  - Use discipline filter → Should filter events by discipline
-  - Use date range filter → Should filter events by date
-  - Use status filter → Should filter open/closed events
-  - Use search function → Should find events by title/location
+### **Login Flow**
+- [ ] **Login Page Access**
+  - [ ] Navigate to `/login`
+  - [ ] All form elements are present
+  - [ ] Demo credentials are displayed
+  - [ ] "Back to Home" link works
+  - [ ] "Sign up" link works
 
-- [ ] **Test Event Details**
-  - Click on any event → Should open event details modal
-  - Verify all event information is displayed correctly
-  - Check event description, location, dates, capacity
+- [ ] **Demo User Login**
+  - [ ] Enter demo email: `demo@satrf.org.za`
+  - [ ] Enter demo password: `DemoPass123`
+  - [ ] Click "Sign In"
+  - [ ] Verify redirect to `/dashboard`
+  - [ ] Check user is authenticated
 
-#### 3.2 Event Registration
-**Priority: HIGH**
+- [ ] **Real User Login**
+  - [ ] Register a new user account
+  - [ ] Login with new credentials
+  - [ ] Verify redirect to dashboard
+  - [ ] Check user profile information
 
-- [ ] **Test Event Registration (Logged In)**
-  - Login and navigate to events
-  - Click "Register" on open event → Should register successfully
-  - Verify registration confirmation message
-  - Check event shows as "Registered" status
+- [ ] **Login Validation**
+  - [ ] Try login with invalid email format
+  - [ ] Try login with empty fields
+  - [ ] Try login with wrong credentials
+  - [ ] Verify appropriate error messages
 
-- [ ] **Test Event Registration (Not Logged In)**
-  - Try to register without login → Should redirect to login page
-  - After login → Should return to events page
+### **Dashboard & Protected Routes**
+- [ ] **Dashboard Access**
+  - [ ] Access `/dashboard` when logged in
+  - [ ] Verify user information is displayed
+  - [ ] Check navigation menu is present
+  - [ ] Verify "Demo Notice" is shown for demo user
 
-- [ ] **Test Event Unregistration**
-  - Click "Cancel Registration" on registered event → Should cancel successfully
-  - Verify cancellation confirmation message
-  - Check event shows as available again
+- [ ] **Protected Route Access**
+  - [ ] Try accessing `/dashboard` when not logged in
+  - [ ] Verify redirect to login page
+  - [ ] Login and verify access is granted
+  - [ ] Check redirect back to originally requested page
 
-- [ ] **Test Registration Limits**
-  - Try registering for full event → Should show "Event Full" message
-  - Verify spot count updates correctly
-
-#### 3.3 Event Calendar Features
-**Priority: MEDIUM**
-
-- [ ] **Test Calendar Navigation**
-  - Use month/week/day view buttons → Should change calendar view
-  - Navigate between months → Should load correct events
-  - Test today button → Should return to current date
-
-- [ ] **Test Event Categories**
-  - Filter by ISSF events → Should show only ISSF events
-  - Filter by local events → Should show only local events
-  - Test multiple category selection
-
----
-
-### 4. Coaching Page
-
-#### 4.1 Page Content and Navigation
-**Priority: MEDIUM**
-
-- [ ] **Test Page Access**
-  - Navigate to `/coaching` → Should load coaching services page
-  - Verify hero section displays correctly
-
-- [ ] **Test Content Accuracy**
-  - Check coach profiles are displayed correctly
-  - Verify coach credentials and achievements
-  - Test coach contact information (email, phone)
-  - Check testimonials section loads
-
-- [ ] **Test CTA Buttons**
-  - Click "Book Your Free Consultation" → Should navigate to contact page
-  - Verify contact form pre-fills with "coaching" service
-  - Click "Meet Our Coaches" → Should scroll to coaches section
-  - Test phone number links → Should open phone dialer
-
-#### 4.2 Responsive Design
-**Priority: MEDIUM**
-
-- [ ] **Test Mobile Layout**
-  - View on mobile device → Should display properly
-  - Test coach cards stack correctly
-  - Verify CTA buttons are accessible on mobile
-
-- [ ] **Test Desktop Layout**
-  - View on desktop → Should use full width effectively
-  - Check coach profiles display in grid format
+### **Logout Functionality**
+- [ ] **Logout Process**
+  - [ ] Click logout button/link
+  - [ ] Verify redirect to home page
+  - [ ] Try accessing protected routes after logout
+  - [ ] Verify access is denied
 
 ---
 
-### 5. Leaderboard System
+## 📊 **Score Management System**
 
-#### 5.1 Leaderboard Access
-**Priority: HIGH**
+### **Score Import (Admin)**
+- [ ] **Admin Access**
+  - [ ] Navigate to `/admin/scores/import`
+  - [ ] Verify admin authentication is required
+  - [ ] Check import form is present
 
-- [ ] **Test Leaderboard Page**
-  - Navigate to `/scores/leaderboard` → Should load leaderboard
-  - Verify rankings are displayed correctly
-  - Check user names, clubs, scores are shown
+- [ ] **File Upload**
+  - [ ] Upload valid Excel file with scores
+  - [ ] Verify file validation works
+  - [ ] Check preview modal displays correctly
+  - [ ] Verify data parsing is accurate
 
-- [ ] **Test Leaderboard Filtering**
-  - Use discipline filter → Should filter by shooting discipline
-  - Use category filter (junior/senior/veteran) → Should filter by age category
-  - Use time period filter → Should filter by date range
-  - Test multiple filter combinations
+- [ ] **Import Process**
+  - [ ] Review preview data
+  - [ ] Click import button
+  - [ ] Verify success message
+  - [ ] Check data appears in results
 
-#### 5.2 Leaderboard Functionality
-**Priority: HIGH**
+- [ ] **Error Handling**
+  - [ ] Upload invalid file format
+  - [ ] Upload file with missing columns
+  - [ ] Upload file with invalid data
+  - [ ] Verify appropriate error messages
 
-- [ ] **Test Sorting**
-  - Click on score columns → Should sort by score
-  - Click on rank columns → Should sort by rank
-  - Verify sorting works in both ascending/descending order
+### **Results Display**
+- [ ] **Results Page**
+  - [ ] Navigate to `/results` or `/scores`
+  - [ ] Verify imported scores are displayed
+  - [ ] Check table structure is correct
+  - [ ] Verify sorting functionality works
 
-- [ ] **Test Pagination**
-  - Navigate through multiple pages → Should load correct data
-  - Check page numbers and navigation buttons
-  - Verify results per page selector works
+- [ ] **Filtering & Search**
+  - [ ] Test filter by event
+  - [ ] Test filter by division
+  - [ ] Test filter by date range
+  - [ ] Test search functionality
+  - [ ] Verify filters work together
 
-- [ ] **Test Data Accuracy**
-  - Verify scores match user submissions
-  - Check rankings are calculated correctly
-  - Test that only approved scores are included
-
-#### 5.3 Accessibility
-**Priority: MEDIUM**
-
-- [ ] **Test Keyboard Navigation**
-  - Use Tab key to navigate leaderboard → Should be accessible
-  - Use arrow keys to navigate → Should work properly
-
-- [ ] **Test Screen Reader**
-  - Use screen reader → Should announce rankings and scores
-  - Verify table headers are properly labeled
-
----
-
-### 6. Rules & Documentation
-
-#### 6.1 Rules Page Access
-**Priority: MEDIUM**
-
-- [ ] **Test Page Navigation**
-  - Navigate to `/rules` → Should load rules documentation page
-  - Verify all rule categories are displayed
-
-- [ ] **Test Search Functionality**
-  - Use search bar → Should filter documents by title/description
-  - Test search with partial terms → Should find relevant documents
-  - Test search with no results → Should show "no results" message
-
-#### 6.2 Document Access
-**Priority: MEDIUM**
-
-- [ ] **Test Document Links**
-  - Click "View Online" → Should open ISSF website in new tab
-  - Click "Download PDF" → Should download PDF file
-  - Test all document types (Technical, Rifle, Anti-Doping, Disciplinary)
-
-- [ ] **Test Download All**
-  - Click "Download All PDFs" → Should open all PDFs in new tabs
-  - Verify all available PDFs are accessible
-
-- [ ] **Test External Links**
-  - Verify all external links open in new tabs
-  - Check that links point to correct ISSF pages
-
-#### 6.3 Content Organization
-**Priority: LOW**
-
-- [ ] **Test Category Filtering**
-  - Use category filters → Should show only relevant documents
-  - Test "All Documents" filter → Should show all documents
-
-- [ ] **Test Document Display**
-  - Verify document descriptions are accurate
-  - Check document icons are displayed correctly
+- [ ] **Export Functionality**
+  - [ ] Test download/export buttons
+  - [ ] Verify exported data is correct
+  - [ ] Check different export formats
 
 ---
 
-### 7. Donate Page
+## 🏆 **Leaderboard System**
 
-#### 7.1 Payment Form
-**Priority: HIGH**
+### **Leaderboard Display**
+- [ ] **Page Loading**
+  - [ ] Navigate to `/leaderboard`
+  - [ ] Verify page loads without errors
+  - [ ] Check loading states are shown
+  - [ ] Verify data displays correctly
 
-- [ ] **Test Page Access**
-  - Navigate to `/donate` → Should load donation page
-  - Verify donation options are displayed
+- [ ] **Data Presentation**
+  - [ ] Check player rankings are correct
+  - [ ] Verify player details are accurate
+  - [ ] Test sorting by different columns
+  - [ ] Verify pagination works
 
-- [ ] **Test Payment Method Selection**
-  - Click "PayFast" → Should show PayFast form
-  - Click "EFT Transfer" → Should show banking details
-  - Verify payment method switching works
-
-#### 7.2 PayFast Integration
-**Priority: HIGH**
-
-- [ ] **Test Amount Selection**
-  - Click preset amounts (R100, R250, R500) → Should select correctly
-  - Enter custom amount → Should update form
-  - Test minimum amount validation (R10)
-
-- [ ] **Test PayFast Form**
-  - Fill donation form → Should submit to PayFast
-  - Verify all hidden fields are populated correctly
-  - Test form opens in new tab/window
-
-- [ ] **Test Form Validation**
-  - Submit with invalid amount → Should show validation error
-  - Test amount formatting → Should display as RXXX.XX
-
-#### 7.3 EFT Transfer
-**Priority: MEDIUM**
-
-- [ ] **Test Banking Details**
-  - Verify account details are displayed correctly
-  - Test "Copy to Clipboard" buttons → Should copy details
-  - Verify reference format is shown
-
-- [ ] **Test Contact Information**
-  - Check email address is correct
-  - Verify phone number is displayed
-
-#### 7.4 Success/Failure Flows
-**Priority: HIGH**
-
-- [ ] **Test Success Flow**
-  - Complete PayFast donation → Should redirect to thank you page
-  - Verify thank you page displays correctly
-
-- [ ] **Test Failure Flow**
-  - Cancel PayFast payment → Should return to donate page
-  - Verify error handling works properly
+- [ ] **Interactive Features**
+  - [ ] Test search functionality
+  - [ ] Test filtering options
+  - [ ] Click on player names for details
+  - [ ] Test export/sharing features
 
 ---
 
-### 8. Navigation and UI Elements
+## 💰 **Donation System**
 
-#### 8.1 Navbar Functionality
-**Priority: HIGH**
+### **Donate Page**
+- [ ] **Page Access**
+  - [ ] Navigate to `/donate`
+  - [ ] Verify page loads correctly
+  - [ ] Check donation form is present
+  - [ ] Verify preset amounts are shown
 
-- [ ] **Test Desktop Navigation**
-  - Click all navbar links → Should navigate to correct pages
-  - Verify active page is highlighted
-  - Test logo click → Should return to homepage
+- [ ] **Payment Methods**
+  - [ ] Test PayFast payment option
+  - [ ] Test EFT payment option
+  - [ ] Verify banking details are displayed
+  - [ ] Test copy to clipboard functionality
 
-- [ ] **Test Mobile Navigation**
-  - Open mobile menu → Should display all navigation options
-  - Click hamburger menu → Should toggle menu
-  - Test all mobile menu links → Should work correctly
-  - Verify menu closes after navigation
+- [ ] **Form Validation**
+  - [ ] Test custom amount input
+  - [ ] Verify minimum amount validation
+  - [ ] Test required field validation
+  - [ ] Check error messages
 
-- [ ] **Test User Menu**
-  - Login → Should show user name and dashboard link
-  - Click dashboard → Should navigate to user dashboard
-  - Click logout → Should log out user
-
-#### 8.2 Footer Functionality
-**Priority: MEDIUM**
-
-- [ ] **Test Footer Links**
-  - Click all footer links → Should navigate to correct pages
-  - Test social media links → Should open in new tabs
-  - Verify contact information is correct
-
-- [ ] **Test Footer Content**
-  - Check copyright information is current
-  - Verify SATRF logo is displayed
-  - Test responsive layout on mobile
-
-#### 8.3 Responsive Design
-**Priority: HIGH**
-
-- [ ] **Test Desktop Layout (1920x1080)**
-  - Verify all elements display correctly
-  - Check navigation is horizontal
-  - Test hover effects work
-
-- [ ] **Test Tablet Layout (768x1024)**
-  - Verify responsive breakpoints work
-  - Check navigation adapts properly
-  - Test form layouts adjust
-
-- [ ] **Test Mobile Layout (375x667)**
-  - Verify mobile menu works
-  - Check all content is readable
-  - Test touch interactions work
-  - Verify no horizontal scrolling
-
-- [ ] **Test Landscape Mobile (667x375)**
-  - Verify layout adapts to landscape
-  - Check navigation remains accessible
+- [ ] **Payment Flow**
+  - [ ] Complete donation process
+  - [ ] Verify redirect to thank you page
+  - [ ] Check transaction details are shown
+  - [ ] Test payment failure scenarios
 
 ---
 
-## 🔒 SECURITY TESTING
+## 📚 **Content Pages**
 
-### 9. Security Validation
-**Priority: CRITICAL**
+### **Rules Page**
+- [ ] **Page Navigation**
+  - [ ] Navigate to `/rules`
+  - [ ] Verify page loads correctly
+  - [ ] Check navigation links work
+  - [ ] Test breadcrumb navigation
 
-- [ ] **Test Unauthorized Access**
-  - Try accessing `/dashboard` without login → Should redirect to login
-  - Try accessing `/admin` without admin rights → Should show access denied
-  - Test direct URL access to protected pages
+- [ ] **Content Display**
+  - [ ] Verify rules content is present
+  - [ ] Check section organization
+  - [ ] Test search functionality
+  - [ ] Verify document downloads work
 
-- [ ] **Test Input Validation**
-  - Enter SQL injection in forms → Should be sanitized
-  - Enter XSS scripts in text fields → Should be escaped
-  - Test file upload with malicious files → Should be rejected
+### **Coaching Page**
+- [ ] **Page Access**
+  - [ ] Navigate to coaching page
+  - [ ] Verify coach profiles are displayed
+  - [ ] Check contact information
+  - [ ] Test booking/contact forms
 
-- [ ] **Test Session Security**
-  - Copy session token → Should not work in different browser
-  - Test concurrent login → Should handle properly
-  - Verify HTTPS is enforced on all pages
+### **Events Calendar**
+- [ ] **Calendar Display**
+  - [ ] Navigate to events page
+  - [ ] Verify events are listed
+  - [ ] Test calendar view
+  - [ ] Check event details
 
-- [ ] **Test CSRF Protection**
-  - Try submitting forms without CSRF token → Should be rejected
-  - Test form resubmission → Should be prevented
-
----
-
-## ♿ ACCESSIBILITY TESTING
-
-### 10. Accessibility Compliance
-**Priority: HIGH**
-
-- [ ] **Test Keyboard Navigation**
-  - Use Tab key to navigate entire site → Should be logical order
-  - Use Enter/Space to activate buttons → Should work
-  - Test skip links → Should jump to main content
-
-- [ ] **Test Screen Reader**
-  - Use screen reader on all pages → Should announce content properly
-  - Verify form labels are associated correctly
-  - Test error messages are announced
-
-- [ ] **Test Color Contrast**
-  - Verify text has sufficient contrast against backgrounds
-  - Test color-blind friendly design
-  - Check focus indicators are visible
-
-- [ ] **Test Alt Text**
-  - Verify all images have descriptive alt text
-  - Test decorative images have empty alt attributes
-  - Check logo alt text is meaningful
+- [ ] **Event Registration**
+  - [ ] Test event registration (if logged in)
+  - [ ] Verify redirect to login for unauthenticated users
+  - [ ] Check registration confirmation
 
 ---
 
-## ⚡ PERFORMANCE TESTING
+## 🎨 **User Interface & Experience**
 
-### 11. Performance Validation
-**Priority: MEDIUM**
+### **Navigation**
+- [ ] **Header Navigation**
+  - [ ] Test all main navigation links
+  - [ ] Verify current page highlighting
+  - [ ] Check mobile menu functionality
+  - [ ] Test logo link to home
 
-- [ ] **Test Page Load Times**
-  - Homepage loads in < 3 seconds
-  - Events page loads in < 4 seconds
-  - Leaderboard loads in < 5 seconds
-  - Profile page loads in < 2 seconds
+- [ ] **Footer Links**
+  - [ ] Test all footer links
+  - [ ] Verify social media links
+  - [ ] Check contact information
+  - [ ] Test privacy/terms links
 
-- [ ] **Test Image Optimization**
-  - Verify images are properly compressed
-  - Check responsive images load correct sizes
-  - Test lazy loading works on long pages
+### **Responsive Design**
+- [ ] **Desktop View**
+  - [ ] Test on desktop browser
+  - [ ] Verify layout is correct
+  - [ ] Check all functionality works
 
-- [ ] **Test Form Responsiveness**
-  - Submit forms → Should show loading states
-  - Verify no double submissions
-  - Test error handling doesn't freeze page
+- [ ] **Tablet View**
+  - [ ] Test on tablet or browser dev tools
+  - [ ] Verify responsive breakpoints
+  - [ ] Check touch interactions
 
----
+- [ ] **Mobile View**
+  - [ ] Test on mobile device or dev tools
+  - [ ] Verify mobile navigation
+  - [ ] Check form inputs work
+  - [ ] Test touch gestures
 
-## 📱 CROSS-BROWSER TESTING
+### **Accessibility**
+- [ ] **Keyboard Navigation**
+  - [ ] Navigate using Tab key
+  - [ ] Test Enter key functionality
+  - [ ] Verify focus indicators
+  - [ ] Check skip navigation links
 
-### 12. Browser Compatibility
-**Priority: HIGH**
-
-- [ ] **Test Chrome (Latest)**
-  - All features work correctly
-  - No console errors
-  - Responsive design works
-
-- [ ] **Test Firefox (Latest)**
-  - All features work correctly
-  - No console errors
-  - Responsive design works
-
-- [ ] **Test Safari (Latest)**
-  - All features work correctly
-  - No console errors
-  - Responsive design works
-
-- [ ] **Test Edge (Latest)**
-  - All features work correctly
-  - No console errors
-  - Responsive design works
+- [ ] **Screen Reader**
+  - [ ] Test with screen reader
+  - [ ] Verify ARIA labels
+  - [ ] Check heading structure
+  - [ ] Test form announcements
 
 ---
 
-## 📊 ISSUE LOGGING
+## 🔧 **Technical Functionality**
 
-### How to Log Issues
+### **Performance**
+- [ ] **Page Load Times**
+  - [ ] Measure initial page load
+  - [ ] Test navigation between pages
+  - [ ] Check image loading
+  - [ ] Verify no excessive loading times
 
-For each test that fails, document:
+- [ ] **Form Performance**
+  - [ ] Test form submission speed
+  - [ ] Check validation response time
+  - [ ] Verify file upload performance
 
-1. **Test Case**: Which test failed
-2. **Priority**: CRITICAL/HIGH/MEDIUM/LOW
-3. **Steps to Reproduce**: Exact steps taken
-4. **Expected Result**: What should happen
-5. **Actual Result**: What actually happened
-6. **Browser/Device**: What was used for testing
-7. **Screenshots**: If applicable
-8. **Console Errors**: Any JavaScript errors
+### **Error Handling**
+- [ ] **Network Errors**
+  - [ ] Test with slow connection
+  - [ ] Verify error messages
+  - [ ] Check retry functionality
 
-### Issue Priority Definitions
+- [ ] **Form Errors**
+  - [ ] Test validation errors
+  - [ ] Verify error message clarity
+  - [ ] Check error recovery
 
-- **CRITICAL**: Blocks core functionality, security vulnerability, data loss risk
-- **HIGH**: Major feature broken, poor user experience, accessibility issue
-- **MEDIUM**: Minor feature issue, cosmetic problem, performance concern
-- **LOW**: Nice-to-have improvement, minor UI tweak
+### **Browser Compatibility**
+- [ ] **Chrome**
+  - [ ] Test all functionality
+  - [ ] Check console for errors
+  - [ ] Verify responsive design
+
+- [ ] **Firefox**
+  - [ ] Test all functionality
+  - [ ] Check console for errors
+  - [ ] Verify responsive design
+
+- [ ] **Safari**
+  - [ ] Test all functionality
+  - [ ] Check console for errors
+  - [ ] Verify responsive design
+
+- [ ] **Edge**
+  - [ ] Test all functionality
+  - [ ] Check console for errors
+  - [ ] Verify responsive design
 
 ---
 
-## ✅ COMPLETION CHECKLIST
+## 📝 **Test Results Documentation**
 
-Before marking testing complete:
+### **Issues Found**
+- [ ] **Critical Issues**
+  - [ ] Issue 1: [Description]
+  - [ ] Issue 2: [Description]
 
-- [ ] All CRITICAL priority tests pass
-- [ ] All HIGH priority tests pass
-- [ ] All MEDIUM priority tests pass
-- [ ] All security tests pass
-- [ ] All accessibility tests pass
-- [ ] Cross-browser testing completed
-- [ ] Performance benchmarks met
-- [ ] All issues logged and prioritized
-- [ ] Stakeholder approval received
+- [ ] **Major Issues**
+  - [ ] Issue 1: [Description]
+  - [ ] Issue 2: [Description]
+
+- [ ] **Minor Issues**
+  - [ ] Issue 1: [Description]
+  - [ ] Issue 2: [Description]
+
+### **Positive Findings**
+- [ ] **Working Well**
+  - [ ] Feature 1: [Description]
+  - [ ] Feature 2: [Description]
+
+### **Recommendations**
+- [ ] **Improvements**
+  - [ ] Suggestion 1: [Description]
+  - [ ] Suggestion 2: [Description]
 
 ---
 
-**Last Updated**: [Date]
-**Tested By**: [Name]
-**Version**: [Website Version] 
+## ✅ **Testing Completion**
+
+### **Final Verification**
+- [ ] All critical functionality tested
+- [ ] All major user flows verified
+- [ ] Cross-browser compatibility confirmed
+- [ ] Mobile responsiveness validated
+- [ ] Accessibility requirements met
+
+### **Sign-off**
+- [ ] **Tester:** [Name] - [Date]
+- [ ] **Reviewer:** [Name] - [Date]
+- [ ] **Status:** Ready for Production / Needs Fixes
+
+---
+
+## 🚀 **Next Steps After Testing**
+
+### **If All Tests Pass:**
+1. ✅ Proceed with production deployment
+2. ✅ Set up monitoring and analytics
+3. ✅ Conduct user acceptance testing
+4. ✅ Go live with the website
+
+### **If Issues Found:**
+1. 🔧 Document all issues with screenshots
+2. 🔧 Prioritize fixes (Critical > Major > Minor)
+3. 🔧 Implement fixes and retest
+4. 🔧 Repeat testing cycle until all issues resolved
+
+---
+
+**Testing Environment:** http://localhost:3000  
+**Test Date:** [Date]  
+**Tester:** [Your Name]  
+**Version:** [Current Version] 

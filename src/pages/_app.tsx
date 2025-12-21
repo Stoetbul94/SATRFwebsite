@@ -44,8 +44,11 @@ function CustomErrorBoundary({ children }: { children: React.ReactNode }) {
     <Sentry.ErrorBoundary
       fallback={({ error, componentStack, resetError }) => {
         // Only show error boundary for critical errors, not for expected errors
-        const isCriticalError = error?.message?.includes('Critical') || 
-                               error?.name === 'CriticalError' ||
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorName = error instanceof Error ? error.name : 'UnknownError';
+        
+        const isCriticalError = errorMessage?.includes('Critical') || 
+                               errorName === 'CriticalError' ||
                                process.env.NODE_ENV === 'development';
         
         if (!isCriticalError) {

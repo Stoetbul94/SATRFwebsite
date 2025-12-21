@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, validator, field_validator
 from typing import Optional, List, Union
 from datetime import datetime
 from enum import Enum
@@ -489,13 +489,18 @@ class MatchResultBase(BaseModel):
     series5: float = Field(..., ge=0.0, le=109.0)
     series6: float = Field(..., ge=0.0, le=109.0)
     place: Optional[int] = Field(None, ge=1)
+    total: Optional[float] = None
 
-    @validator('total', always=True)
-    def calculate_total(cls, v, values):
+    @field_validator('*', mode='before')
+    @classmethod
+    def calculate_total(cls, v, info):
         """Calculate total from series scores"""
-        series_fields = ['series1', 'series2', 'series3', 'series4', 'series5', 'series6']
-        total = sum(values.get(field, 0) for field in series_fields)
-        return round(total, 1)
+        if info.field_name == 'total':
+            series_fields = ['series1', 'series2', 'series3', 'series4', 'series5', 'series6']
+            values = info.data
+            total = sum(values.get(field, 0) for field in series_fields if values.get(field) is not None)
+            return round(total, 1)
+        return v
 
 class MatchResultCreate(MatchResultBase):
     """Model for creating new match results"""
@@ -525,7 +530,7 @@ class MatchResult(MatchResultBase):
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = None
-    source: str = Field(..., regex='^(manual|upload)$')
+    source: str = Field(..., pattern='^(manual|upload)$')
 
     class Config:
         from_attributes = True
@@ -538,7 +543,7 @@ class MatchResultUpload(BaseModel):
     shooter_id: Optional[Union[str, int]] = None
     club: str = Field(..., min_length=1, max_length=100)
     division: Optional[str] = Field(None, max_length=50)
-    veteran: str = Field(..., regex='^(Y|N)$')
+    veteran: str = Field(..., pattern='^(Y|N)$')
     series1: float = Field(..., ge=0.0, le=109.0)
     series2: float = Field(..., ge=0.0, le=109.0)
     series3: float = Field(..., ge=0.0, le=109.0)

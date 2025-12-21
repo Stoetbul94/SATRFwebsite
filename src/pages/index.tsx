@@ -1,6 +1,5 @@
-'use client';
-
 import { useState, useEffect } from 'react';
+import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
@@ -8,10 +7,10 @@ import Layout from '@/components/layout/Layout';
 import HeroSection from '@/components/home/HeroSection';
 import OlympicCountdown from '@/components/OlympicCountdown';
 import { eventsAPI, dashboardAPI } from '@/lib/api';
-import type { Event } from '@/lib/api';
+import type { Event, DashboardStats } from '@/lib/api';
 
 export default function Home() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     members: 1250,
     events: 12,
     scores: 'Updated',
@@ -23,8 +22,10 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('Attempting to fetch dashboard stats...');
         // Fetch dashboard stats
         const statsData = await dashboardAPI.getStats();
+        console.log('Stats data received:', statsData);
         setStats(statsData);
 
         // Fetch upcoming events
@@ -32,6 +33,7 @@ export default function Home() {
         setUpcomingEvents(eventsData.slice(0, 3)); // Show first 3 events
       } catch (error) {
         console.error('Error fetching home page data:', error);
+        console.log('Setting fallback data...');
         // Use fallback data if API fails - this allows the page to work without backend
         setStats({
           members: 1250,
@@ -40,16 +42,39 @@ export default function Home() {
           news: 'Latest'
         });
         setUpcomingEvents([]);
+        // Small delay to ensure fallback data is visible
+        await new Promise(resolve => setTimeout(resolve, 100));
       } finally {
+        console.log('Setting loading to false, current stats:', stats);
         setLoading(false);
       }
     };
 
-    fetchData();
+    // Add a fallback in case the async function fails completely
+    fetchData().catch((error) => {
+      console.error('Critical error in fetchData:', error);
+      // Ensure fallback data is set even if the main try-catch fails
+      setStats({
+        members: 1250,
+        events: 12,
+        scores: 'Updated',
+        news: 'Latest'
+      });
+      setUpcomingEvents([]);
+      setLoading(false);
+    });
   }, []);
 
   return (
     <Layout>
+      <Head>
+        <title>South African Target Rifle Federation - SATRF</title>
+        <meta name="description" content="The official national governing body for target rifle shooting in South Africa. Join SATRF for competitions, training, and elite shooting sports." />
+        <meta property="og:title" content="South African Target Rifle Federation - SATRF" />
+        <meta property="og:description" content="The official national governing body for target rifle shooting in South Africa." />
+        <meta property="og:type" content="website" />
+        <meta name="keywords" content="target rifle, shooting sports, South Africa, SATRF, ISSF, competitive shooting" />
+      </Head>
       {/* New Hero Section */}
       <HeroSection />
 
@@ -203,8 +228,6 @@ export default function Home() {
               'ISSF-Logo.jpg',
               'SASSCO_Logo.jpeg',
               'TeamSa.jpg',
-              'ChatGPT Image May 28, 2025, 02_05_58 AM.png',
-              'ChatGPT Image Jun 3, 2025, 08_57_38 PM.png',
               'SATRFLOGO.png'
             ].map((logo, index) => (
               <div key={index} className="flex justify-center">

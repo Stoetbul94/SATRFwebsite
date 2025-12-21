@@ -1,39 +1,15 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import AnalyticsDashboard from '../../components/analytics/AnalyticsDashboard';
 
-// Simple mock for analytics API
+// Mock environment variables
+process.env.NODE_ENV = 'development';
+process.env.NEXT_PUBLIC_API_BASE_URL = '';
+
+// Mock the analytics API
 jest.mock('../../lib/analytics', () => ({
   analyticsAPI: {
     getUserAnalytics: jest.fn().mockResolvedValue({
-      scoreHistory: [
-        {
-          date: '2024-01-15',
-          score: 95,
-          xCount: 8,
-          eventName: 'SATRF Championship',
-          discipline: '3P',
-          position: 3,
-          totalParticipants: 25
-        }
-      ],
-      disciplineStats: [
-        {
-          discipline: '3P',
-          totalMatches: 8,
-          averageScore: 91.5,
-          personalBest: 98,
-          totalXCount: 45,
-          averageXCount: 5.6,
-          bestScoreDate: '2024-03-05',
-          bestScoreEvent: 'Regional Match'
-        }
-      ],
-      performanceTrends: [
-        { period: 'week', averageScore: 92.5, totalMatches: 2, totalXCount: 12, improvement: 2.1 }
-      ],
-      eventParticipation: [],
       summary: {
         totalMatches: 18,
         totalScore: 1647,
@@ -43,7 +19,11 @@ jest.mock('../../lib/analytics', () => ({
         averageXCount: 5.8,
         improvementRate: 3.2,
         consistencyScore: 85.4
-      }
+      },
+      scoreHistory: [],
+      disciplineStats: [],
+      performanceTrends: [],
+      eventParticipation: []
     }),
     exportAnalytics: jest.fn().mockResolvedValue(new Blob(['test'], { type: 'text/csv' })),
   },
@@ -54,14 +34,14 @@ jest.mock('../../lib/analytics', () => ({
       performanceTrends: [],
       eventParticipation: [],
       summary: {
-        totalMatches: 0,
-        totalScore: 0,
-        averageScore: 0,
-        personalBest: 0,
-        totalXCount: 0,
-        averageXCount: 0,
-        improvementRate: 0,
-        consistencyScore: 0
+        totalMatches: 18,
+        totalScore: 1647,
+        averageScore: 91.5,
+        personalBest: 98,
+        totalXCount: 105,
+        averageXCount: 5.8,
+        improvementRate: 3.2,
+        consistencyScore: 85.4
       }
     }),
     formatDate: jest.fn((date) => new Date(date).toLocaleDateString()),
@@ -110,7 +90,7 @@ describe('AnalyticsDashboard Simple Tests', () => {
     
     await waitFor(() => {
       expect(screen.getByText('Performance Analytics')).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 
   it('displays summary statistics', async () => {
@@ -121,7 +101,7 @@ describe('AnalyticsDashboard Simple Tests', () => {
       expect(screen.getByText('18')).toBeInTheDocument();
       expect(screen.getByText('Personal Best')).toBeInTheDocument();
       expect(screen.getByText('98')).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 
   it('shows navigation tabs', async () => {
@@ -132,6 +112,6 @@ describe('AnalyticsDashboard Simple Tests', () => {
       expect(screen.getByText('Scores')).toBeInTheDocument();
       expect(screen.getByText('Disciplines')).toBeInTheDocument();
       expect(screen.getByText('Trends')).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 }); 

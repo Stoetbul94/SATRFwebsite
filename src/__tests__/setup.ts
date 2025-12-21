@@ -1,80 +1,47 @@
-import '@testing-library/jest-dom';
-import { configure } from '@testing-library/react';
+import React from 'react';
+import { render, RenderOptions } from '@testing-library/react';
+import { ChakraProvider } from '@chakra-ui/react';
 
-// Configure testing library
-configure({ testIdAttribute: 'data-testid' });
-
-// Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  observe() {
-    return null;
-  }
-  disconnect() {
-    return null;
-  }
-  unobserve() {
-    return null;
-  }
+// Create a flexible mock that can be overridden
+const mockAuthContext = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  isInitialized: true,
+  error: null,
+  dashboard: null,
+  login: jest.fn(),
+  register: jest.fn(),
+  logout: jest.fn(),
+  updateProfile: jest.fn(),
+  loadDashboard: jest.fn(),
+  clearError: jest.fn(),
+  checkAuth: jest.fn(),
+  refreshUser: jest.fn(),
 };
 
-// Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  observe() {
-    return null;
-  }
-  disconnect() {
-    return null;
-  }
-  unobserve() {
-    return null;
-  }
+// Mock auth context with proper hook implementations
+jest.mock('../contexts/AuthContext', () => ({
+  useAuth: jest.fn(() => mockAuthContext),
+  useProtectedRoute: jest.fn(),
+  useRedirectIfAuthenticated: jest.fn(),
+}));
+
+// Export the mock for tests to modify
+export { mockAuthContext };
+
+interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
+  wrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
+  return React.createElement(ChakraProvider, null, children);
 };
 
-// Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+const customRender = (
+  ui: React.ReactElement,
+  options?: CustomRenderOptions,
+) => render(ui, { wrapper: AllTheProviders, ...options });
 
-// Mock console methods to reduce noise in tests
-const originalError = console.error;
-const originalWarn = console.warn;
-
-beforeAll(() => {
-  console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
-    ) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-  
-  console.warn = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: componentWillReceiveProps') ||
-       args[0].includes('Warning: componentWillUpdate'))
-    ) {
-      return;
-    }
-    originalWarn.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalError;
-  console.warn = originalWarn;
-}); 
+export * from '@testing-library/react';
+export { customRender as render }; 

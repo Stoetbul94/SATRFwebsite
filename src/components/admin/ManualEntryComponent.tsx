@@ -196,10 +196,17 @@ export default function ManualEntryComponent({
 
     setIsLoading(true);
     try {
+      // Get auth token
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
       const response = await fetch('/api/admin/scores/import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           scores: validRows.map(row => ({
@@ -222,7 +229,9 @@ export default function ManualEntryComponent({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save scores');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to save scores' }));
+        const errorMessage = errorData.error || errorData.details || 'Failed to save scores';
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

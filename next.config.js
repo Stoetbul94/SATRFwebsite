@@ -4,9 +4,15 @@ const { withSentryConfig } = require("@sentry/nextjs");
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['firebasestorage.googleapis.com'],
+    // Migrate from deprecated images.domains to images.remotePatterns
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      // Add additional remote hosts here as needed
+    ],
   },
-
 };
 
 // Sentry Webpack plugin temporarily disabled for local build troubleshooting

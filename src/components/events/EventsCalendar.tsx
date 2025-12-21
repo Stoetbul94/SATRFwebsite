@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -100,55 +100,65 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
   const primaryColor = 'satrf.navy';
   const accentColor = 'satrf.red';
 
-  // Update local filters when props change
+  // Use ref to track previous filters and prevent unnecessary updates
+  const prevFiltersRef = useRef(filters);
+  
+  // Update local filters when props change - only if filters actually changed
   useEffect(() => {
-    setLocalFilters(filters);
+    if (JSON.stringify(prevFiltersRef.current) !== JSON.stringify(filters)) {
+      setLocalFilters(filters);
+      prevFiltersRef.current = filters;
+    }
   }, [filters]);
 
-  // Filter events based on current filters and search
-  const filteredEvents = events.filter(event => {
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      if (!event.title.toLowerCase().includes(query) && 
-          !event.description.toLowerCase().includes(query) &&
-          !event.location.toLowerCase().includes(query)) {
-        return false;
+  // Filter events based on current filters and search - memoized to prevent infinite re-renders
+  const filteredEvents = useMemo(() => {
+    return events.filter(event => {
+      // Apply search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        if (!event.title.toLowerCase().includes(query) && 
+            !event.description.toLowerCase().includes(query) &&
+            !event.location.toLowerCase().includes(query)) {
+          return false;
+        }
       }
-    }
 
-    // Apply discipline filter
-    if (localFilters.discipline && event.discipline !== localFilters.discipline) return false;
-    
-    // Apply source filter
-    if (localFilters.source && localFilters.source !== 'all' && event.source !== localFilters.source) return false;
-    
-    // Apply status filter
-    if (localFilters.status && event.status !== localFilters.status) return false;
-    
-    // Apply date range filters
-    if (localFilters.startDate && new Date(event.start) < new Date(localFilters.startDate)) return false;
-    if (localFilters.endDate && new Date(event.end) > new Date(localFilters.endDate)) return false;
-    
-    // Apply completed events filter
-    if (localFilters.showCompleted === false && event.status === 'CLOSED') return false;
-    
-    return true;
-  });
+      // Apply discipline filter
+      if (localFilters.discipline && event.discipline !== localFilters.discipline) return false;
+      
+      // Apply source filter
+      if (localFilters.source && localFilters.source !== 'all' && event.source !== localFilters.source) return false;
+      
+      // Apply status filter
+      if (localFilters.status && event.status !== localFilters.status) return false;
+      
+      // Apply date range filters
+      if (localFilters.startDate && new Date(event.start) < new Date(localFilters.startDate)) return false;
+      if (localFilters.endDate && new Date(event.end) > new Date(localFilters.endDate)) return false;
+      
+      // Apply completed events filter
+      if (localFilters.showCompleted === false && event.status === 'CLOSED') return false;
+      
+      return true;
+    });
+  }, [events, searchQuery, localFilters]);
 
-  // Convert events to FullCalendar format
-  const calendarEvents: EventInput[] = filteredEvents.map(event => ({
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    backgroundColor: getEventColor(event),
-    borderColor: getEventColor(event),
-    textColor: 'white',
-    extendedProps: {
-      event: event
-    }
-  }));
+  // Convert events to FullCalendar format - memoized to prevent unnecessary re-computations
+  const calendarEvents: EventInput[] = useMemo(() => {
+    return filteredEvents.map(event => ({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      backgroundColor: getEventColor(event),
+      borderColor: getEventColor(event),
+      textColor: 'white',
+      extendedProps: {
+        event: event
+      }
+    }));
+  }, [filteredEvents]);
 
   function getEventColor(event: Event): string {
     return eventUtils.getEventColor(event);
@@ -263,7 +273,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minH="400px">
-        <Spinner size="xl" color={primaryColor} />
+        <Spinner size="xl" color={primaryColor} role="status" aria-label="Loading events" />
       </Box>
     );
   }
@@ -639,7 +649,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
                             colorScheme={eventUtils.getRegistrationStatus(selectedEvent) === 'open' ? 'green' : 'red'}
                             size="lg"
                           >
-                            {eventUtils.getRegistrationStatus(selectedEvent).toUpperCase()}
+                            {eventUtils.getRegistrationStatus(selectedEvent)?.toUpperCase() || 'UNKNOWN'}
                           </Badge>
                         </Box>
 

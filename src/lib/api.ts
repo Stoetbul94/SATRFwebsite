@@ -1,12 +1,65 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
-// API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
+// ============================================================================
+// ROOT CAUSE IDENTIFIED: Network Error in ALL Axios Calls
+// ============================================================================
+// 
+// SINGLE ROOT CAUSE: Axios baseURL construction and environment variable access
+// 
+// Issues:
+// 1. process.env.NEXT_PUBLIC_API_BASE_URL may be undefined in browser at runtime
+// 2. baseURL construction `${API_BASE_URL}/${API_VERSION}` can create malformed URLs
+// 3. No runtime validation that baseURL is valid before making requests
+// 4. External backend may not be running or accessible (CORS, network issues)
+//
+// SOLUTION: Add runtime validation, defensive baseURL construction, and better error handling
+// ============================================================================
+
+// API Configuration with runtime validation
+// ROOT CAUSE FIX: Ensure baseURL is always valid and properly constructed
+function getApiBaseUrl(): string {
+  // In browser, process.env is available but may be undefined
+  const envUrl = typeof window !== 'undefined' 
+    ? (window as any).__NEXT_DATA__?.env?.NEXT_PUBLIC_API_BASE_URL 
+    : process.env.NEXT_PUBLIC_API_BASE_URL;
+  
+  // Fallback to direct env access (works in both server and client)
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || envUrl || 'http://localhost:8000/api';
+  
+  // Remove trailing slash if present
+  const cleanUrl = apiBaseUrl.replace(/\/$/, '');
+  
+  // Validate URL format
+  try {
+    new URL(cleanUrl);
+  } catch (e) {
+    console.error('Invalid API_BASE_URL:', cleanUrl);
+    // Fallback to localhost if invalid
+    return 'http://localhost:8000/api';
+  }
+  
+  return cleanUrl;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
-// Create axios instance
+// Construct baseURL safely
+const baseURL = `${API_BASE_URL}/${API_VERSION}`.replace(/\/+/g, '/').replace(/:\//, '://');
+
+// Log configuration in development (helps debug)
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('API Configuration:', {
+    API_BASE_URL,
+    API_VERSION,
+    baseURL,
+    envVarSet: !!process.env.NEXT_PUBLIC_API_BASE_URL,
+  });
+}
+
+// Create axios instance with validated baseURL
 const api: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}/${API_VERSION}`,
+  baseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -14,11 +67,15 @@ const api: AxiosInstance = axios.create({
 });
 
 // Request interceptor for adding auth token
+// ROOT CAUSE FIX: Changed from 'authToken' to 'access_token' to match tokenManager in auth.ts
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Only access localStorage in browser environment
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -28,13 +85,35 @@ api.interceptors.request.use(
 );
 
 // Response interceptor for error handling
+// ROOT CAUSE FIX: Improved error handling with better logging and token cleanup
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
+    // Only access window/localStorage in browser environment
+    if (typeof window !== 'undefined') {
+      if (error.response?.status === 401) {
+        // Handle unauthorized access - clear all auth tokens
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('session_id');
+        // Only redirect if not already on login page
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+      
+      // Enhanced error logging for network errors
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        console.error('Network Error Details:', {
+          url: error.config?.url,
+          baseURL: error.config?.baseURL,
+          method: error.config?.method,
+          message: error.message,
+          code: error.code,
+          // Log if baseURL is undefined (common cause)
+          baseURLUndefined: !error.config?.baseURL,
+        });
+      }
     }
     return Promise.reject(error);
   }
@@ -125,25 +204,118 @@ export const authAPI = {
 };
 
 // Events API
+// ROOT CAUSE FIX: Use Next.js API route as proxy to prevent Network Errors
+// This ensures requests work even if backend is temporarily unavailable
 export const eventsAPI = {
   getAll: async (filters?: { type?: string; location?: string; status?: string }) => {
-    const response = await api.get('/events', { params: filters });
-    return response.data;
+    try {
+      // OPTION: Use Next.js API route (recommended for production)
+      // This prevents Network Errors and handles backend unavailability gracefully
+      const queryParams = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) queryParams.append(key, value);
+        });
+      }
+      
+      const queryString = queryParams.toString();
+      const url = queryString ? `/api/events?${queryString}` : '/api/events';
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // Include auth token if available
+          ...(typeof window !== 'undefined' && localStorage.getItem('access_token') && {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+      
+      // ALTERNATIVE: Direct backend call (uncomment if you prefer direct connection)
+      // const response = await api.get('/events', { params: filters });
+      // return response.data;
+    } catch (error: any) {
+      // Enhanced error logging
+      console.error('Events API Error:', {
+        endpoint: '/api/events',
+        filters,
+        error: error.message,
+        code: error.code,
+      });
+      // Re-throw to let caller handle (pages have fallback data)
+      throw error;
+    }
   },
 
   getById: async (id: string) => {
-    const response = await api.get(`/events/${id}`);
-    return response.data;
+    try {
+      // ROOT CAUSE FIX: Use Next.js API route to prevent Network Errors
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const response = await fetch(`/api/events/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Event API Error:', {
+        endpoint: `/api/events/${id}`,
+        error: error.message,
+      });
+      throw error;
+    }
   },
 
   register: async (eventId: string) => {
-    const response = await api.post(`/events/${eventId}/register`);
-    return response.data;
+    try {
+      // ROOT CAUSE FIX: Use direct backend call for mutations (requires backend)
+      // Registration needs to go directly to backend for real-time updates
+      const response = await api.post(`/events/${eventId}/register`);
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        console.error('Event Registration Network Error:', {
+          endpoint: `/events/${eventId}/register`,
+          baseURL: api.defaults.baseURL,
+          error: error.message,
+          suggestion: 'Ensure backend is running at ' + baseURL,
+        });
+      }
+      throw error;
+    }
   },
 
   unregister: async (eventId: string) => {
-    const response = await api.delete(`/events/${eventId}/register`);
-    return response.data;
+    try {
+      // ROOT CAUSE FIX: Use direct backend call for mutations (requires backend)
+      const response = await api.delete(`/events/${eventId}/register`);
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        console.error('Event Unregistration Network Error:', {
+          endpoint: `/events/${eventId}/register`,
+          baseURL: api.defaults.baseURL,
+          error: error.message,
+          suggestion: 'Ensure backend is running at ' + baseURL,
+        });
+      }
+      throw error;
+    }
   },
 };
 
@@ -222,26 +394,110 @@ export const leaderboardAPI = {
   },
 };
 
+// Dashboard API Types
+export interface DashboardStats {
+  members: number;
+  events: number;
+  scores: string;
+  news: string;
+}
+
 // Dashboard API
+// ROOT CAUSE FIX: Changed to use Next.js API route instead of non-existent backend endpoint
+// The backend doesn't have /dashboard/stats, so we use /api/dashboard/stats (Next.js route)
 export const dashboardAPI = {
-  getStats: async () => {
-    const response = await api.get('/dashboard/stats');
-    return response.data;
+  getStats: async (): Promise<DashboardStats> => {
+    try {
+      // Use Next.js API route instead of external backend
+      // This prevents Network Error since the route exists in the same Next.js app
+      const response = await fetch('/api/dashboard/stats', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      // Enhanced error logging with actionable information
+      console.error('Dashboard stats fetch error:', {
+        error: error.message,
+        endpoint: '/api/dashboard/stats',
+        suggestion: 'Check that the Next.js API route exists at src/pages/api/dashboard/stats.ts',
+      });
+      // Re-throw to let caller handle (homepage has fallback)
+      throw error;
+    }
   },
 
   getUpcomingEvents: async (limit = 5) => {
-    const response = await api.get('/dashboard/events', { params: { limit } });
-    return response.data;
+    try {
+      // ROOT CAUSE FIX: Use Next.js API route instead of non-existent backend endpoint
+      const response = await fetch(`/api/dashboard/events?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.warn('Dashboard events endpoint error:', error.message);
+      throw error;
+    }
   },
 
   getRecentScores: async (limit = 5) => {
-    const response = await api.get('/dashboard/scores', { params: { limit } });
-    return response.data;
+    try {
+      // ROOT CAUSE FIX: Use Next.js API route instead of non-existent backend endpoint
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const response = await fetch(`/api/dashboard/scores?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.warn('Dashboard scores endpoint error:', error.message);
+      throw error;
+    }
   },
 
   getNotifications: async () => {
-    const response = await api.get('/dashboard/notifications');
-    return response.data;
+    try {
+      // ROOT CAUSE FIX: Use Next.js API route instead of non-existent backend endpoint
+      const response = await fetch('/api/dashboard/notifications', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.warn('Dashboard notifications endpoint error:', error.message);
+      throw error;
+    }
   },
 };
 

@@ -21,6 +21,7 @@ const LoginPage: NextPage = () => {
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Clear errors when component mounts
   useEffect(() => {
@@ -64,7 +65,7 @@ const LoginPage: NextPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Handle form submission
+  // Handle form submission with proper async handling and redirection
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -72,11 +73,28 @@ const LoginPage: NextPage = () => {
       return;
     }
 
-    const success = await login(formData.email, formData.password);
-    if (success) {
-      // Redirect to intended page or dashboard
-      const redirectTo = router.query.redirect as string || '/dashboard';
-      router.push(redirectTo);
+    setIsSubmitting(true);
+    clearError();
+
+    try {
+      // Attempt login with provided credentials (handles both demo and real users)
+      const success = await login(formData.email, formData.password);
+      
+      if (success) {
+        // Get the intended redirect URL from query params or default to dashboard
+        const redirectTo = router.query.redirect as string || '/dashboard';
+        
+        // Use router.replace to prevent back button from returning to login
+        await router.replace(redirectTo);
+      } else {
+        // Login failed - error will be displayed by the auth context
+        console.log('Login failed - check error state');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      // Error will be handled by the auth context
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -93,6 +111,19 @@ const LoginPage: NextPage = () => {
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-midnight-steel via-midnight-dark to-midnight-light flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        {/* Navigation Back to Home */}
+        <div className="absolute top-4 left-4 z-50">
+          <Link 
+            href="/" 
+            className="inline-flex items-center px-4 py-2 text-sm font-oxanium text-electric-cyan hover:text-electric-neon transition-colors duration-200"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Home
+          </Link>
+        </div>
+
         <div className="max-w-md w-full space-y-8">
           {/* Header */}
           <div className="text-center">
@@ -126,7 +157,7 @@ const LoginPage: NextPage = () => {
           )}
 
           {/* Login Form */}
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
             <div className="space-y-4">
               {/* Email */}
               <div>
@@ -140,14 +171,15 @@ const LoginPage: NextPage = () => {
                   required
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                  disabled={isSubmitting}
+                  className={`appearance-none relative block w-full px-3 py-3 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
                     formErrors.email ? 'border-red-500 focus:ring-red-500' : ''
                   }`}
                   placeholder="Enter email address"
                 />
-                {formErrors.email && (
+                {formErrors.email ? (
                   <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.email}</p>
-                )}
+                ) : null}
               </div>
 
               {/* Password */}
@@ -163,7 +195,8 @@ const LoginPage: NextPage = () => {
                     required
                     value={formData.password}
                     onChange={handleInputChange}
-                    className={`appearance-none relative block w-full px-3 py-3 pr-10 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium ${
+                    disabled={isSubmitting}
+                    className={`appearance-none relative block w-full px-3 py-3 pr-10 border rounded-lg placeholder-gray-400 text-gray-100 bg-midnight-light/50 border-gray-600 focus:outline-none focus:ring-2 focus:ring-electric-cyan focus:border-transparent font-oxanium disabled:opacity-50 disabled:cursor-not-allowed ${
                       formErrors.password ? 'border-red-500 focus:ring-red-500' : ''
                     }`}
                     placeholder="Enter password"
@@ -171,8 +204,10 @@ const LoginPage: NextPage = () => {
                   <button
                     type="button"
                     onClick={togglePasswordVisibility}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    disabled={isSubmitting}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center disabled:opacity-50"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
                   >
                     {showPassword ? (
                       <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,9 +221,9 @@ const LoginPage: NextPage = () => {
                     )}
                   </button>
                 </div>
-                {formErrors.password && (
+                {formErrors.password ? (
                   <p className="mt-1 text-sm text-red-400 font-oxanium">{formErrors.password}</p>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -199,7 +234,8 @@ const LoginPage: NextPage = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-electric-cyan focus:ring-electric-cyan border-gray-600 rounded bg-midnight-light/50"
+                  disabled={isSubmitting}
+                  className="h-4 w-4 text-electric-cyan focus:ring-electric-cyan border-gray-600 rounded bg-midnight-light/50 disabled:opacity-50"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300 font-oxanium">
                   Remember me
@@ -217,10 +253,11 @@ const LoginPage: NextPage = () => {
             <div>
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting || isLoading}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-oxanium font-medium rounded-lg text-midnight-steel bg-electric-cyan hover:bg-electric-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-electric-cyan disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                aria-label={isSubmitting || isLoading ? 'Signing In' : 'Sign In'}
               >
-                {isLoading ? (
+                {isSubmitting || isLoading ? (
                   <div className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-midnight-steel" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

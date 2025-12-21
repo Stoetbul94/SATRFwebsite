@@ -12,6 +12,7 @@ import {
 import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaFacebook, FaTwitter, FaInstagram } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
 import Image from 'next/image';
+import Head from 'next/head';
 
 export default function About() {
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -20,6 +21,13 @@ export default function About() {
 
   return (
     <Layout>
+      <Head>
+        <title>About Us - South African Target Rifle Federation</title>
+        <meta name="description" content="Learn about the South African Target Rifle Federation (SATRF), the official national governing body for target rifle shooting in South Africa. Established in 1994." />
+        <meta property="og:title" content="About Us - South African Target Rifle Federation" />
+        <meta property="og:description" content="The official national governing body for target rifle shooting in South Africa." />
+        <meta property="og:type" content="website" />
+      </Head>
       <Container maxW="container.xl" py={8}>
         <VStack spacing={8} align="stretch">
           {/* Welcome Section */}

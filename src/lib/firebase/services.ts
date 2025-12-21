@@ -32,7 +32,7 @@ export const getEvents = async (filters?: {
   status?: string;
   limit?: number;
 }): Promise<Event[]> => {
-  let constraints: any[] = [];
+  const constraints: any[] = [];
   
   if (filters?.discipline) {
     constraints.push(where('discipline', '==', filters.discipline));

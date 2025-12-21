@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { AlertConfig, ALERT_LEVELS } from '../../lib/monitoring'
 
 // Alert storage (in production, use a database)
-let alerts: Array<AlertConfig & { id: string; timestamp: number; status: 'active' | 'resolved' }> = []
+const alerts: Array<AlertConfig & { id: string; timestamp: number; status: 'active' | 'resolved' }> = []
 
 // Alert configuration for different notification channels
 const ALERT_CONFIG = {
@@ -56,7 +56,8 @@ class NotificationService {
       return { success: true, channel: 'email' }
     } catch (error) {
       console.error('Failed to send email:', error)
-      return { success: false, channel: 'email', error: error.message }
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, channel: 'email', error: errorMessage }
     }
   }
 
@@ -87,7 +88,8 @@ class NotificationService {
       return { success: true, channel: 'slack' }
     } catch (error) {
       console.error('Failed to send Slack notification:', error)
-      return { success: false, channel: 'slack', error: error.message }
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, channel: 'slack', error: errorMessage }
     }
   }
 
@@ -106,7 +108,8 @@ class NotificationService {
       return { success: true, channel: 'sms' }
     } catch (error) {
       console.error('Failed to send SMS:', error)
-      return { success: false, channel: 'sms', error: error.message }
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, channel: 'sms', error: errorMessage }
     }
   }
 }
@@ -158,9 +161,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (error) {
       console.error('Error creating alert:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
       res.status(500).json({
         error: 'Failed to create alert',
-        details: error.message
+        details: errorMessage
       })
     }
   } else if (req.method === 'GET') {
@@ -197,9 +201,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (error) {
       console.error('Error retrieving alerts:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
       res.status(500).json({
         error: 'Failed to retrieve alerts',
-        details: error.message
+        details: errorMessage
       })
     }
   } else if (req.method === 'PUT') {
@@ -231,9 +236,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (error) {
       console.error('Error updating alert:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
       res.status(500).json({
         error: 'Failed to update alert',
-        details: error.message
+        details: errorMessage
       })
     }
   } else {
@@ -264,7 +270,7 @@ async function sendNotifications(alert: AlertConfig & { id: string; timestamp: n
     let channelRecipients = recipients
 
     // Use default recipients if none specified
-    if (recipients.length === 0 && channelConfig.recipients) {
+    if (recipients.length === 0 && 'recipients' in channelConfig && channelConfig.recipients) {
       channelRecipients = channelConfig.recipients[alert.level] || []
     }
 
@@ -281,33 +287,38 @@ async function sendNotifications(alert: AlertConfig & { id: string; timestamp: n
     const message = formatAlertMessage(alert, channel)
 
     // Send notification
-    let result
-    switch (channel) {
-      case 'email':
-        result = await notificationService.sendEmail(
-          channelRecipients,
-          `🚨 ${alert.title}`,
-          message
-        )
-        break
-      case 'slack':
-        const slackChannel = channelConfig.channels?.[alert.level] || '#satrf-alerts'
-        result = await notificationService.sendSlack(
-          channelConfig.webhook,
-          slackChannel,
-          message
-        )
-        break
-      case 'sms':
-        result = await notificationService.sendSMS(channelRecipients, message)
-        break
-      default:
-        result = {
-          success: false,
-          channel,
-          error: 'Unknown channel'
+      let result
+      switch (channel) {
+        case 'email': {
+          result = await notificationService.sendEmail(
+            channelRecipients,
+            `🚨 ${alert.title}`,
+            message
+          )
+          break
         }
-    }
+        case 'slack': {
+          const slackChannel = 'channels' in channelConfig ? channelConfig.channels?.[alert.level] || '#satrf-alerts' : '#satrf-alerts'
+          const webhookUrl = 'webhook' in channelConfig ? channelConfig.webhook || '' : ''
+          result = await notificationService.sendSlack(
+            webhookUrl,
+            slackChannel,
+            message
+          )
+          break
+        }
+        case 'sms': {
+          result = await notificationService.sendSMS(channelRecipients, message)
+          break
+        }
+        default: {
+          result = {
+            success: false,
+            channel,
+            error: 'Unknown channel'
+          }
+        }
+      }
 
     results.push(result)
   }

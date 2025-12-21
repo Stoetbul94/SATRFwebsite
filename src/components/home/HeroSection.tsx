@@ -30,7 +30,7 @@ const HeroSection = () => {
         <div className="animate-marquee whitespace-nowrap text-6xl md:text-8xl lg:text-9xl font-oxanium font-bold text-electric-cyan/20 select-none">
           SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF
         </div>
-        <div className="absolute animate-marquee whitespace-nowrap text-6xl md:text-8xl lg:text-9xl font-oxanium font-bold text-electric-cyan/20 select-none" style={{ animationDelay: '-10s' }}>
+        <div className="absolute animate-marquee whitespace-nowrap text-6xl md:text-8xl lg:text-9xl font-oxanium font-bold text-electric-cyan/20 select-none" style={{ animationDelay: '-60s' }}>
           SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF SATRF
         </div>
       </div>
@@ -39,7 +39,7 @@ const HeroSection = () => {
       <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">
         {/* Main headline with neon glow and 3D tilt */}
         <h1 
-          className={`font-oxanium font-bold text-4xl md:text-6xl lg:text-7xl xl:text-8xl text-white mb-8 animate-glow-pulse animate-float transform-gpu select-none transition-all duration-1000 ${
+          className={`font-oxanium font-bold text-4xl md:text-6xl lg:text-7xl xl:text-8xl text-white mb-8 animate-glow-pulse animate-float transform-gpu select-none transition-all duration-700 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
           style={{
@@ -78,7 +78,7 @@ const HeroSection = () => {
 
         {/* Subtitle with subtle glow */}
         <p 
-          className={`text-lg md:text-xl lg:text-2xl text-electric-cyan/90 mb-12 max-w-4xl mx-auto font-light transition-all duration-1000 delay-300 ${
+          className={`text-lg md:text-xl lg:text-2xl text-electric-cyan/90 mb-12 max-w-4xl mx-auto font-light transition-all duration-700 delay-200 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
           style={{
@@ -91,7 +91,7 @@ const HeroSection = () => {
 
         {/* CTA Buttons */}
         <div 
-          className={`flex flex-col sm:flex-row gap-6 transition-all duration-1000 delay-500 ${
+          className={`flex flex-col sm:flex-row gap-6 transition-all duration-700 delay-300 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
         >
@@ -120,7 +120,7 @@ const HeroSection = () => {
 
         {/* Scroll indicator */}
         <div 
-          className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 transition-all duration-1000 delay-700 ${
+          className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 transition-all duration-700 delay-400 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
         >

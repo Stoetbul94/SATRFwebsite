@@ -147,3 +147,4 @@ playwright/.cache/
 # Local development files
 local/
 dev/ 
+.vercel

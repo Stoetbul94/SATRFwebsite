@@ -399,6 +399,35 @@ export const authFlow = {
   // Complete login flow
   login: async (email: string, password: string): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
     try {
+      // Check for demo credentials first
+      if (email === 'demo@satrf.org.za' && password === 'DemoPass123') {
+        // Mock demo user
+        const demoUser: UserProfile = {
+          id: 'demo-user-123',
+          firstName: 'Demo',
+          lastName: 'User',
+          email: 'demo@satrf.org.za',
+          membershipType: 'senior',
+          club: 'SATRF Demo Club',
+          role: 'user',
+          isActive: true,
+          emailConfirmed: true,
+          createdAt: new Date().toISOString(),
+          loginCount: 1,
+          lastLoginAt: new Date().toISOString(),
+        };
+
+        // Store mock tokens
+        tokenManager.setTokens(
+          'demo-access-token',
+          'demo-refresh-token',
+          demoUser.id
+        );
+
+        return { success: true, user: demoUser };
+      }
+
+      // For real credentials, try API call
       const response = await authAPI.login({ email, password });
       
       // Store tokens

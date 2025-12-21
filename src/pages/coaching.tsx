@@ -67,6 +67,9 @@ const CoachingPage: NextPage = () => {
         <title>Elite Coaching Services - SATRF</title>
         <meta name="description" content="Professional shooting coaching services in South Africa. Personalized training from certified coaches to improve your performance and competitive edge." />
         <meta name="keywords" content="shooting coaching, SATRF coaching, South Africa shooting, performance training, ISSF coaching" />
+        <meta property="og:title" content="Elite Coaching Services - SATRF" />
+        <meta property="og:description" content="Professional shooting coaching services in South Africa. Personalized training from certified coaches." />
+        <meta property="og:type" content="website" />
       </Head>
 
       {/* Hero Section */}

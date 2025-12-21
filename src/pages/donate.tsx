@@ -6,12 +6,12 @@ import Image from 'next/image';
 import Layout from '@/components/layout/Layout';
 import { FiHeart, FiCreditCard, FiHome, FiMail, FiCopy, FiCheck, FiTarget, FiUsers } from 'react-icons/fi';
 
-const payfastUrl = "https://www.payfast.co.za/eng/process";
-const merchant_id = "24319614";
-const merchant_key = "sshi091ovn1fa";
-const return_url = "https://yourdomain.com/donate/thank-you"; // Replace with actual
-const cancel_url = "https://yourdomain.com/donate";           // Replace with actual
-const notify_url = "https://yourdomain.com/api/payfast-notify"; // (optional, for server notification)
+const payfastUrl = process.env.NEXT_PUBLIC_PAYFAST_URL || "https://www.payfast.co.za/eng/process";
+const merchant_id = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "24319614";
+const merchant_key = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || "sshi091ovn1fa";
+const return_url = process.env.NEXT_PUBLIC_PAYFAST_RETURN_URL || (typeof window !== 'undefined' ? `${window.location.origin}/donate/thank-you` : '/donate/thank-you');
+const cancel_url = process.env.NEXT_PUBLIC_PAYFAST_CANCEL_URL || (typeof window !== 'undefined' ? `${window.location.origin}/donate` : '/donate');
+const notify_url = process.env.NEXT_PUBLIC_PAYFAST_NOTIFY_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/payfast-notify` : '/api/payfast-notify');
 
 export default function Donate() {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(100);
