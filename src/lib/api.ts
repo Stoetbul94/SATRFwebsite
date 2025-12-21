@@ -408,6 +408,18 @@ export const leaderboardAPI = {
     page?: number; 
     limit?: number 
   }) => {
+    // Return empty response immediately if not in browser (SSR safety)
+    if (typeof window === 'undefined') {
+      return {
+        data: [],
+        total: 0,
+        page: filters?.page || 1,
+        limit: filters?.limit || 50,
+        total_pages: 0,
+        filters: filters || {},
+      } as PaginatedResponse<LeaderboardEntry>;
+    }
+
     try {
       // ROOT CAUSE FIX: Use Next.js API route to prevent Network Errors
       const queryParams = new URLSearchParams();
@@ -423,25 +435,68 @@ export const leaderboardAPI = {
       const url = queryString ? `/api/leaderboard/overall?${queryString}` : '/api/leaderboard/overall';
       
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      });
+      
+      // Use AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        // Network error or timeout - return empty data gracefully
+        if (fetchError.name === 'AbortError') {
+          console.warn('Leaderboard API request timeout');
+        } else {
+          console.warn('Leaderboard API network error:', fetchError.message);
+        }
+        return {
+          data: [],
+          total: 0,
+          page: filters?.page || 1,
+          limit: filters?.limit || 50,
+          total_pages: 0,
+          filters: filters || {},
+        } as PaginatedResponse<LeaderboardEntry>;
+      }
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to get error message from response
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          // Ignore JSON parse errors
+        }
+        console.warn('Leaderboard API HTTP error:', errorMessage);
+        return {
+          data: [],
+          total: 0,
+          page: filters?.page || 1,
+          limit: filters?.limit || 50,
+          total_pages: 0,
+          filters: filters || {},
+        } as PaginatedResponse<LeaderboardEntry>;
       }
 
       const data = await response.json();
       return data as PaginatedResponse<LeaderboardEntry>;
     } catch (error: any) {
-      console.error('Leaderboard API Error:', {
+      // Catch any other errors and return empty data gracefully
+      console.warn('Leaderboard API Error:', {
         endpoint: '/api/leaderboard/overall',
         filters,
-        error: error.message,
+        error: error?.message || 'Unknown error',
       });
       // Return empty response on error to prevent crashes
       return {
@@ -460,8 +515,68 @@ export const leaderboardAPI = {
     page?: number; 
     limit?: number 
   }) => {
-    const response = await api.get(`/leaderboard/event/${eventId}`, { params: filters });
-    return response.data as PaginatedResponse<LeaderboardEntry>;
+    // Return empty response if not in browser (SSR safety)
+    if (typeof window === 'undefined') {
+      return {
+        data: [],
+        total: 0,
+        page: filters?.page || 1,
+        limit: filters?.limit || 50,
+        total_pages: 0,
+      } as PaginatedResponse<LeaderboardEntry>;
+    }
+
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+      const queryString = queryParams.toString();
+      const url = queryString 
+        ? `/api/leaderboard/event/${eventId}?${queryString}` 
+        : `/api/leaderboard/event/${eventId}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data as PaginatedResponse<LeaderboardEntry>;
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        console.warn('Event leaderboard API error:', fetchError.message);
+        return {
+          data: [],
+          total: 0,
+          page: filters?.page || 1,
+          limit: filters?.limit || 50,
+          total_pages: 0,
+        } as PaginatedResponse<LeaderboardEntry>;
+      }
+    } catch (error: any) {
+      console.warn('Event leaderboard API error:', error?.message);
+      return {
+        data: [],
+        total: 0,
+        page: filters?.page || 1,
+        limit: filters?.limit || 50,
+        total_pages: 0,
+      } as PaginatedResponse<LeaderboardEntry>;
+    }
   },
 
   getClubLeaderboard: async (filters?: { 
@@ -469,13 +584,114 @@ export const leaderboardAPI = {
     page?: number; 
     limit?: number 
   }) => {
-    const response = await api.get('/leaderboard/club', { params: filters });
-    return response.data as PaginatedResponse<LeaderboardEntry>;
+    // Return empty response if not in browser (SSR safety)
+    if (typeof window === 'undefined') {
+      return {
+        data: [],
+        total: 0,
+        page: filters?.page || 1,
+        limit: filters?.limit || 50,
+        total_pages: 0,
+      } as PaginatedResponse<LeaderboardEntry>;
+    }
+
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+      const queryString = queryParams.toString();
+      const url = queryString ? `/api/leaderboard/club?${queryString}` : '/api/leaderboard/club';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data as PaginatedResponse<LeaderboardEntry>;
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        console.warn('Club leaderboard API error:', fetchError.message);
+        return {
+          data: [],
+          total: 0,
+          page: filters?.page || 1,
+          limit: filters?.limit || 50,
+          total_pages: 0,
+        } as PaginatedResponse<LeaderboardEntry>;
+      }
+    } catch (error: any) {
+      console.warn('Club leaderboard API error:', error?.message);
+      return {
+        data: [],
+        total: 0,
+        page: filters?.page || 1,
+        limit: filters?.limit || 50,
+        total_pages: 0,
+      } as PaginatedResponse<LeaderboardEntry>;
+    }
   },
 
   getStatistics: async () => {
-    const response = await api.get('/leaderboard/statistics');
-    return response.data;
+    // Return empty stats if not in browser (SSR safety)
+    if (typeof window === 'undefined') {
+      return {
+        total_shooters: 0,
+        total_events: 0,
+        total_scores: 0,
+        average_score: 0,
+      };
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await fetch('/api/leaderboard/statistics', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        console.warn('Leaderboard statistics API error:', fetchError.message);
+        return {
+          total_shooters: 0,
+          total_events: 0,
+          total_scores: 0,
+          average_score: 0,
+        };
+      }
+    } catch (error: any) {
+      console.warn('Leaderboard statistics API error:', error?.message);
+      return {
+        total_shooters: 0,
+        total_events: 0,
+        total_scores: 0,
+        average_score: 0,
+      };
+    }
   },
 };
 
