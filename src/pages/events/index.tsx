@@ -644,7 +644,7 @@ export default function Events() {
                     </Text>
                     
                     <Button
-                      colorScheme={getRegistrationStatus(selectedEvent) === 'registered' ? 'green' : 'blue'}
+                      colorScheme={getRegistrationStatus(selectedEvent) === 'open' ? 'blue' : 'gray'}
                       size="lg"
                       w="100%"
                       onClick={() => handleRegister(selectedEvent)}
@@ -654,12 +654,6 @@ export default function Events() {
                     >
                       {getRegistrationBadgeText(getRegistrationStatus(selectedEvent))}
                     </Button>
-                    
-                    {getRegistrationStatus(selectedEvent) === 'registered' && (
-                      <Text fontSize="sm" color="green.500">
-                        ✓ You are registered for this event
-                      </Text>
-                    )}
                   </VStack>
                 </VStack>
               )}
