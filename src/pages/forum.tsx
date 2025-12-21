@@ -52,7 +52,7 @@ export default function Forum() {
                 </Heading>
                 
                 <Text fontSize="lg" color={textColor} lineHeight="relaxed">
-                  We're building an active community forum where SATRF members can:
+                  We&apos;re building an active community forum where SATRF members can:
                 </Text>
 
                 <VStack spacing={4} align="stretch" mt={4}>
@@ -112,7 +112,7 @@ export default function Forum() {
                     Forum Access
                   </Text>
                   <Text color="blue.800" mb={4}>
-                    The forum will be available to all registered SATRF members. You'll need to log in with your member account to participate in discussions.
+                    The forum will be available to all registered SATRF members. You&apos;ll need to log in with your member account to participate in discussions.
                   </Text>
                   <HStack spacing={4}>
                     <Link href="/register">
@@ -133,7 +133,7 @@ export default function Forum() {
                     Expected Launch
                   </Text>
                   <Text color={textColor}>
-                    We're working hard to launch the forum in the coming months. In the meantime, you can stay connected through our events and contact us directly with any questions.
+                    We&apos;re working hard to launch the forum in the coming months. In the meantime, you can stay connected through our events and contact us directly with any questions.
                   </Text>
                 </Box>
               </VStack>

@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
 import {
   Box,
@@ -47,7 +48,7 @@ export default function Privacy() {
                     1. Introduction
                   </Heading>
                   <Text color={textColor} lineHeight="relaxed">
-                    The South African Target Rifle Federation ("SATRF", "we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our services.
+                    The South African Target Rifle Federation (&quot;SATRF&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our services.
                   </Text>
                 </Box>
 
@@ -198,7 +199,7 @@ export default function Privacy() {
                     9. Changes to This Privacy Policy
                   </Heading>
                   <Text color={textColor} lineHeight="relaxed">
-                    We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date. You are advised to review this Privacy Policy periodically for any changes.
+                    We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date. You are advised to review this Privacy Policy periodically for any changes.
                   </Text>
                 </Box>
 
@@ -214,7 +215,7 @@ export default function Privacy() {
                   <Box mt={4} p={4} bg="blue.50" borderRadius="md">
                     <Text color={textColor} fontWeight="semibold">South African Target Rifle Federation</Text>
                     <Text color={textColor}>Email: info@satrf.org.za</Text>
-                    <Text color={textColor}>Website: <a href="/contact" style={{ color: '#3182ce', textDecoration: 'underline' }}>Contact Page</a></Text>
+                    <Text color={textColor}>Website: <Link href="/contact" style={{ color: '#3182ce', textDecoration: 'underline' }}>Contact Page</Link></Text>
                   </Box>
                 </Box>
               </VStack>

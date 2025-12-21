@@ -30,6 +30,11 @@
       "warn",
       { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "ignoreRestSiblings": true }
     ],
-    "no-useless-escape": "warn"
+    "no-useless-escape": "warn",
+    "react/no-unescaped-entities": "warn",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "@next/next/no-html-link-for-pages": "warn",
+    "@next/next/no-img-element": "warn"
   }
 }

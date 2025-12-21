@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
 import {
   Box,
@@ -58,14 +59,14 @@ export default function Terms() {
                     2. Use License
                   </Heading>
                   <Text color={textColor} lineHeight="relaxed" mb={4}>
-                    Permission is granted to temporarily access the materials on SATRF's website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
+                    Permission is granted to temporarily access the materials on SATRF&apos;s website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
                   </Text>
                   <Box as="ul" pl={6} color={textColor} lineHeight="relaxed">
                     <li>Modify or copy the materials</li>
                     <li>Use the materials for any commercial purpose or for any public display</li>
                     <li>Attempt to reverse engineer any software contained on the website</li>
                     <li>Remove any copyright or other proprietary notations from the materials</li>
-                    <li>Transfer the materials to another person or "mirror" the materials on any other server</li>
+                    <li>Transfer the materials to another person or &quot;mirror&quot; the materials on any other server</li>
                   </Box>
                 </Box>
 
@@ -180,7 +181,7 @@ export default function Terms() {
                     8. Disclaimer of Warranties
                   </Heading>
                   <Text color={textColor} lineHeight="relaxed">
-                    The materials on SATRF's website are provided on an 'as is' basis. SATRF makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
+                    The materials on SATRF&apos;s website are provided on an &apos;as is&apos; basis. SATRF makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
                   </Text>
                 </Box>
 
@@ -191,7 +192,7 @@ export default function Terms() {
                     9. Limitation of Liability
                   </Heading>
                   <Text color={textColor} lineHeight="relaxed">
-                    In no event shall SATRF or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on SATRF's website, even if SATRF or a SATRF authorized representative has been notified orally or in writing of the possibility of such damage.
+                    In no event shall SATRF or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on SATRF&apos;s website, even if SATRF or a SATRF authorized representative has been notified orally or in writing of the possibility of such damage.
                   </Text>
                 </Box>
 
@@ -235,7 +236,7 @@ export default function Terms() {
                     13. Changes to Terms
                   </Heading>
                   <Text color={textColor} lineHeight="relaxed">
-                    We reserve the right to modify these Terms of Service at any time. We will notify users of any material changes by posting the new Terms of Service on this page and updating the "Last updated" date. Your continued use of the website after such changes constitutes acceptance of the new terms.
+                    We reserve the right to modify these Terms of Service at any time. We will notify users of any material changes by posting the new Terms of Service on this page and updating the &quot;Last updated&quot; date. Your continued use of the website after such changes constitutes acceptance of the new terms.
                   </Text>
                 </Box>
 
@@ -251,7 +252,7 @@ export default function Terms() {
                   <Box mt={4} p={4} bg="blue.50" borderRadius="md">
                     <Text color={textColor} fontWeight="semibold">South African Target Rifle Federation</Text>
                     <Text color={textColor}>Email: info@satrf.org.za</Text>
-                    <Text color={textColor}>Website: <a href="/contact" style={{ color: '#3182ce', textDecoration: 'underline' }}>Contact Page</a></Text>
+                    <Text color={textColor}>Website: <Link href="/contact" style={{ color: '#3182ce', textDecoration: 'underline' }}>Contact Page</Link></Text>
                   </Box>
                 </Box>
               </VStack>
