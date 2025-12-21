@@ -40,7 +40,7 @@ import { FaSearch, FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAl
 import Layout from '@/components/layout/Layout';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import { eventsAPI, Event } from '@/lib/api';
+import { eventsAPI } from '@/lib/api';
 import Head from 'next/head';
 
 interface Event {
