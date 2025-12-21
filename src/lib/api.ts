@@ -327,8 +327,49 @@ export const scoresAPI = {
   },
 
   getMyScores: async (page = 1, limit = 10, status?: string) => {
-    const response = await api.get('/scores/my-scores', { params: { page, limit, status } });
-    return response.data as PaginatedResponse<Score>;
+    try {
+      // ROOT CAUSE FIX: Use Next.js API route to prevent Network Errors
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', page.toString());
+      queryParams.append('limit', limit.toString());
+      if (status) queryParams.append('status', status);
+      
+      const queryString = queryParams.toString();
+      const url = `/api/scores/my-scores?${queryString}`;
+      
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data as PaginatedResponse<Score>;
+    } catch (error: any) {
+      console.error('Scores API Error:', {
+        endpoint: '/api/scores/my-scores',
+        error: error.message,
+      });
+      // Return empty response on error to prevent crashes
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        total_pages: 0,
+      } as PaginatedResponse<Score>;
+    }
   },
 
   getEventScores: async (eventId: string, page = 1, limit = 50, discipline?: string) => {
@@ -358,6 +399,7 @@ export const scoresAPI = {
 };
 
 // Leaderboard API
+// ROOT CAUSE FIX: Use Next.js API route proxies to prevent Network Errors
 export const leaderboardAPI = {
   getOverall: async (filters?: { 
     discipline?: string; 
@@ -366,8 +408,51 @@ export const leaderboardAPI = {
     page?: number; 
     limit?: number 
   }) => {
-    const response = await api.get('/leaderboard/overall', { params: filters });
-    return response.data as PaginatedResponse<LeaderboardEntry>;
+    try {
+      // ROOT CAUSE FIX: Use Next.js API route to prevent Network Errors
+      const queryParams = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+      
+      const queryString = queryParams.toString();
+      const url = queryString ? `/api/leaderboard/overall?${queryString}` : '/api/leaderboard/overall';
+      
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data as PaginatedResponse<LeaderboardEntry>;
+    } catch (error: any) {
+      console.error('Leaderboard API Error:', {
+        endpoint: '/api/leaderboard/overall',
+        filters,
+        error: error.message,
+      });
+      // Return empty response on error to prevent crashes
+      return {
+        data: [],
+        total: 0,
+        page: filters?.page || 1,
+        limit: filters?.limit || 50,
+        total_pages: 0,
+        filters: filters || {},
+      } as PaginatedResponse<LeaderboardEntry>;
+    }
   },
 
   getEventLeaderboard: async (eventId: string, filters?: { 

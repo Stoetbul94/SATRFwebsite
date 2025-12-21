@@ -36,7 +36,7 @@ interface ScoreRow {
   matchNumber: string;
   shooterName: string;
   club: string;
-  division: string;
+  division: string; // Contains class: Prone A class, Prone B class, Prone C class, 3P, F-Class, H-class
   veteran: string;
   series1: number;
   series2: number;
@@ -57,24 +57,37 @@ interface FileUploadComponentProps {
 }
 
 const VALID_EVENTS = ['Prone Match 1', 'Prone Match 2', '3P', 'Air Rifle'];
-const VALID_DIVISIONS = ['Open', 'Junior', 'Veteran', 'Master'];
+// Division now contains the class values
+const VALID_DIVISIONS = ['Prone A class', 'Prone B class', 'Prone C class', '3P', 'F-Class', 'H-class'];
 
 // Header mapping from normalized headers to camelCase keys
+// Handles both "Series 1" (with space) and "series1" (no space) formats
 const HEADER_MAP: { [key: string]: string } = {
   'eventname': 'eventName',
+  'event name': 'eventName',
   'matchnumber': 'matchNumber',
+  'match number': 'matchNumber',
   'shootername': 'shooterName',
+  'shooter name': 'shooterName',
   'club': 'club',
   'division': 'division',
   'divisionclass': 'division',
   'division/class': 'division',
+  'division class': 'division',
+  'class': 'division', // Map 'class' to 'division' since division now contains class values
   'veteran': 'veteran',
   'series1': 'series1',
+  'series 1': 'series1',
   'series2': 'series2',
+  'series 2': 'series2',
   'series3': 'series3',
+  'series 3': 'series3',
   'series4': 'series4',
+  'series 4': 'series4',
   'series5': 'series5',
+  'series 5': 'series5',
   'series6': 'series6',
+  'series 6': 'series6',
   'total': 'total',
   'place': 'place'
 };
@@ -120,7 +133,7 @@ export default function FileUploadComponent({
     }
 
     if (!row.division || !VALID_DIVISIONS.includes(row.division)) {
-      errors.push(`Row ${rowIndex + 1}: Invalid or missing division`);
+      errors.push(`Row ${rowIndex + 1}: Invalid or missing division/class`);
     }
 
     if (!row.veteran || !['Y', 'N'].includes(row.veteran.toUpperCase())) {

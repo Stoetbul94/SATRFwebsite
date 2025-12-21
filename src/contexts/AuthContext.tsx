@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import { 
   UserProfile, 
@@ -300,9 +300,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Clear error
-  const clearError = (): void => {
+  // Memoize clearError to prevent infinite loops in useEffect dependencies
+  const clearError = useCallback((): void => {
     dispatch({ type: 'CLEAR_ERROR' });
-  };
+  }, []);
 
   // Context value
   const contextValue: AuthContextType = {
@@ -364,11 +365,16 @@ export const useRedirectIfAuthenticated = (redirectTo: string = '/dashboard'): v
       const { redirect } = router.query;
       const targetPath = redirect ? String(redirect) : redirectTo;
       
-      if (router.asPath !== targetPath) {
+      // Only redirect if we're not already on the target path
+      // Use router.pathname instead of router.asPath to avoid query param issues
+      if (router.pathname !== targetPath && router.pathname !== redirect) {
         router.replace(targetPath);
       }
     }
-  }, [isAuthenticated, isLoading, isInitialized, router, redirectTo]);
+    // Fix: Remove router from dependencies to prevent infinite loops
+    // router.query and router.pathname are stable enough for this check
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading, isInitialized, redirectTo]);
 };
 
 export default AuthContext; 

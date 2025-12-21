@@ -32,7 +32,7 @@ interface ScoreRow {
   matchNumber: string;
   shooterName: string;
   club: string;
-  division: string;
+  division: string; // This contains the class: Prone A class, Prone B class, Prone C class, 3P, F-Class, H-class
   veteran: string;
   series1: number;
   series2: number;
@@ -53,7 +53,8 @@ interface ManualEntryComponentProps {
 }
 
 const VALID_EVENTS = ['Prone Match 1', 'Prone Match 2', '3P', 'Air Rifle'];
-const VALID_DIVISIONS = ['Open', 'Junior', 'Veteran', 'Master'];
+// Division now contains the class values
+const VALID_DIVISIONS = ['Prone A class', 'Prone B class', 'Prone C class', '3P', 'F-Class', 'H-class'];
 
 export default function ManualEntryComponent({
   onImportSuccess,
@@ -71,7 +72,7 @@ export default function ManualEntryComponent({
     matchNumber: '',
     shooterName: '',
     club: '',
-    division: '',
+    division: '', // Contains class: Prone A class, Prone B class, Prone C class, 3P, F-Class, H-class
     veteran: '',
     series1: 0,
     series2: 0,
@@ -91,8 +92,11 @@ export default function ManualEntryComponent({
   const validateRow = (row: ScoreRow): string[] => {
     const errors: string[] = [];
 
-    if (!row.eventName || !VALID_EVENTS.includes(row.eventName)) {
-      errors.push('Invalid or missing event name');
+    // Event name validation - allow any non-empty string (changed from dropdown to manual input)
+    if (!row.eventName || !row.eventName.trim()) {
+      errors.push('Event name is required');
+    } else if (row.eventName.trim().length > 200) {
+      errors.push('Event name must be less than 200 characters');
     }
 
     if (!row.matchNumber.trim()) {
@@ -108,7 +112,7 @@ export default function ManualEntryComponent({
     }
 
     if (!row.division || !VALID_DIVISIONS.includes(row.division)) {
-      errors.push('Invalid or missing division');
+      errors.push('Invalid or missing division/class');
     }
 
     if (!row.veteran || !['Y', 'N'].includes(row.veteran.toUpperCase())) {
@@ -132,6 +136,45 @@ export default function ManualEntryComponent({
     return errors;
   };
 
+  // Calculate place based on Event Name, Match #, and Division (Class)
+  const calculatePlaces = useCallback((rows: ScoreRow[]): ScoreRow[] => {
+    // Group rows by Event Name, Match #, and Division (Class)
+    const groups: { [key: string]: ScoreRow[] } = {};
+    
+    rows.forEach(row => {
+      if (row.eventName && row.matchNumber && row.division && row.total > 0) {
+        const key = `${row.eventName}|${row.matchNumber}|${row.division}`;
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(row);
+      }
+    });
+    
+    // Sort each group by total (descending) and assign places
+    Object.keys(groups).forEach(key => {
+      const group = groups[key];
+      // Sort by total descending, then by shooter name for ties
+      group.sort((a, b) => {
+        if (b.total !== a.total) {
+          return b.total - a.total;
+        }
+        return a.shooterName.localeCompare(b.shooterName);
+      });
+      
+      // Assign places (handle ties - same place for same score)
+      let currentPlace = 1;
+      for (let i = 0; i < group.length; i++) {
+        if (i > 0 && group[i].total < group[i - 1].total) {
+          currentPlace = i + 1;
+        }
+        group[i].place = currentPlace;
+      }
+    });
+    
+    return rows;
+  }, []);
+
   const updateRow = useCallback((id: string, field: keyof ScoreRow, value: any) => {
     setRows(prevRows => {
       const updatedRows = prevRows.map(row => {
@@ -140,6 +183,7 @@ export default function ManualEntryComponent({
           
           // Auto-calculate total if series scores change
           if (field.startsWith('series')) {
+            // Handle empty string or NaN values properly
             const series = [
               updatedRow.series1,
               updatedRow.series2,
@@ -147,7 +191,11 @@ export default function ManualEntryComponent({
               updatedRow.series4,
               updatedRow.series5,
               updatedRow.series6,
-            ];
+            ].map(score => {
+              // Convert to number, default to 0 if invalid
+              const num = typeof score === 'string' ? parseFloat(score) : score;
+              return isNaN(num) || num === null || num === undefined ? 0 : num;
+            });
             updatedRow.total = series.reduce((sum, score) => sum + score, 0);
           }
           
@@ -159,13 +207,16 @@ export default function ManualEntryComponent({
         return row;
       });
       
+      // Recalculate places after any update
+      const rowsWithPlaces = calculatePlaces(updatedRows);
+      
       // Update overall validation errors
-      const allErrors = updatedRows.flatMap(row => row.errors);
+      const allErrors = rowsWithPlaces.flatMap(row => row.errors);
       setValidationErrors(allErrors);
       
-      return updatedRows;
+      return rowsWithPlaces;
     });
-  }, []);
+  }, [calculatePlaces]);
 
   const addRow = () => {
     setRows(prevRows => [...prevRows, createEmptyRow()]);
@@ -302,24 +353,24 @@ export default function ManualEntryComponent({
       {/* Score Entry Table */}
       {rows.length > 0 && (
         <Box overflowX="auto">
-          <Table variant="simple" size="sm">
+          <Table variant="simple" size="md">
             <Thead>
               <Tr>
-                <Th>Event</Th>
-                <Th>Match #</Th>
-                <Th>Shooter</Th>
-                <Th>Club</Th>
-                <Th>Division</Th>
-                <Th>Veteran</Th>
-                <Th>S1</Th>
-                <Th>S2</Th>
-                <Th>S3</Th>
-                <Th>S4</Th>
-                <Th>S5</Th>
-                <Th>S6</Th>
-                <Th>Total</Th>
-                <Th>Place</Th>
-                <Th>Actions</Th>
+                <Th minW="180px">Event</Th>
+                <Th minW="120px">Match #</Th>
+                <Th minW="180px">Shooter</Th>
+                <Th minW="150px">Club</Th>
+                <Th minW="150px">Division</Th>
+                <Th minW="90px">Veteran</Th>
+                <Th minW="100px">Series 1</Th>
+                <Th minW="100px">Series 2</Th>
+                <Th minW="100px">Series 3</Th>
+                <Th minW="100px">Series 4</Th>
+                <Th minW="100px">Series 5</Th>
+                <Th minW="100px">Series 6</Th>
+                <Th minW="100px">Total</Th>
+                <Th minW="80px">Place</Th>
+                <Th minW="120px">Actions</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -327,16 +378,14 @@ export default function ManualEntryComponent({
                 <Tr key={row.id} bg={row.errors.length > 0 ? 'red.50' : 'white'}>
                   <Td>
                     <FormControl isInvalid={row.errors.some(e => e.includes('event name'))}>
-                      <Select
+                      <Input
                         value={row.eventName}
                         onChange={(e) => updateRow(row.id, 'eventName', e.target.value)}
-                        size="sm"
-                      >
-                        <option value="">Select Event</option>
-                        {VALID_EVENTS.map(event => (
-                          <option key={event} value={event}>{event}</option>
-                        ))}
-                      </Select>
+                        size="md"
+                        placeholder="Event Name"
+                        fontSize="sm"
+                        w="180px"
+                      />
                     </FormControl>
                   </Td>
                   <Td>
@@ -344,8 +393,10 @@ export default function ManualEntryComponent({
                       <Input
                         value={row.matchNumber}
                         onChange={(e) => updateRow(row.id, 'matchNumber', e.target.value)}
-                        size="sm"
+                        size="md"
                         placeholder="Match #"
+                        fontSize="sm"
+                        w="120px"
                       />
                     </FormControl>
                   </Td>
@@ -354,8 +405,10 @@ export default function ManualEntryComponent({
                       <Input
                         value={row.shooterName}
                         onChange={(e) => updateRow(row.id, 'shooterName', e.target.value)}
-                        size="sm"
+                        size="md"
                         placeholder="Shooter Name"
+                        fontSize="sm"
+                        w="180px"
                       />
                     </FormControl>
                   </Td>
@@ -364,8 +417,10 @@ export default function ManualEntryComponent({
                       <Input
                         value={row.club}
                         onChange={(e) => updateRow(row.id, 'club', e.target.value)}
-                        size="sm"
+                        size="md"
                         placeholder="Club"
+                        fontSize="sm"
+                        w="150px"
                       />
                     </FormControl>
                   </Td>
@@ -374,7 +429,8 @@ export default function ManualEntryComponent({
                       <Select
                         value={row.division}
                         onChange={(e) => updateRow(row.id, 'division', e.target.value)}
-                        size="sm"
+                        size="md"
+                        fontSize="sm"
                       >
                         <option value="">Select Division</option>
                         {VALID_DIVISIONS.map(division => (
@@ -388,7 +444,8 @@ export default function ManualEntryComponent({
                       <Select
                         value={row.veteran}
                         onChange={(e) => updateRow(row.id, 'veteran', e.target.value)}
-                        size="sm"
+                        size="md"
+                        fontSize="sm"
                       >
                         <option value="">Y/N</option>
                         <option value="Y">Y</option>
@@ -400,12 +457,19 @@ export default function ManualEntryComponent({
                     <FormControl isInvalid={row.errors.some(e => e.includes('Series 1'))}>
                       <Input
                         type="number"
-                        value={row.series1}
-                        onChange={(e) => updateRow(row.id, 'series1', parseFloat(e.target.value) || 0)}
-                        size="sm"
+                        value={row.series1 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          updateRow(row.id, 'series1', isNaN(val) ? 0 : val);
+                        }}
+                        size="md"
                         min="0"
                         max="109"
                         step="0.1"
+                        fontSize="sm"
+                        textAlign="center"
+                        w="100px"
+                        placeholder="0.0"
                       />
                     </FormControl>
                   </Td>
@@ -413,12 +477,19 @@ export default function ManualEntryComponent({
                     <FormControl isInvalid={row.errors.some(e => e.includes('Series 2'))}>
                       <Input
                         type="number"
-                        value={row.series2}
-                        onChange={(e) => updateRow(row.id, 'series2', parseFloat(e.target.value) || 0)}
-                        size="sm"
+                        value={row.series2 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          updateRow(row.id, 'series2', isNaN(val) ? 0 : val);
+                        }}
+                        size="md"
                         min="0"
                         max="109"
                         step="0.1"
+                        fontSize="sm"
+                        textAlign="center"
+                        w="100px"
+                        placeholder="0.0"
                       />
                     </FormControl>
                   </Td>
@@ -426,12 +497,19 @@ export default function ManualEntryComponent({
                     <FormControl isInvalid={row.errors.some(e => e.includes('Series 3'))}>
                       <Input
                         type="number"
-                        value={row.series3}
-                        onChange={(e) => updateRow(row.id, 'series3', parseFloat(e.target.value) || 0)}
-                        size="sm"
+                        value={row.series3 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          updateRow(row.id, 'series3', isNaN(val) ? 0 : val);
+                        }}
+                        size="md"
                         min="0"
                         max="109"
                         step="0.1"
+                        fontSize="sm"
+                        textAlign="center"
+                        w="100px"
+                        placeholder="0.0"
                       />
                     </FormControl>
                   </Td>
@@ -439,12 +517,19 @@ export default function ManualEntryComponent({
                     <FormControl isInvalid={row.errors.some(e => e.includes('Series 4'))}>
                       <Input
                         type="number"
-                        value={row.series4}
-                        onChange={(e) => updateRow(row.id, 'series4', parseFloat(e.target.value) || 0)}
-                        size="sm"
+                        value={row.series4 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          updateRow(row.id, 'series4', isNaN(val) ? 0 : val);
+                        }}
+                        size="md"
                         min="0"
                         max="109"
                         step="0.1"
+                        fontSize="sm"
+                        textAlign="center"
+                        w="100px"
+                        placeholder="0.0"
                       />
                     </FormControl>
                   </Td>
@@ -452,12 +537,19 @@ export default function ManualEntryComponent({
                     <FormControl isInvalid={row.errors.some(e => e.includes('Series 5'))}>
                       <Input
                         type="number"
-                        value={row.series5}
-                        onChange={(e) => updateRow(row.id, 'series5', parseFloat(e.target.value) || 0)}
-                        size="sm"
+                        value={row.series5 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          updateRow(row.id, 'series5', isNaN(val) ? 0 : val);
+                        }}
+                        size="md"
                         min="0"
                         max="109"
                         step="0.1"
+                        fontSize="sm"
+                        textAlign="center"
+                        w="100px"
+                        placeholder="0.0"
                       />
                     </FormControl>
                   </Td>
@@ -465,12 +557,19 @@ export default function ManualEntryComponent({
                     <FormControl isInvalid={row.errors.some(e => e.includes('Series 6'))}>
                       <Input
                         type="number"
-                        value={row.series6}
-                        onChange={(e) => updateRow(row.id, 'series6', parseFloat(e.target.value) || 0)}
-                        size="sm"
+                        value={row.series6 || ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          updateRow(row.id, 'series6', isNaN(val) ? 0 : val);
+                        }}
+                        size="md"
                         min="0"
                         max="109"
                         step="0.1"
+                        fontSize="sm"
+                        textAlign="center"
+                        w="100px"
+                        placeholder="0.0"
                       />
                     </FormControl>
                   </Td>
@@ -478,19 +577,24 @@ export default function ManualEntryComponent({
                     <Input
                       value={row.total}
                       isReadOnly
-                      size="sm"
+                      size="md"
                       bg="gray.100"
                       fontWeight="semibold"
+                      fontSize="sm"
+                      textAlign="center"
                     />
                   </Td>
                   <Td>
                     <Input
-                      type="number"
                       value={row.place || ''}
-                      onChange={(e) => updateRow(row.id, 'place', e.target.value ? parseInt(e.target.value) : undefined)}
-                      size="sm"
-                      min="1"
-                      placeholder="Place"
+                      isReadOnly
+                      size="md"
+                      bg="blue.50"
+                      fontWeight="semibold"
+                      fontSize="sm"
+                      textAlign="center"
+                      placeholder="Auto"
+                      title="Place is automatically calculated based on Event Name, Match #, and Division (Class)"
                     />
                   </Td>
                   <Td>

@@ -32,7 +32,7 @@ export default function ScoreTemplate() {
         'Match Number': '001',
         'Shooter Name': 'John Doe',
         'Club': 'SATRF Club',
-        'Division/Class': 'Open',
+        'Division': 'Prone A class',
         'Veteran': 'N',
         'Series 1': 95.5,
         'Series 2': 96.2,
@@ -48,7 +48,7 @@ export default function ScoreTemplate() {
         'Match Number': '001',
         'Shooter Name': 'Jane Smith',
         'Club': 'Target Club',
-        'Division/Class': 'Junior',
+        'Division': 'Prone B class',
         'Veteran': 'N',
         'Series 1': 92.3,
         'Series 2': 94.1,
@@ -64,7 +64,7 @@ export default function ScoreTemplate() {
         'Match Number': '002',
         'Shooter Name': 'Bob Johnson',
         'Club': 'Precision Club',
-        'Division/Class': 'Veteran',
+        'Division': '3P',
         'Veteran': 'Y',
         'Series 1': 98.5,
         'Series 2': 97.8,
@@ -81,24 +81,31 @@ export default function ScoreTemplate() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(sampleData);
 
-    // Set column widths
+    // Set column widths (adjusted for better visibility)
     const colWidths = [
-      { wch: 15 }, // Event Name
-      { wch: 12 }, // Match Number
-      { wch: 20 }, // Shooter Name
-      { wch: 15 }, // Club
-      { wch: 15 }, // Division/Class
-      { wch: 8 },  // Veteran
-      { wch: 10 }, // Series 1
-      { wch: 10 }, // Series 2
-      { wch: 10 }, // Series 3
-      { wch: 10 }, // Series 4
-      { wch: 10 }, // Series 5
-      { wch: 10 }, // Series 6
-      { wch: 10 }, // Total
-      { wch: 8 },  // Place
+      { wch: 20 }, // Event Name (manual input - any text)
+      { wch: 15 }, // Match Number
+      { wch: 25 }, // Shooter Name
+      { wch: 18 }, // Club
+      { wch: 18 }, // Division (contains class: Prone A class, Prone B class, etc.)
+      { wch: 10 }, // Veteran
+      { wch: 12 }, // Series 1
+      { wch: 12 }, // Series 2
+      { wch: 12 }, // Series 3
+      { wch: 12 }, // Series 4
+      { wch: 12 }, // Series 5
+      { wch: 12 }, // Series 6
+      { wch: 12 }, // Total
+      { wch: 10 }, // Place
     ];
     ws['!cols'] = colWidths;
+
+    // Note: Excel dropdown validation requires Excel's native format
+    // The XLSX library doesn't fully support data validation in the browser
+    // Users should manually add dropdown validation in Excel for Division column:
+    // 1. Select the Division column (E column)
+    // 2. Data > Data Validation > List
+    // 3. Enter: Prone A class,Prone B class,Prone C class,3P,F-Class,H-class
 
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'Score Template');
@@ -187,8 +194,8 @@ export default function ScoreTemplate() {
                       <Td fontWeight="semibold">Event Name</Td>
                       <Td>Text</Td>
                       <Td>Yes</Td>
-                      <Td>Prone Match 1, Prone Match 2, 3P, Air Rifle</Td>
-                      <Td>The type of shooting event</Td>
+                      <Td>Any text (e.g., Prone Match 1, Air Rifle, 3P, etc.)</Td>
+                      <Td>The type of shooting event (manual entry - any event name)</Td>
                     </Tr>
                     <Tr>
                       <Td fontWeight="semibold">Match Number</Td>

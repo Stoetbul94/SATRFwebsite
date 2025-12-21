@@ -42,22 +42,22 @@ const templateData = [
 const workbook = XLSX.utils.book_new();
 const worksheet = XLSX.utils.json_to_sheet(templateData);
 
-// Set column widths for better readability
+// Set column widths for better readability (adjusted for manual event entry)
 const columnWidths = [
-  { wch: 15 }, // Event Name
-  { wch: 12 }, // Match Number
-  { wch: 20 }, // Shooter Name
-  { wch: 15 }, // Club
+  { wch: 20 }, // Event Name (manual input - any text)
+  { wch: 15 }, // Match Number
+  { wch: 25 }, // Shooter Name
+  { wch: 18 }, // Club
   { wch: 15 }, // Division/Class
-  { wch: 8 },  // Veteran
-  { wch: 10 }, // Series 1
-  { wch: 10 }, // Series 2
-  { wch: 10 }, // Series 3
-  { wch: 10 }, // Series 4
-  { wch: 10 }, // Series 5
-  { wch: 10 }, // Series 6
-  { wch: 10 }, // Total
-  { wch: 8 }   // Place
+  { wch: 10 }, // Veteran
+  { wch: 12 }, // Series 1
+  { wch: 12 }, // Series 2
+  { wch: 12 }, // Series 3
+  { wch: 12 }, // Series 4
+  { wch: 12 }, // Series 5
+  { wch: 12 }, // Series 6
+  { wch: 12 }, // Total
+  { wch: 10 }  // Place
 ];
 
 worksheet['!cols'] = columnWidths;

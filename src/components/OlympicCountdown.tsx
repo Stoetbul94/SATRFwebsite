@@ -57,61 +57,72 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
   const ringValues = [timeLeft.days, timeLeft.hours, timeLeft.minutes, timeLeft.seconds, null];
 
   const OlympicRingsWithCountdown = () => (
-    <div className="flex justify-center items-center mb-6">
+    <div className="flex justify-center items-center mb-8 sm:mb-10 md:mb-12">
       <svg 
-        width="400" 
-        height="140" 
-        viewBox="0 0 400 140" 
-        className="w-full max-w-md mx-auto"
+        width="450" 
+        height="160" 
+        viewBox="0 0 450 160" 
+        className="w-full max-w-2xl mx-auto"
         aria-label="Olympic rings countdown timer"
       >
         {/* Olympic rings with countdown numbers */}
         {ringColors.map((color, index) => {
-          const cx = 40 + (index * 80); // Horizontal spacing
-          const cy = 50; // Vertical center for rings
-          const r = 35; // Ring radius
+          const cx = 45 + (index * 90); // Better horizontal spacing
+          const cy = 60; // Vertical center for rings
+          const r = 38; // Slightly larger ring radius for better visibility
           
           return (
-            <g key={index} className="transition-all duration-300 ease-in-out">
-              {/* Ring */}
+            <g key={index} className="transition-all duration-300 ease-in-out hover:scale-110">
+              {/* Ring with enhanced shadow */}
               <circle 
                 cx={cx} 
                 cy={cy} 
                 r={r} 
                 fill="none" 
                 stroke={color} 
-                strokeWidth="4"
-                className="drop-shadow-lg"
+                strokeWidth="5"
+                className="drop-shadow-2xl"
+                style={{
+                  filter: `drop-shadow(0 0 8px ${color}80) drop-shadow(0 0 15px ${color}40)`,
+                }}
               />
               
               {/* Countdown number or content inside ring */}
               {index < 4 ? (
-                <text
-                  x={cx}
-                  y={cy + 12}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="text-2xl font-bold fill-white font-oxanium"
-                  aria-label={`${ringLabels[index]}: ${ringValues[index]}`}
-                >
-                  {ringValues[index]?.toString().padStart(2, '0') || '00'}
-                </text>
+                <>
+                  <text
+                    x={cx}
+                    y={cy + 8}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-3xl font-bold fill-white font-oxanium"
+                    style={{
+                      textShadow: '0 0 10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 0, 0, 0.5)',
+                    }}
+                    aria-label={`${ringLabels[index]}: ${ringValues[index]}`}
+                  >
+                    {ringValues[index]?.toString().padStart(2, '0') || '00'}
+                  </text>
+                </>
               ) : showFifthRing && fifthRingContent ? (
-                <foreignObject x={cx - 25} y={cy - 25} width="50" height="50">
+                <foreignObject x={cx - 30} y={cy - 30} width="60" height="60">
                   <div className="flex items-center justify-center h-full">
                     {fifthRingContent}
                   </div>
                 </foreignObject>
               ) : null}
               
-              {/* Label below ring */}
+              {/* Label below ring with better styling */}
               {index < 4 && (
                 <text
                   x={cx}
-                  y={cy + 70}
+                  y={cy + 85}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  className="text-sm sm:text-base font-medium fill-gray-300"
+                  className="text-sm sm:text-base md:text-lg font-semibold fill-gray-200 font-oxanium uppercase tracking-wide"
+                  style={{
+                    textShadow: '0 0 5px rgba(0, 0, 0, 0.5)',
+                  }}
                 >
                   {ringLabels[index]}
                 </text>
@@ -119,10 +130,13 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
               {showFifthRing && index === 4 && (
                 <text
                   x={cx}
-                  y={cy + 70}
+                  y={cy + 85}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  className="text-sm sm:text-base font-medium fill-gray-300"
+                  className="text-sm sm:text-base md:text-lg font-semibold fill-gray-200 font-oxanium uppercase tracking-wide"
+                  style={{
+                    textShadow: '0 0 5px rgba(0, 0, 0, 0.5)',
+                  }}
                 >
                   {fifthRingContent ? 'Logo' : ''}
                 </text>
@@ -160,18 +174,48 @@ const OlympicCountdown: React.FC<OlympicCountdownProps> = ({
   }
 
   return (
-    <section className="py-16 bg-midnight-steel">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="mb-8">
-          <OlympicRingsWithCountdown />
+    <section className="relative py-20 sm:py-24 md:py-28 bg-gradient-to-br from-midnight-steel via-midnight-dark to-midnight-light overflow-hidden">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-0 left-0 w-full h-full" style={{
+          backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(0, 255, 255, 0.3) 1px, transparent 0)',
+          backgroundSize: '40px 40px',
+        }} />
+      </div>
+
+      {/* Gradient overlay for depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-midnight-steel/50 to-transparent" />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          {/* Olympic Rings Countdown */}
+          <div className="mb-10 sm:mb-12 md:mb-16">
+            <OlympicRingsWithCountdown />
+          </div>
           
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 animate-fade-in">
-            Countdown to the 2028 Olympics
+          {/* Title with better spacing and styling */}
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-oxanium font-bold text-white mb-6 sm:mb-8 md:mb-10 leading-tight">
+            <span className="block mb-2 bg-gradient-to-r from-electric-cyan via-electric-blue to-electric-cyan bg-clip-text text-transparent animate-gradient-x">
+              Countdown to the 2028 Olympics
+            </span>
           </h2>
           
-          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed animate-slide-up">
-            The Olympic Games begin on July 21, 2028. Support our South African target shooting athletes as they prepare for glory!
-          </p>
+          {/* Description with improved readability */}
+          <div className="max-w-3xl mx-auto space-y-4">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-200 leading-relaxed font-light">
+              The Olympic Games begin on <span className="font-semibold text-electric-cyan">July 21, 2028</span>.
+            </p>
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 leading-relaxed font-light">
+              Support our <span className="font-semibold text-white">South African target shooting athletes</span> as they prepare for glory!
+            </p>
+          </div>
+
+          {/* Decorative elements */}
+          <div className="mt-12 sm:mt-16 flex justify-center items-center gap-4">
+            <div className="h-px w-16 bg-gradient-to-r from-transparent to-electric-cyan" />
+            <div className="w-2 h-2 rounded-full bg-electric-cyan animate-pulse" />
+            <div className="h-px w-16 bg-gradient-to-l from-transparent to-electric-cyan" />
+          </div>
         </div>
       </div>
     </section>

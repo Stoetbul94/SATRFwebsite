@@ -435,17 +435,20 @@ const RegisterPage: NextPage = () => {
                 )}
               </button>
             </div>
-
-            {/* Login Link */}
-            <div className="text-center">
-              <p className="text-sm text-gray-400 font-oxanium">
-                Already have an account?{' '}
-                <Link href="/login" className="font-medium text-electric-cyan hover:text-electric-neon transition-colors duration-200">
-                  Sign in here
-                </Link>
-              </p>
-            </div>
           </form>
+
+          {/* Login Link - Moved outside form to prevent form submission interference */}
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-400 font-oxanium">
+              Already have an account?{' '}
+              <Link 
+                href="/login" 
+                className="font-medium text-electric-cyan hover:text-electric-neon transition-colors duration-200"
+              >
+                Sign in here
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </>

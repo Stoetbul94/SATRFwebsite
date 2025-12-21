@@ -30,7 +30,11 @@ export default function Home() {
 
         // Fetch upcoming events
         const eventsData = await eventsAPI.getAll({ status: 'open' });
-        setUpcomingEvents(eventsData.slice(0, 3)); // Show first 3 events
+        // Handle both array and paginated response formats
+        const eventsArray = Array.isArray(eventsData) 
+          ? eventsData 
+          : (eventsData.data || []);
+        setUpcomingEvents(eventsArray.slice(0, 3)); // Show first 3 events
       } catch (error) {
         console.error('Error fetching home page data:', error);
         console.log('Setting fallback data...');
@@ -212,32 +216,42 @@ export default function Home() {
       </section>
 
       {/* Affiliate Logos Section */}
-      <section className="py-16 bg-white">
+      <section className="py-20 sm:py-24 md:py-28 bg-gradient-to-b from-white via-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+          {/* Header Section with Better Spacing */}
+          <div className="text-center mb-12 sm:mb-16 md:mb-20">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-oxanium font-bold text-gray-900 mb-4 sm:mb-6">
               Our Partners
             </h2>
-            <p className="text-gray-600">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
               Working together with leading organizations in target shooting
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 items-center">
+          {/* Partner Logos Grid with Enhanced Styling */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 md:gap-12 items-center justify-items-center">
             {[
-              'ISSF-Logo.jpg',
-              'SASSCO_Logo.jpeg',
-              'TeamSa.jpg',
-              'SATRFLOGO.png'
-            ].map((logo, index) => (
-              <div key={index} className="flex justify-center">
-                <Image
-                  src={`/images/affiliates/${logo}`}
-                  alt={`Partner logo ${index + 1}`}
-                  width={120}
-                  height={60}
-                  className="h-12 w-auto grayscale hover:grayscale-0 transition-all duration-200"
-                />
+              { name: 'ISSF', logo: 'ISSF-Logo.jpg' },
+              { name: 'SASSCO', logo: 'SASSCO_Logo.jpeg' },
+              { name: 'Team SA', logo: 'TeamSa.jpg' },
+              { name: 'SATRF', logo: 'SATRFLOGO.png' }
+            ].map((partner, index) => (
+              <div 
+                key={index} 
+                className="group flex flex-col items-center justify-center w-full max-w-[200px] transition-all duration-300 hover:scale-105"
+              >
+                <div className="relative w-full h-24 sm:h-28 md:h-32 mb-3 sm:mb-4 flex items-center justify-center p-4 sm:p-6 bg-white rounded-lg shadow-sm hover:shadow-lg border border-gray-100 hover:border-gray-200 transition-all duration-300">
+                  <Image
+                    src={`/images/affiliates/${partner.logo}`}
+                    alt={`${partner.name} logo`}
+                    width={150}
+                    height={80}
+                    className="w-auto h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-300"
+                  />
+                </div>
+                <p className="text-sm sm:text-base font-medium text-gray-700 mt-2 text-center">
+                  {partner.name}
+                </p>
               </div>
             ))}
           </div>

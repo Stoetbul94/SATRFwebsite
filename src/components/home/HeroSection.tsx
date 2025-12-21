@@ -36,10 +36,10 @@ const HeroSection = () => {
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">
+      <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-6 md:px-8 text-center">
         {/* Main headline with neon glow and 3D tilt */}
         <h1 
-          className={`font-oxanium font-bold text-4xl md:text-6xl lg:text-7xl xl:text-8xl text-white mb-8 animate-glow-pulse animate-float transform-gpu select-none transition-all duration-700 ${
+          className={`font-oxanium font-bold text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl text-white mb-6 sm:mb-8 md:mb-10 lg:mb-12 animate-glow-pulse animate-float transform-gpu select-none transition-all duration-700 leading-tight ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
           style={{
@@ -76,22 +76,33 @@ const HeroSection = () => {
           South African Target Rifle Federation
         </h1>
 
-        {/* Subtitle with subtle glow */}
-        <p 
-          className={`text-lg md:text-xl lg:text-2xl text-electric-cyan/90 mb-12 max-w-4xl mx-auto font-light transition-all duration-700 delay-200 ${
+        {/* Subtitle with subtle glow - split into two lines for better readability */}
+        <div 
+          className={`max-w-4xl mx-auto mb-8 sm:mb-10 md:mb-12 lg:mb-16 transition-all duration-700 delay-200 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
-          style={{
-            textShadow: '0 0 10px rgba(0, 255, 255, 0.3), 0 0 20px rgba(0, 255, 255, 0.2)',
-          }}
         >
-          Promoting excellence in target rifle shooting across South Africa. 
-          Join us in our mission to develop and support competitive shooting sports.
-        </p>
+          <p 
+            className="text-base sm:text-lg md:text-xl lg:text-2xl text-electric-cyan/90 font-light leading-relaxed mb-4"
+            style={{
+              textShadow: '0 0 10px rgba(0, 255, 255, 0.3), 0 0 20px rgba(0, 255, 255, 0.2)',
+            }}
+          >
+            Promoting excellence in target rifle shooting across South Africa.
+          </p>
+          <p 
+            className="text-base sm:text-lg md:text-xl lg:text-2xl text-electric-cyan/90 font-light leading-relaxed"
+            style={{
+              textShadow: '0 0 10px rgba(0, 255, 255, 0.3), 0 0 20px rgba(0, 255, 255, 0.2)',
+            }}
+          >
+            Join us in our mission to develop and support competitive shooting sports.
+          </p>
+        </div>
 
         {/* CTA Buttons */}
         <div 
-          className={`flex flex-col sm:flex-row gap-6 transition-all duration-700 delay-300 ${
+          className={`flex flex-col sm:flex-row gap-4 sm:gap-6 transition-all duration-700 delay-300 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
         >

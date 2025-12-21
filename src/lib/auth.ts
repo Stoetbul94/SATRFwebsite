@@ -401,7 +401,8 @@ export const authFlow = {
     try {
       // Check for demo credentials first
       if (email === 'demo@satrf.org.za' && password === 'DemoPass123') {
-        // Mock demo user
+        // Mock demo user - TEMPORARILY SET AS ADMIN FOR TESTING
+        // TODO: Change back to 'user' role after testing
         const demoUser: UserProfile = {
           id: 'demo-user-123',
           firstName: 'Demo',
@@ -409,7 +410,7 @@ export const authFlow = {
           email: 'demo@satrf.org.za',
           membershipType: 'senior',
           club: 'SATRF Demo Club',
-          role: 'user',
+          role: 'admin', // TEMPORARY: Set to admin for testing admin pages
           isActive: true,
           emailConfirmed: true,
           createdAt: new Date().toISOString(),

@@ -42,6 +42,7 @@ module.exports = {
         'marquee': 'marquee 120s linear infinite',
         'glow-pulse': 'glowPulse 8s ease-in-out infinite alternate',
         'float': 'float 20s ease-in-out infinite',
+        'gradient-x': 'gradientX 3s ease infinite',
       },
       keyframes: {
         fadeIn: {
@@ -69,6 +70,16 @@ module.exports = {
         float: {
           '0%, 100%': { transform: 'translateY(0px) rotate3d(1, 1, 0, 2deg)' },
           '50%': { transform: 'translateY(-10px) rotate3d(1, 1, 0, -2deg)' },
+        },
+        gradientX: {
+          '0%, 100%': {
+            'background-size': '200% 200%',
+            'background-position': 'left center'
+          },
+          '50%': {
+            'background-size': '200% 200%',
+            'background-position': 'right center'
+          },
         },
       },
     },
