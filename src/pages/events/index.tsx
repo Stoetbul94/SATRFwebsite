@@ -39,6 +39,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { FaSearch, FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
 import { useRouter } from 'next/router';
+import { GetServerSideProps } from 'next';
 import { useAuth } from '@/contexts/AuthContext';
 import { eventsAPI } from '@/lib/api';
 import Head from 'next/head';
