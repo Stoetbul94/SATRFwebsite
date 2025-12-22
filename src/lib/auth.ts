@@ -460,21 +460,95 @@ export const authFlow = {
         return { success: true, user: demoUser };
       }
 
-      // For real credentials, try API call
-      const response = await authAPI.login({ email, password });
-      
-      // Store tokens
-      tokenManager.setTokens(
-        response.access_token,
-        response.refresh_token,
-        response.user.id // Using user ID as session ID for simplicity
-      );
-      
-      return { success: true, user: response.user };
+      // For real credentials, try Firebase Auth first (for users who reset password via Firebase)
+      try {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { auth, db } = await import('@/lib/firebase');
+        
+        // Try Firebase Auth login
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email.toLowerCase().trim(),
+          password
+        );
+        
+        const firebaseUser = userCredential.user;
+        
+        // Get user profile from Firestore
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const userProfile: UserProfile = {
+            id: firebaseUser.uid,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            membershipType: userData.membershipType,
+            club: userData.club,
+            role: userData.role || 'user',
+            isActive: userData.isActive !== false,
+            emailConfirmed: userData.emailConfirmed || false,
+            createdAt: userData.createdAt,
+            loginCount: (userData.loginCount || 0) + 1,
+            lastLoginAt: new Date().toISOString(),
+          };
+          
+          // Store Firebase ID token
+          const idToken = await firebaseUser.getIdToken();
+          tokenManager.setTokens(
+            idToken,
+            idToken, // Using same token for refresh (Firebase handles refresh internally)
+            firebaseUser.uid
+          );
+          
+          return { success: true, user: userProfile };
+        } else {
+          // User exists in Firebase Auth but not in Firestore - try backend
+          throw new Error('User not found in Firestore');
+        }
+      } catch (firebaseError: any) {
+        // Firebase Auth failed, try backend API as fallback
+        console.log('Firebase Auth login failed, trying backend API:', firebaseError.code);
+        
+        // Only try backend if Firebase error is not "user-not-found" or "wrong-password"
+        // If it's a network error or other issue, still try backend
+        if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/wrong-password') {
+          // User doesn't exist in Firebase Auth or wrong password - try backend
+          const response = await authAPI.login({ email, password });
+          
+          // Store tokens
+          tokenManager.setTokens(
+            response.access_token,
+            response.refresh_token,
+            response.user.id
+          );
+          
+          return { success: true, user: response.user };
+        } else {
+          // Other Firebase error - still try backend as fallback
+          try {
+            const response = await authAPI.login({ email, password });
+            
+            tokenManager.setTokens(
+              response.access_token,
+              response.refresh_token,
+              response.user.id
+            );
+            
+            return { success: true, user: response.user };
+          } catch (backendError: any) {
+            // Both failed - return Firebase error message
+            throw firebaseError;
+          }
+        }
+      }
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.detail || 'Login failed. Please check your credentials.'
+        error: error.response?.data?.detail || error.message || 'Login failed. Please check your credentials.'
       };
     }
   },
