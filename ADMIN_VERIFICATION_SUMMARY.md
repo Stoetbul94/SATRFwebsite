@@ -208,3 +208,4 @@ For production, set up admins using Method 1 (Firestore) or Method 2 (Environmen
 - `src/hooks/useAdminRoute.ts` - Frontend admin route protection
 - `firestore.rules` - Security rules for admin access
 
+
