@@ -62,12 +62,12 @@ export default async function handler(
       let scores = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })) as any[];
 
       // Apply search filter if provided
       if (search && typeof search === 'string') {
         const searchLower = search.toLowerCase();
-        scores = scores.filter(score => 
+        scores = scores.filter((score: any) => 
           score.userName?.toLowerCase().includes(searchLower) ||
           score.club?.toLowerCase().includes(searchLower) ||
           score.discipline?.toLowerCase().includes(searchLower)

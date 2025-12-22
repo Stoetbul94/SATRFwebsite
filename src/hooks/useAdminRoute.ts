@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@chakra-ui/react';
-import { isEmailAdmin } from '@/lib/admin';
+import { isEmailAdmin } from '@/lib/adminClient';
 import { isUserAdmin } from '@/lib/userRole';
 
 /**

@@ -16,7 +16,7 @@ import {
 } from '@chakra-ui/react';
 import { FiMenu, FiX, FiUser, FiLogOut, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import { isEmailAdmin } from '@/lib/admin';
+import { isEmailAdmin } from '@/lib/adminClient';
 import { isUserAdmin } from '@/lib/userRole';
 
 export default function Navbar() {

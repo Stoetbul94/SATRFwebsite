@@ -16,6 +16,7 @@ import {
   Link,
   Spinner,
   Center,
+  Text,
 } from '@chakra-ui/react';
 import { FiUpload, FiEdit3 } from 'react-icons/fi';
 import FileUploadComponent from '@/components/admin/FileUploadComponent';
@@ -46,11 +47,11 @@ export default function AdminScoreImport() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <Layout>
+      <AdminLayout>
         <Center minH="50vh">
           <Spinner size="xl" color="blue.500" />
         </Center>
-      </Layout>
+      </AdminLayout>
     );
   }
 

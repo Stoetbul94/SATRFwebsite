@@ -14,7 +14,7 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
-import { isEmailAdmin } from '@/lib/admin';
+import { isEmailAdmin } from '@/lib/adminClient';
 
 /**
  * Utility page to set admin role for whitelisted emails

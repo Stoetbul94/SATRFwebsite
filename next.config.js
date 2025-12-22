@@ -25,6 +25,20 @@ const nextConfig = {
     // your project has type errors.
     // ignoreBuildErrors: true,
   },
+  webpack: (config, { isServer }) => {
+    // Exclude firebase-admin from client bundle
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        tls: false,
+        fs: false,
+        child_process: false,
+        'firebase-admin': false,
+      };
+    }
+    return config;
+  },
 };
 
 // Sentry Webpack plugin temporarily disabled for local build troubleshooting

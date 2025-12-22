@@ -154,6 +154,8 @@ export async function verifyAdminFromToken(token: string): Promise<AdminVerifica
 
 /**
  * Check if a user email is in the admin whitelist
+ * @deprecated Use isEmailAdmin from '@/lib/adminClient' in client components
+ * This function is kept for server-side use only
  */
 export function isEmailAdmin(email: string | null): boolean {
   if (!email) return false;
