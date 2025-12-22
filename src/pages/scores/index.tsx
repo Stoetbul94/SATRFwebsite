@@ -127,9 +127,15 @@ export default function Scores() {
         const scoreB = viewMode === 'leaderboard' ? (b as LeaderboardEntry).bestScore : (b as Score).score;
         return (scoreA - scoreB) * multiplier;
       } else if (sortField === 'rank') {
-        const rankA = viewMode === 'leaderboard' ? (a as LeaderboardEntry).rank : (a as Score).rank || 0;
-        const rankB = viewMode === 'leaderboard' ? (b as LeaderboardEntry).rank : (b as Score).rank || 0;
-        return (rankA - rankB) * multiplier;
+        // Rank only exists for LeaderboardEntry, not Score
+        if (viewMode === 'leaderboard') {
+          const rankA = (a as LeaderboardEntry).rank;
+          const rankB = (b as LeaderboardEntry).rank;
+          return (rankA - rankB) * multiplier;
+        } else {
+          // For Score type, rank doesn't exist, so return 0 (no sorting)
+          return 0;
+        }
       } else {
         // For date, use createdAt if available
         const dateA = (a as Score).createdAt || '';
