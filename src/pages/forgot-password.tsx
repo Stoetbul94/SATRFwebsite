@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import { useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { authAPI } from '../lib/auth';
 
 const ForgotPasswordPage: NextPage = () => {
   const router = useRouter();
@@ -53,24 +54,53 @@ const ForgotPasswordPage: NextPage = () => {
         router.push('/login');
       }, 5000);
     } catch (error: any) {
-      console.error('Password reset error:', error);
+      console.error('Password reset error:', {
+        code: error.code,
+        message: error.message,
+        fullError: error
+      });
       
       // Handle specific Firebase errors
       let errorMessage = 'Failed to send password reset email. Please try again.';
+      let isError = true;
       
       if (error.code === 'auth/user-not-found') {
-        // Don't reveal if user exists for security
-        errorMessage = 'If an account exists with this email, a password reset link has been sent.';
-        setMessage({ type: 'success', text: errorMessage });
+        // User doesn't exist in Firebase Auth
+        // Try backend API as fallback (for users registered before Firebase Auth integration)
+        try {
+          console.log('User not found in Firebase Auth, trying backend API fallback...');
+          const backendResult = await authAPI.forgotPassword(email.toLowerCase().trim());
+          if (backendResult.success) {
+            errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
+            isError = false; // Show as success message
+          } else {
+            // Backend also failed, show generic message
+            errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
+            isError = false; // Show as success for security
+          }
+        } catch (backendError: any) {
+          console.error('Backend fallback also failed:', backendError);
+          // For security, don't reveal if user exists
+          errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
+          isError = false; // Show as success for security
+        }
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Please enter a valid email address.';
-        setMessage({ type: 'error', text: errorMessage });
       } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many requests. Please try again later.';
-        setMessage({ type: 'error', text: errorMessage });
+        errorMessage = 'Too many password reset requests. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.code === 'auth/internal-error') {
+        errorMessage = 'An internal error occurred. Please try again in a few moments.';
       } else {
-        setMessage({ type: 'error', text: errorMessage });
+        // For unknown errors, log more details but show generic message
+        errorMessage = `Failed to send password reset email. ${error.message || 'Please try again.'}`;
       }
+      
+      setMessage({ 
+        type: isError ? 'error' : 'success', 
+        text: errorMessage 
+      });
     } finally {
       setIsSubmitting(false);
     }
