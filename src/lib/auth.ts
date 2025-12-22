@@ -513,20 +513,57 @@ export const authFlow = {
         // Firebase Auth failed, try backend API as fallback
         console.log('Firebase Auth login failed, trying backend API:', firebaseError.code);
         
-        // Only try backend if Firebase error is not "user-not-found" or "wrong-password"
-        // If it's a network error or other issue, still try backend
-        if (firebaseError.code === 'auth/user-not-found' || firebaseError.code === 'auth/wrong-password') {
-          // User doesn't exist in Firebase Auth or wrong password - try backend
-          const response = await authAPI.login({ email, password });
+        // Convert Firebase error codes to user-friendly messages
+        const getFirebaseErrorMessage = (code: string, originalMessage?: string): string => {
+          // Strip "Firebase:" prefix if present
+          const cleanMessage = originalMessage?.replace(/^Firebase:\s*/i, '').trim() || '';
           
-          // Store tokens
-          tokenManager.setTokens(
-            response.access_token,
-            response.refresh_token,
-            response.user.id
-          );
-          
-          return { success: true, user: response.user };
+          switch (code) {
+            case 'auth/invalid-credential':
+            case 'auth/wrong-password':
+              return 'Incorrect email or password. Please check your credentials and try again.';
+            case 'auth/user-not-found':
+              return 'No account found with this email address.';
+            case 'auth/user-disabled':
+              return 'This account has been disabled. Please contact support.';
+            case 'auth/too-many-requests':
+              return 'Too many failed login attempts. Please try again later.';
+            case 'auth/network-request-failed':
+              return 'Network error. Please check your internet connection and try again.';
+            case 'auth/invalid-email':
+              return 'Invalid email address format.';
+            default:
+              // If we have a clean message that doesn't look technical, use it
+              if (cleanMessage && !cleanMessage.includes('auth/') && !cleanMessage.includes('Error')) {
+                return cleanMessage;
+              }
+              return 'Login failed. Please check your credentials and try again.';
+          }
+        };
+        
+        // Try backend API as fallback for credential errors
+        if (firebaseError.code === 'auth/invalid-credential' || 
+            firebaseError.code === 'auth/user-not-found' || 
+            firebaseError.code === 'auth/wrong-password') {
+          try {
+            // User doesn't exist in Firebase Auth or wrong password - try backend
+            const response = await authAPI.login({ email, password });
+            
+            // Store tokens
+            tokenManager.setTokens(
+              response.access_token,
+              response.refresh_token,
+              response.user.id
+            );
+            
+            return { success: true, user: response.user };
+          } catch (backendError: any) {
+            // Both Firebase and backend failed - return user-friendly error
+            return {
+              success: false,
+              error: getFirebaseErrorMessage(firebaseError.code, firebaseError.message)
+            };
+          }
         } else {
           // Other Firebase error - still try backend as fallback
           try {
@@ -540,15 +577,34 @@ export const authFlow = {
             
             return { success: true, user: response.user };
           } catch (backendError: any) {
-            // Both failed - return Firebase error message
-            throw firebaseError;
+            // Both failed - return user-friendly Firebase error message
+            return {
+              success: false,
+              error: getFirebaseErrorMessage(firebaseError.code, firebaseError.message)
+            };
           }
         }
       }
     } catch (error: any) {
+      // Handle backend API errors with user-friendly messages
+      let errorMessage = 'Login failed. Please check your credentials and try again.';
+      
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        if (typeof detail === 'string') {
+          // Backend error messages are usually already user-friendly
+          errorMessage = detail;
+        } else {
+          errorMessage = 'Login failed. Please check your credentials and try again.';
+        }
+      } else if (error.message && !error.message.includes('Firebase')) {
+        // Only use error message if it's not a Firebase technical error
+        errorMessage = error.message;
+      }
+      
       return {
         success: false,
-        error: error.response?.data?.detail || error.message || 'Login failed. Please check your credentials.'
+        error: errorMessage
       };
     }
   },
