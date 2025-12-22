@@ -31,7 +31,7 @@ import {
   Select,
   VStack,
 } from '@chakra-ui/react';
-import { FiSearch, FiShield, FiUserX, FiUserCheck } from 'react-icons/fi';
+import { FiSearch, FiShield, FiUserX, FiUserCheck, FiUsers } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
@@ -214,81 +214,138 @@ export default function AdminUsers() {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
+      {/* Header Section */}
+      <Box mb={6}>
+        <Text fontSize="2xl" fontWeight="bold" color="gray.800" mb={2}>
+          User Management
+        </Text>
+        <Text fontSize="md" color="gray.600">
+          Manage user accounts, roles, and permissions. Data fetched directly from Firestore users collection.
+        </Text>
+      </Box>
+
       {/* Search */}
       <Box bg={cardBg} p={4} borderRadius="lg" border="1px" borderColor={borderColor} mb={6}>
         <InputGroup>
           <InputLeftElement pointerEvents="none">
-            <FiSearch />
+            <FiSearch color="gray.400" />
           </InputLeftElement>
           <Input
             placeholder="Search by name, email, or club..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            bg="white"
           />
         </InputGroup>
+        {searchTerm && (
+          <Text fontSize="sm" color="gray.600" mt={2}>
+            {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+          </Text>
+        )}
       </Box>
 
       {/* Users Table */}
-      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto">
-        <Table variant="simple">
-          <Thead>
-            <Tr>
-              <Th>Name</Th>
-              <Th>Email</Th>
-              <Th>Club</Th>
-              <Th>Membership</Th>
-              <Th>Role</Th>
-              <Th>Status</Th>
-              <Th>Created</Th>
-              <Th>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {filteredUsers.length === 0 ? (
+      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto" shadow="sm">
+        {users.length === 0 ? (
+          <Box p={12} textAlign="center">
+            <FiUsers size={48} color="gray" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+            <Text fontSize="lg" fontWeight="semibold" color="gray.700" mb={2}>
+              No Users Found
+            </Text>
+            <Text color="gray.500" fontSize="sm">
+              The users collection is empty or inaccessible. Users will appear here once they register.
+            </Text>
+          </Box>
+        ) : filteredUsers.length === 0 ? (
+          <Box p={12} textAlign="center">
+            <FiSearch size={48} color="gray" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+            <Text fontSize="lg" fontWeight="semibold" color="gray.700" mb={2}>
+              No Users Match Your Search
+            </Text>
+            <Text color="gray.500" fontSize="sm" mb={4}>
+              Try adjusting your search terms.
+            </Text>
+            <Button size="sm" onClick={() => setSearchTerm('')}>
+              Clear Search
+            </Button>
+          </Box>
+        ) : (
+          <Table variant="simple">
+            <Thead bg="gray.50">
               <Tr>
-                <Td colSpan={8} textAlign="center" py={8}>
-                  <Text color="gray.500">No users found</Text>
-                </Td>
+                <Th fontWeight="semibold" color="gray.700">Name</Th>
+                <Th fontWeight="semibold" color="gray.700">Email</Th>
+                <Th fontWeight="semibold" color="gray.700">Club</Th>
+                <Th fontWeight="semibold" color="gray.700">Membership</Th>
+                <Th fontWeight="semibold" color="gray.700">Role</Th>
+                <Th fontWeight="semibold" color="gray.700">Status</Th>
+                <Th fontWeight="semibold" color="gray.700">Created</Th>
+                <Th fontWeight="semibold" color="gray.700">Actions</Th>
               </Tr>
-            ) : (
-              filteredUsers.map((user) => (
-                <Tr key={user.id}>
+            </Thead>
+            <Tbody>
+              {filteredUsers.map((user, index) => (
+                <Tr 
+                  key={user.id}
+                  _hover={{ bg: 'gray.50' }}
+                  bg={index % 2 === 0 ? 'white' : 'gray.25'}
+                >
                   <Td fontWeight="semibold">{user.firstName} {user.lastName}</Td>
                   <Td>{user.email}</Td>
-                  <Td>{user.club || '-'}</Td>
+                  <Td>{user.club || <Text as="span" color="gray.400">-</Text>}</Td>
                   <Td>
-                    <Badge colorScheme="teal">{user.membershipType}</Badge>
+                    <Badge colorScheme="teal" textTransform="capitalize">{user.membershipType || 'N/A'}</Badge>
                   </Td>
-                  <Td>{getRoleBadge(user.role)}</Td>
+                  <Td>{getRoleBadge(user.role || 'user')}</Td>
                   <Td>
-                    <Badge colorScheme={user.isActive ? 'green' : 'red'}>
-                      {user.isActive ? 'Active' : 'Inactive'}
+                    <Badge colorScheme={user.isActive !== false ? 'green' : 'red'}>
+                      {user.isActive !== false ? 'Active' : 'Inactive'}
                     </Badge>
                   </Td>
-                  <Td>{new Date(user.createdAt).toLocaleDateString()}</Td>
+                  <Td>
+                    {user.createdAt 
+                      ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })
+                      : '-'}
+                  </Td>
                   <Td>
                     <HStack spacing={2}>
                       <IconButton
                         aria-label="Change role"
                         icon={<FiShield />}
                         size="sm"
+                        colorScheme="blue"
+                        variant="ghost"
                         onClick={() => handleRoleChange(user)}
                       />
                       <IconButton
-                        aria-label={user.isActive ? 'Deactivate' : 'Activate'}
-                        icon={user.isActive ? <FiUserX /> : <FiUserCheck />}
+                        aria-label={user.isActive !== false ? 'Deactivate' : 'Activate'}
+                        icon={user.isActive !== false ? <FiUserX /> : <FiUserCheck />}
                         size="sm"
-                        colorScheme={user.isActive ? 'red' : 'green'}
+                        colorScheme={user.isActive !== false ? 'red' : 'green'}
+                        variant="ghost"
                         onClick={() => handleToggleActive(user)}
                       />
                     </HStack>
                   </Td>
                 </Tr>
-              ))
-            )}
-          </Tbody>
-        </Table>
+              ))}
+            </Tbody>
+          </Table>
+        )}
       </Box>
+
+      {/* Info Footer */}
+      {users.length > 0 && (
+        <Box mt={4}>
+          <Text fontSize="xs" color="gray.500" textAlign="center">
+            Showing {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''} from Firestore users collection
+          </Text>
+        </Box>
+      )}
 
       {/* Role Change Modal */}
       <Modal isOpen={isOpen} onClose={onClose}>

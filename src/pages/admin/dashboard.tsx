@@ -144,6 +144,16 @@ export default function AdminDashboard() {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
+      {/* Welcome Section */}
+      <Box mb={8}>
+        <Text fontSize="2xl" fontWeight="bold" color="gray.800" mb={2}>
+          Welcome to the Admin Dashboard
+        </Text>
+        <Text fontSize="md" color="gray.600">
+          Manage users, scores, events, and system administration
+        </Text>
+      </Box>
+
       {/* Stats Grid */}
       <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={6} mb={8}>
         {statCards.map((card) => {
@@ -156,20 +166,31 @@ export default function AdminDashboard() {
                 borderRadius="lg"
                 border="1px"
                 borderColor={borderColor}
-                _hover={{ shadow: 'md', transform: 'translateY(-2px)' }}
+                _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${card.color}.300` }}
                 transition="all 0.2s"
                 cursor="pointer"
+                height="100%"
               >
                 <Stat>
-                  <HStack justify="space-between" mb={2}>
-                    <StatLabel fontSize="sm" color="gray.600">
+                  <HStack justify="space-between" mb={3}>
+                    <StatLabel fontSize="sm" fontWeight="medium" color="gray.600" textTransform="uppercase" letterSpacing="wide">
                       {card.label}
                     </StatLabel>
-                    <Icon size={20} color={`var(--chakra-colors-${card.color}-500)`} />
+                    <Box
+                      p={2}
+                      borderRadius="md"
+                      bg={`${card.color}.50`}
+                      color={`${card.color}.600`}
+                    >
+                      <Icon size={20} />
+                    </Box>
                   </HStack>
-                  <StatNumber fontSize="2xl" color={`${card.color}.600`}>
+                  <StatNumber fontSize="3xl" fontWeight="bold" color={`${card.color}.600`} mb={1}>
                     {card.value.toLocaleString()}
                   </StatNumber>
+                  <StatHelpText fontSize="xs" color="gray.500" mb={0}>
+                    Click to view details
+                  </StatHelpText>
                 </Stat>
               </Box>
             </Link>
@@ -177,41 +198,71 @@ export default function AdminDashboard() {
         })}
       </Grid>
 
-      {/* Quick Actions */}
-      <Box bg={cardBg} p={6} borderRadius="lg" border="1px" borderColor={borderColor} mb={8}>
-        <Text fontSize="lg" fontWeight="semibold" mb={4}>
-          Quick Actions
-        </Text>
-        <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={4}>
-          {quickActions.map((action) => (
-            <Link key={action.label} href={action.href}>
-              <Button
-                w="full"
-                colorScheme={action.color}
-                variant="outline"
-                rightIcon={<FiArrowRight />}
-                _hover={{ bg: `${action.color}.50` }}
-              >
-                {action.label}
-              </Button>
-            </Link>
-          ))}
-        </Grid>
+      {/* Quick Actions Section */}
+      <Box bg={cardBg} p={8} borderRadius="lg" border="1px" borderColor={borderColor} mb={8}>
+        <VStack align="stretch" spacing={6}>
+          <Box>
+            <Text fontSize="xl" fontWeight="semibold" color="gray.800" mb={2}>
+              Quick Actions
+            </Text>
+            <Text fontSize="sm" color="gray.600">
+              Common administrative tasks and shortcuts
+            </Text>
+          </Box>
+          <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={4}>
+            {quickActions.map((action) => (
+              <Link key={action.label} href={action.href}>
+                <Button
+                  w="full"
+                  colorScheme={action.color}
+                  variant="outline"
+                  size="lg"
+                  rightIcon={<FiArrowRight />}
+                  _hover={{ bg: `${action.color}.50`, borderColor: `${action.color}.400`, transform: 'translateX(4px)' }}
+                  transition="all 0.2s"
+                  justifyContent="space-between"
+                >
+                  {action.label}
+                </Button>
+              </Link>
+            ))}
+          </Grid>
+        </VStack>
       </Box>
 
-      {/* Recent Activity Placeholder */}
-      <Box bg={cardBg} p={6} borderRadius="lg" border="1px" borderColor={borderColor}>
-        <Text fontSize="lg" fontWeight="semibold" mb={4}>
-          Recent Activity
-        </Text>
-        <Text color="gray.600">
-          Recent admin actions and system events will appear here.
-        </Text>
-        <Link href="/admin/audit">
-          <Button mt={4} variant="link" colorScheme="blue">
-            View Full Audit Log →
-          </Button>
-        </Link>
+      {/* Recent Activity Section */}
+      <Box bg={cardBg} p={8} borderRadius="lg" border="1px" borderColor={borderColor}>
+        <VStack align="stretch" spacing={4}>
+          <Box>
+            <Text fontSize="xl" fontWeight="semibold" color="gray.800" mb={2}>
+              Recent Activity
+            </Text>
+            <Text fontSize="sm" color="gray.600">
+              Monitor system events and admin actions
+            </Text>
+          </Box>
+          <Box
+            p={6}
+            bg="gray.50"
+            borderRadius="md"
+            border="1px dashed"
+            borderColor="gray.300"
+          >
+            <Text color="gray.600" fontSize="sm" textAlign="center">
+              Recent admin actions and system events will appear here.
+            </Text>
+          </Box>
+          <Link href="/admin/audit">
+            <Button 
+              variant="link" 
+              colorScheme="blue" 
+              size="sm"
+              _hover={{ textDecoration: 'underline' }}
+            >
+              View Full Audit Log →
+            </Button>
+          </Link>
+        </VStack>
       </Box>
     </AdminLayout>
   );

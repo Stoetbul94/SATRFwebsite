@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
+import { isEmailAdmin } from '@/lib/adminClient';
 
 const LoginPage: NextPage = () => {
   const router = useRouter();
@@ -81,8 +82,25 @@ const LoginPage: NextPage = () => {
       const success = await login(formData.email, formData.password);
       
       if (success) {
-        // Get the intended redirect URL from query params or default to dashboard
-        const redirectTo = router.query.redirect as string || '/dashboard';
+        // Check admin status based on email whitelist (immediate check)
+        // Note: Firestore role check happens server-side, but email whitelist is immediate
+        const email = formData.email.toLowerCase().trim();
+        const isAdminEmail = isEmailAdmin(email);
+        
+        // Determine redirect: admin → admin dashboard, user → user dashboard
+        // Respect redirect query param if provided, otherwise use role-based redirect
+        let redirectTo = router.query.redirect as string;
+        
+        if (!redirectTo) {
+          // No explicit redirect: use role-based default
+          redirectTo = isAdminEmail ? '/admin/dashboard' : '/dashboard';
+        } else if (isAdminEmail && redirectTo === '/dashboard') {
+          // Admin trying to go to user dashboard: redirect to admin dashboard instead
+          redirectTo = '/admin/dashboard';
+        } else if (!isAdminEmail && redirectTo.startsWith('/admin')) {
+          // Non-admin trying to access admin area: redirect to user dashboard
+          redirectTo = '/dashboard';
+        }
         
         // Use router.replace to prevent back button from returning to login
         await router.replace(redirectTo);

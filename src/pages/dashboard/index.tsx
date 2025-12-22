@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { FiTarget, FiCalendar, FiTrendingUp, FiUsers, FiAward, FiUpload, FiEye, FiEdit, FiInfo } from 'react-icons/fi';
 import { useAuth, useProtectedRoute } from '../../contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
+import { isUserAdmin } from '@/lib/userRole';
+import { isEmailAdmin } from '@/lib/adminClient';
 
 interface DashboardStats {
   totalScores: number;
@@ -18,6 +21,7 @@ interface DashboardStats {
 export default function Dashboard() {
   // Use AuthContext instead of local state
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   
   // Local state for dashboard data
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -25,6 +29,17 @@ export default function Dashboard() {
 
   // Protected route guard - redirect to login if not authenticated
   useProtectedRoute();
+
+  // CRITICAL: Redirect admins to admin dashboard - they must NEVER see user dashboard
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      const isAdmin = isUserAdmin(user as any) || isEmailAdmin(user.email);
+      if (isAdmin) {
+        // Admin detected: redirect to admin dashboard immediately
+        router.replace('/admin/dashboard');
+      }
+    }
+  }, [user, isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {

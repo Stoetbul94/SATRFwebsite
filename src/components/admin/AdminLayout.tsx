@@ -10,7 +10,6 @@ import {
   HStack,
   Button,
   useColorModeValue,
-  Divider,
   Text
 } from '@chakra-ui/react';
 import { 
@@ -45,11 +44,16 @@ export default function AdminLayout({ children, title, description }: AdminLayou
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isAdmin, isLoading } = useAdminRoute();
+  
+  // CRITICAL: All hooks must be called before any conditional returns
+  // These hooks are called unconditionally at the top level
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const activeBg = useColorModeValue('blue.50', 'blue.900');
   const activeColor = useColorModeValue('blue.600', 'blue.300');
+  const pageBg = useColorModeValue('gray.50', 'gray.900');
 
+  // Early returns after all hooks
   if (isLoading) {
     return (
       <Layout>
@@ -71,7 +75,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
 
   return (
     <Layout>
-      <Box bg={useColorModeValue('gray.50', 'gray.900')} minH="100vh">
+      <Box bg={pageBg} minH="100vh">
         <Container maxW="full" px={0}>
           {/* Admin Header */}
           <Box bg={bgColor} borderBottom="1px" borderColor={borderColor} px={6} py={4}>
@@ -87,11 +91,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
                 )}
               </VStack>
               <HStack spacing={4}>
-                <Link href="/dashboard">
-                  <Button variant="ghost" size="sm">
-                    User Dashboard
-                  </Button>
-                </Link>
+                {/* CRITICAL: Admins must NEVER see User Dashboard - removed link */}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -128,7 +128,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
                         borderRadius="md"
                         bg={isActive ? activeBg : 'transparent'}
                         color={isActive ? activeColor : 'inherit'}
-                        _hover={{ bg: isActive ? activeBg : useColorModeValue('gray.100', 'gray.700') }}
+                        _hover={{ bg: isActive ? activeBg : 'gray.100' }}
                         cursor="pointer"
                         transition="all 0.2s"
                       >

@@ -10,6 +10,8 @@ import {
   tokenManager,
   authAPI
 } from '../lib/auth';
+import { isUserAdmin } from '@/lib/userRole';
+import { isEmailAdmin } from '@/lib/adminClient';
 
 // Auth state interface
 interface AuthState {
@@ -353,17 +355,37 @@ export const useProtectedRoute = (redirectTo: string = '/login'): void => {
   }, [isAuthenticated, isLoading, isInitialized, router, redirectTo]);
 };
 
-// Hook for redirecting authenticated users - improved with better loading handling
+// Hook for redirecting authenticated users - improved with better loading handling and admin detection
 export const useRedirectIfAuthenticated = (redirectTo: string = '/dashboard'): void => {
-  const { isAuthenticated, isLoading, isInitialized } = useAuth();
+  const { user, isAuthenticated, isLoading, isInitialized } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     // Only redirect after initial auth check is complete and not loading
-    if (isInitialized && !isLoading && isAuthenticated) {
+    if (isInitialized && !isLoading && isAuthenticated && user) {
+      // Check if user is admin (both role structure and email whitelist)
+      const isAdmin = isUserAdmin(user as any) || isEmailAdmin(user.email);
+      
       // Check if there's a redirect query parameter
       const { redirect } = router.query;
-      const targetPath = redirect ? String(redirect) : redirectTo;
+      let targetPath = redirect ? String(redirect) : redirectTo;
+      
+      // CRITICAL: Override redirect for admins - they must go to admin dashboard
+      if (isAdmin) {
+        // If admin and trying to go to user dashboard, redirect to admin dashboard
+        if (targetPath === '/dashboard' || targetPath.startsWith('/dashboard')) {
+          targetPath = '/admin/dashboard';
+        }
+        // If non-admin path specified but user is admin, redirect to admin dashboard
+        if (!targetPath.startsWith('/admin')) {
+          targetPath = '/admin/dashboard';
+        }
+      } else {
+        // Non-admin trying to access admin area: redirect to user dashboard
+        if (targetPath.startsWith('/admin')) {
+          targetPath = '/dashboard';
+        }
+      }
       
       // Only redirect if we're not already on the target path
       // Use router.pathname instead of router.asPath to avoid query param issues
@@ -374,7 +396,7 @@ export const useRedirectIfAuthenticated = (redirectTo: string = '/dashboard'): v
     // Fix: Remove router from dependencies to prevent infinite loops
     // router.query and router.pathname are stable enough for this check
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, isLoading, isInitialized, redirectTo]);
+  }, [isAuthenticated, isLoading, isInitialized, redirectTo, user]);
 };
 
 export default AuthContext; 
