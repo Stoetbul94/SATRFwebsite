@@ -31,6 +31,7 @@ import {
   Textarea,
   Select,
   VStack,
+  FormErrorMessage,
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -62,6 +63,8 @@ export default function AdminEvents() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
 
@@ -122,6 +125,8 @@ export default function AdminEvents() {
     });
     setImageFile(null);
     setImagePreview(null);
+    setFormErrors({});
+    setIsSaving(false);
     onOpen();
   };
 
@@ -140,6 +145,8 @@ export default function AdminEvents() {
     });
     setImageFile(null);
     setImagePreview((event as any).imageUrl || null);
+    setFormErrors({});
+    setIsSaving(false);
     onOpen();
   };
 
@@ -210,27 +217,88 @@ export default function AdminEvents() {
     }
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!formData.title?.trim()) {
+      errors.title = 'Title is required';
+    }
+    
+    if (!formData.date) {
+      errors.date = 'Date is required';
+    } else {
+      // Validate date is not in the past (optional, can remove if needed)
+      const selectedDate = new Date(formData.date);
+      if (isNaN(selectedDate.getTime())) {
+        errors.date = 'Invalid date format';
+      }
+    }
+    
+    if (!formData.location?.trim()) {
+      errors.location = 'Location is required';
+    }
+    
+    if (!formData.type?.trim()) {
+      errors.type = 'Type is required';
+    }
+    
+    if (formData.maxParticipants && parseInt(formData.maxParticipants) < 1) {
+      errors.maxParticipants = 'Max participants must be at least 1';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
+    // Prevent multiple submissions
+    if (isSaving || uploadingImage) {
+      return;
+    }
+
+    // Validate form
+    if (!validateForm()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fix the errors in the form',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    setFormErrors({});
+
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
       if (!token) {
         toast({
           title: 'Error',
-          description: 'Authentication required',
+          description: 'Authentication required. Please log in again.',
           status: 'error',
           duration: 3000,
         });
+        setIsSaving(false);
         return;
       }
 
       // Upload image first if a new one was selected
       let imageUrl = formData.imageUrl;
       if (imageFile) {
+        toast({
+          title: 'Uploading image...',
+          description: 'Please wait while we upload your image',
+          status: 'info',
+          duration: 2000,
+        });
+        
         const uploadedUrl = await uploadImage();
         if (uploadedUrl) {
           imageUrl = uploadedUrl;
         } else {
           // Don't proceed if image upload failed
+          setIsSaving(false);
           return;
         }
       }
@@ -246,6 +314,10 @@ export default function AdminEvents() {
         : '/api/admin/events';
       const method = isEditMode ? 'PUT' : 'POST';
 
+      // Add timeout to prevent infinite hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -253,9 +325,19 @@ export default function AdminEvents() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(eventData),
+        signal: controller.signal,
       });
 
-      const responseData = await response.json();
+      clearTimeout(timeoutId);
+
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        // If response is not JSON, get text
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
       if (response.ok) {
         toast({
@@ -265,21 +347,47 @@ export default function AdminEvents() {
           duration: 3000,
         });
         onClose();
-        fetchEvents();
+        await fetchEvents();
         // Reset form
+        setFormData({
+          title: '',
+          date: '',
+          location: '',
+          type: '',
+          description: '',
+          status: 'open',
+          maxParticipants: '',
+          imageUrl: '',
+        });
         setImageFile(null);
         setImagePreview(null);
+        setFormErrors({});
       } else {
-        throw new Error(responseData.error || responseData.details || 'Failed to save event');
+        const errorMessage = responseData.error || responseData.details || 'Failed to save event';
+        throw new Error(errorMessage);
       }
     } catch (error: any) {
       console.error('Error saving event:', error);
+      
+      let errorMessage = 'Failed to save event. Please try again.';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please check your connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
       toast({
         title: 'Error',
-        description: error.message || 'Failed to save event',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
+        isClosable: true,
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -434,128 +542,230 @@ export default function AdminEvents() {
         </Table>
       </Box>
 
-      {/* Create/Edit Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size="lg">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>{isEditMode ? 'Edit Event' : 'Create New Event'}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>Title</FormLabel>
+      {/* Create/Edit Modal - Modernized */}
+      <Modal 
+        isOpen={isOpen} 
+        onClose={() => {
+          if (!isSaving && !uploadingImage) {
+            onClose();
+            // Reset form on close
+            setFormErrors({});
+            setImageFile(null);
+            setImagePreview(null);
+          }
+        }} 
+        size="xl" 
+        closeOnOverlayClick={!isSaving && !uploadingImage}
+        closeOnEsc={!isSaving && !uploadingImage}
+      >
+        <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(4px)" />
+        <ModalContent maxW="800px">
+          <ModalHeader fontSize="xl" fontWeight="bold" pb={2}>
+            {isEditMode ? 'Edit Event' : 'Create New Event'}
+          </ModalHeader>
+          <ModalCloseButton isDisabled={isSaving || uploadingImage} />
+          <ModalBody pb={6}>
+            <VStack spacing={5} align="stretch">
+              {/* Title */}
+              <FormControl isRequired isInvalid={!!formErrors.title}>
+                <FormLabel fontWeight="semibold" mb={2}>Event Title</FormLabel>
                 <Input
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Event title"
+                  onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (formErrors.title) setFormErrors({ ...formErrors, title: '' });
+                  }}
+                  placeholder="e.g., SATRF Championships 2026"
+                  size="lg"
+                  isDisabled={isSaving || uploadingImage}
                 />
+                  <FormErrorMessage>{formErrors.title}</FormErrorMessage>
               </FormControl>
-              <FormControl isRequired>
-                <FormLabel>Date</FormLabel>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </FormControl>
-              <FormControl isRequired>
-                <FormLabel>Location</FormLabel>
-                <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Event location"
-                />
-              </FormControl>
-              <FormControl isRequired>
-                <FormLabel>Type</FormLabel>
-                <Input
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  placeholder="Event type (e.g., Prone Match, 3P)"
-                />
-              </FormControl>
+
+              {/* Date and Location Row */}
+              <HStack spacing={4}>
+                <FormControl isRequired isInvalid={!!formErrors.date} flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Date</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => {
+                      setFormData({ ...formData, date: e.target.value });
+                      if (formErrors.date) setFormErrors({ ...formErrors, date: '' });
+                    }}
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                  <FormErrorMessage>{formErrors.date}</FormErrorMessage>
+                </FormControl>
+                <FormControl isRequired isInvalid={!!formErrors.location} flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Location</FormLabel>
+                  <Input
+                    value={formData.location}
+                    onChange={(e) => {
+                      setFormData({ ...formData, location: e.target.value });
+                      if (formErrors.location) setFormErrors({ ...formErrors, location: '' });
+                    }}
+                    placeholder="e.g., Modderbee Prison"
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                  <FormErrorMessage>{formErrors.location}</FormErrorMessage>
+                </FormControl>
+              </HStack>
+
+              {/* Type and Status Row */}
+              <HStack spacing={4}>
+                <FormControl isRequired isInvalid={!!formErrors.type} flex={2}>
+                  <FormLabel fontWeight="semibold" mb={2}>Event Type</FormLabel>
+                  <Input
+                    value={formData.type}
+                    onChange={(e) => {
+                      setFormData({ ...formData, type: e.target.value });
+                      if (formErrors.type) setFormErrors({ ...formErrors, type: '' });
+                    }}
+                    placeholder="e.g., Prone Match, 3P, F-Class"
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                  <FormErrorMessage>{formErrors.type}</FormErrorMessage>
+                </FormControl>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Status</FormLabel>
+                  <Select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  >
+                    <option value="open">Open</option>
+                    <option value="full">Full</option>
+                    <option value="closed">Closed</option>
+                  </Select>
+                </FormControl>
+              </HStack>
+
+              {/* Description */}
               <FormControl>
-                <FormLabel>Description</FormLabel>
+                <FormLabel fontWeight="semibold" mb={2}>Description</FormLabel>
                 <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Event description"
+                  placeholder="Add event details, requirements, schedule, etc."
                   rows={4}
+                  size="lg"
+                  isDisabled={isSaving || uploadingImage}
                 />
               </FormControl>
-              <FormControl>
-                <FormLabel>Status</FormLabel>
-                <Select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                >
-                  <option value="open">Open</option>
-                  <option value="full">Full</option>
-                  <option value="closed">Closed</option>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Max Participants</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.maxParticipants}
-                  onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-                  placeholder="Optional"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Event Photo</FormLabel>
-                {imagePreview ? (
-                  <Box position="relative" mb={2}>
+
+              {/* Max Participants and Image Row */}
+              <HStack spacing={4} align="flex-start">
+                <FormControl isInvalid={!!formErrors.maxParticipants} flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Max Participants</FormLabel>
+                  <Input
+                    type="number"
+                    value={formData.maxParticipants}
+                    onChange={(e) => {
+                      setFormData({ ...formData, maxParticipants: e.target.value });
+                      if (formErrors.maxParticipants) setFormErrors({ ...formErrors, maxParticipants: '' });
+                    }}
+                    placeholder="Optional"
+                    size="lg"
+                    min="1"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                  <FormErrorMessage>{formErrors.maxParticipants}</FormErrorMessage>
+                </FormControl>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Event Photo</FormLabel>
+                  {imagePreview ? (
+                    <Box position="relative" mb={2}>
+                      <Box
+                        as="img"
+                        src={imagePreview}
+                        alt="Event preview"
+                        maxH="120px"
+                        borderRadius="md"
+                        objectFit="cover"
+                        w="100%"
+                        border="2px solid"
+                        borderColor="gray.200"
+                      />
+                      <IconButton
+                        aria-label="Remove image"
+                        icon={<FiX />}
+                        size="sm"
+                        colorScheme="red"
+                        position="absolute"
+                        top={2}
+                        right={2}
+                        onClick={handleRemoveImage}
+                        isDisabled={isSaving || uploadingImage}
+                      />
+                    </Box>
+                  ) : (
                     <Box
-                      as="img"
-                      src={imagePreview}
-                      alt="Event preview"
-                      maxH="200px"
+                      border="2px dashed"
+                      borderColor="gray.300"
                       borderRadius="md"
-                      objectFit="cover"
-                      w="100%"
-                    />
-                    <IconButton
-                      aria-label="Remove image"
-                      icon={<FiX />}
-                      size="sm"
-                      colorScheme="red"
-                      position="absolute"
-                      top={2}
-                      right={2}
-                      onClick={handleRemoveImage}
-                    />
-                  </Box>
-                ) : null}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  disabled={uploadingImage}
-                />
-                {uploadingImage && (
-                  <Text fontSize="sm" color="blue.500" mt={2}>
-                    Uploading image...
-                  </Text>
-                )}
-                <Text fontSize="xs" color="gray.500" mt={1}>
-                  Optional: Upload an image for this event (max 5MB)
-                </Text>
-              </FormControl>
+                      p={4}
+                      textAlign="center"
+                      cursor="pointer"
+                      _hover={{ borderColor: 'blue.400', bg: 'blue.50' }}
+                      transition="all 0.2s"
+                    >
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        disabled={uploadingImage || isSaving}
+                        position="absolute"
+                        opacity={0}
+                        width="100%"
+                        height="100%"
+                        cursor="pointer"
+                        zIndex={1}
+                      />
+                      <VStack spacing={2}>
+                        <FiImage size={24} color="gray" />
+                        <Text fontSize="sm" color="gray.600">
+                          Click to upload image
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          Max 5MB (JPG, PNG, GIF)
+                        </Text>
+                      </VStack>
+                    </Box>
+                  )}
+                  {uploadingImage && (
+                    <HStack mt={2} spacing={2}>
+                      <Spinner size="sm" color="blue.500" />
+                      <Text fontSize="sm" color="blue.500">Uploading image...</Text>
+                    </HStack>
+                  )}
+                </FormControl>
+              </HStack>
             </VStack>
           </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose} disabled={uploadingImage}>
+          <ModalFooter borderTop="1px" borderColor="gray.200" pt={4}>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={onClose} 
+              isDisabled={isSaving || uploadingImage}
+              size="lg"
+            >
               Cancel
             </Button>
             <Button 
               colorScheme="blue" 
               onClick={handleSave}
-              isLoading={uploadingImage}
-              loadingText="Uploading..."
+              isLoading={isSaving || uploadingImage}
+              loadingText={uploadingImage ? "Uploading..." : (isEditMode ? "Updating..." : "Creating...")}
+              size="lg"
+              leftIcon={!isSaving && !uploadingImage ? (isEditMode ? <FiEdit /> : <FiPlus />) : undefined}
             >
-              {isEditMode ? 'Update' : 'Create'}
+              {!isSaving && !uploadingImage && (isEditMode ? 'Update Event' : 'Create Event')}
             </Button>
           </ModalFooter>
         </ModalContent>
