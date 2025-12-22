@@ -327,7 +327,7 @@ export default function Scores() {
                       const score = item as Score;
                       return (
                         <Tr key={score.id || index}>
-                          <Td>{score.rank || index + 1}</Td>
+                          <Td>{index + 1}</Td>
                           <Td>{score.userName || 'Unknown'}</Td>
                           <Td>{score.club || 'N/A'}</Td>
                           <Td>{score.discipline || 'N/A'}</Td>
