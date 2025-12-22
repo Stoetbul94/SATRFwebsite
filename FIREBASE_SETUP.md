@@ -4,7 +4,7 @@
 
 The Firestore security rules are defined in `firestore.rules`. To deploy them:
 
-### Option 1: Using Firebase CLI
+### Option 1: Using Firebase CLI (Recommended)
 
 ```bash
 # Install Firebase CLI if not already installed
@@ -13,12 +13,11 @@ npm install -g firebase-tools
 # Login to Firebase
 firebase login
 
-# Initialize Firebase (if not already done)
-firebase init firestore
-
-# Deploy rules
+# Deploy rules (firebase.json and .firebaserc are already configured)
 firebase deploy --only firestore:rules
 ```
+
+**Note:** The project is already configured in `.firebaserc` as `satrf-website`.
 
 ### Option 2: Using Firebase Console
 
