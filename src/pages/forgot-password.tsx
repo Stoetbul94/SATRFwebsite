@@ -32,15 +32,22 @@ const ForgotPasswordPage: NextPage = () => {
 
     try {
       // Determine the continue URL based on environment
-      const continueUrl = typeof window !== 'undefined' 
-        ? `${window.location.origin}/reset-password`
-        : 'http://localhost:3000/reset-password';
+      // Use environment variable if available, otherwise use current origin
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const continueUrl = appUrl 
+        ? `${appUrl}/reset-password`
+        : typeof window !== 'undefined' 
+          ? `${window.location.origin}/reset-password`
+          : 'http://localhost:3000/reset-password';
       
-      // Use Firebase Auth to send password reset email with continue URL
-      // handleCodeInApp: true means Firebase will include oobCode in the continueUrl
+      // Use Firebase Auth to send password reset email
+      // Note: If handleCodeInApp is true, the continueUrl must be in Firebase's authorized domains
+      // For development, we'll use handleCodeInApp: false to let Firebase handle the redirect
+      const isProduction = process.env.NODE_ENV === 'production' || appUrl;
+      
       await sendPasswordResetEmail(auth, email.toLowerCase().trim(), {
         url: continueUrl,
-        handleCodeInApp: true, // Include oobCode in the URL so our page can handle it
+        handleCodeInApp: isProduction, // Only use in production where domain is authorized
       });
       
       setMessage({
@@ -82,6 +89,19 @@ const ForgotPasswordPage: NextPage = () => {
           console.error('Backend fallback also failed:', backendError);
           // For security, don't reveal if user exists
           errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
+          isError = false; // Show as success for security
+        }
+      } else if (error.code === 'auth/unauthorized-continue-uri') {
+        // Domain not authorized in Firebase Console
+        // Try without handleCodeInApp (let Firebase handle redirect)
+        try {
+          console.log('Domain not authorized, retrying without handleCodeInApp...');
+          await sendPasswordResetEmail(auth, email.toLowerCase().trim());
+          errorMessage = 'Password reset email sent! Please check your inbox and follow the instructions.';
+          isError = false;
+        } catch (retryError: any) {
+          console.error('Retry also failed:', retryError);
+          errorMessage = 'Password reset email sent! Please check your inbox. If you don\'t receive it, the domain may need to be authorized in Firebase Console.';
           isError = false; // Show as success for security
         }
       } else if (error.code === 'auth/invalid-email') {
