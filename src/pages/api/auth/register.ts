@@ -4,13 +4,17 @@ import axios from 'axios';
 /**
  * Next.js API Route: /api/auth/register
  * 
- * This route proxies registration requests to the backend API.
+ * NOTE: This route is a FALLBACK for server-side rendering.
+ * In production, registration uses Firebase Auth + Firestore directly on the client-side.
+ * 
+ * This route proxies registration requests to the backend API (if backend is available).
  * This prevents Network Errors when the backend is unavailable by:
  * 1. Handling the request server-side (no CORS issues)
  * 2. Providing better error handling
  * 3. Centralizing error handling
  * 
- * This route acts as a proxy/gateway to the FastAPI backend.
+ * Primary registration flow: Client-side Firebase Auth + Firestore (see src/lib/auth.ts)
+ * Fallback: This API route (for SSR compatibility)
  */
 export default async function handler(
   req: NextApiRequest,

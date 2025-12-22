@@ -479,27 +479,133 @@ export const authFlow = {
     }
   },
 
-  // Complete registration flow
+  // Complete registration flow - Firebase Auth + Firestore
   register: async (userData: UserRegistrationData): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
-    try {
-      const response = await authAPI.register(userData);
-      
-      if (response.success && response.data) {
-        // Store tokens
-        tokenManager.setTokens(
-          response.data.access_token,
-          response.data.refresh_token,
-          response.data.session_id
-        );
-        
-        return { success: true, user: response.data.user };
-      } else {
+    // Use Firebase Auth for registration in production
+    if (typeof window === 'undefined') {
+      // Server-side: fallback to API (for SSR compatibility)
+      try {
+        const response = await authAPI.register(userData);
+        if (response.success && response.data) {
+          tokenManager.setTokens(
+            response.data.access_token,
+            response.data.refresh_token,
+            response.data.session_id
+          );
+          return { success: true, user: response.data.user };
+        }
         return { success: false, error: response.message };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: error.response?.data?.detail || 'Registration failed. Please try again.'
+        };
       }
+    }
+
+    // Client-side: Use Firebase Auth + Firestore
+    try {
+      const { createUserWithEmailAndPassword } = await import('firebase/auth');
+      const { doc, setDoc, getDoc } = await import('firebase/firestore');
+      const { auth, db } = await import('@/lib/firebase');
+
+      // Step 1: Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        userData.email.toLowerCase().trim(),
+        userData.password
+      );
+      
+      const firebaseUser = userCredential.user;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Firebase Auth user created:', firebaseUser.uid);
+      }
+
+      // Step 2: Create user profile in Firestore
+      const userProfile: UserProfile = {
+        id: firebaseUser.uid,
+        firstName: userData.firstName.trim(),
+        lastName: userData.lastName.trim(),
+        email: userData.email.toLowerCase().trim(),
+        membershipType: userData.membershipType,
+        club: userData.club.trim(),
+        role: 'user',
+        isActive: true,
+        emailConfirmed: false,
+        createdAt: new Date().toISOString(),
+        loginCount: 0,
+      };
+
+      // Create user document in Firestore 'users' collection
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      await setDoc(userDocRef, {
+        ...userProfile,
+        // Store additional metadata
+        updatedAt: new Date().toISOString(),
+      });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Firestore user document created:', firebaseUser.uid);
+      }
+
+      // Step 3: Verify document was created
+      const createdDoc = await getDoc(userDocRef);
+      if (!createdDoc.exists()) {
+        throw new Error('Failed to create user profile in database');
+      }
+
+      // Step 4: Store Firebase ID token for session management
+      const idToken = await firebaseUser.getIdToken();
+      tokenManager.setTokens(
+        idToken,
+        idToken, // Using same token for refresh (Firebase handles refresh internally)
+        firebaseUser.uid
+      );
+
+      return { success: true, user: userProfile };
     } catch (error: any) {
+      // Enhanced error handling with specific Firebase error messages
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            errorMessage = 'An account with this email already exists. Please sign in instead.';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'Invalid email address. Please check your email and try again.';
+            break;
+          case 'auth/weak-password':
+            errorMessage = 'Password is too weak. Please use a stronger password.';
+            break;
+          case 'auth/operation-not-allowed':
+            errorMessage = 'Email/password accounts are not enabled. Please contact support.';
+            break;
+          case 'permission-denied':
+            errorMessage = 'Permission denied. Please check Firestore security rules.';
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Firestore permission error. Check security rules allow users to create their own document.');
+            }
+            break;
+          default:
+            errorMessage = error.message || `Registration failed: ${error.code || 'Unknown error'}`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Registration error:', {
+          code: error.code,
+          message: error.message,
+          fullError: error,
+        });
+      }
+
       return {
         success: false,
-        error: error.response?.data?.detail || 'Registration failed. Please try again.'
+        error: errorMessage
       };
     }
   },
