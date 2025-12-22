@@ -50,16 +50,42 @@ export default async function handler(
       }
 
       const db = getFirestore();
-      const snapshot = await db.collection('users')
-        .orderBy('createdAt', 'desc')
-        .limit(1000)
-        .get();
       
-      const users = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      // Try to fetch users with orderBy, but fallback to simple query if index doesn't exist
+      let snapshot;
+      try {
+        snapshot = await db.collection('users')
+          .orderBy('createdAt', 'desc')
+          .limit(1000)
+          .get();
+      } catch (orderByError: any) {
+        // If orderBy fails (likely missing index), try without orderBy
+        console.warn('orderBy failed, fetching without order:', orderByError.message);
+        snapshot = await db.collection('users')
+          .limit(1000)
+          .get();
+      }
+      
+      const users = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Ensure createdAt exists for display
+          createdAt: data.createdAt || data.created_at || new Date().toISOString(),
+        };
+      });
 
+      // Sort manually if orderBy didn't work
+      if (users.length > 0 && !users[0].createdAt) {
+        users.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA; // Descending
+        });
+      }
+
+      console.log(`Fetched ${users.length} users from Firestore`);
       return res.status(200).json({ users });
     } catch (error: any) {
       console.error('Error fetching users:', error);

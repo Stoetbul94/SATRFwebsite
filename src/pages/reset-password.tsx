@@ -108,7 +108,7 @@ const ResetPasswordPage: NextPage = () => {
       
       // Step 3: Try to sign in with Firebase Auth to verify the password was reset
       // We'll need the email - let's check if we can get it from the verified code
-      let userEmail: string | null = null;
+      const userEmail: string | null = null;
       
       try {
         // Verify the code again to get user info (if possible)

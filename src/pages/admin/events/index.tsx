@@ -32,11 +32,13 @@ import {
   Select,
   VStack,
 } from '@chakra-ui/react';
-import { FiEdit, FiTrash2, FiPlus, FiArchive } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { Event } from '@/lib/api';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function AdminEvents() {
   useProtectedRoute();
@@ -55,7 +57,11 @@ export default function AdminEvents() {
     description: '',
     status: 'open' as 'open' | 'full' | 'closed',
     maxParticipants: '',
+    imageUrl: '',
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
 
@@ -112,7 +118,10 @@ export default function AdminEvents() {
       description: '',
       status: 'open',
       maxParticipants: '',
+      imageUrl: '',
     });
+    setImageFile(null);
+    setImagePreview(null);
     onOpen();
   };
 
@@ -127,17 +136,108 @@ export default function AdminEvents() {
       description: event.description || '',
       status: event.status,
       maxParticipants: event.maxParticipants?.toString() || '',
+      imageUrl: (event as any).imageUrl || '',
     });
+    setImageFile(null);
+    setImagePreview((event as any).imageUrl || null);
     onOpen();
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Invalid file type',
+          description: 'Please select an image file',
+          status: 'error',
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File too large',
+          description: 'Please select an image smaller than 5MB',
+          status: 'error',
+          duration: 3000,
+        });
+        return;
+      }
+
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData({ ...formData, imageUrl: '' });
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return formData.imageUrl || null;
+
+    try {
+      setUploadingImage(true);
+      const timestamp = Date.now();
+      const fileName = `events/${timestamp}_${imageFile.name}`;
+      const storageRef = ref(storage, fileName);
+      
+      await uploadBytes(storageRef, imageFile);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload image. Please try again.',
+        status: 'error',
+        duration: 3000,
+      });
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSave = async () => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      if (!token) return;
+      if (!token) {
+        toast({
+          title: 'Error',
+          description: 'Authentication required',
+          status: 'error',
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Upload image first if a new one was selected
+      let imageUrl = formData.imageUrl;
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        } else {
+          // Don't proceed if image upload failed
+          return;
+        }
+      }
 
       const eventData = {
         ...formData,
+        imageUrl,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
       };
 
@@ -155,6 +255,8 @@ export default function AdminEvents() {
         body: JSON.stringify(eventData),
       });
 
+      const responseData = await response.json();
+
       if (response.ok) {
         toast({
           title: 'Success',
@@ -164,15 +266,19 @@ export default function AdminEvents() {
         });
         onClose();
         fetchEvents();
+        // Reset form
+        setImageFile(null);
+        setImagePreview(null);
       } else {
-        throw new Error('Failed to save event');
+        throw new Error(responseData.error || responseData.details || 'Failed to save event');
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error saving event:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save event',
+        description: error.message || 'Failed to save event',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
       });
     }
   };
@@ -280,7 +386,22 @@ export default function AdminEvents() {
             ) : (
               events.map((event) => (
                 <Tr key={event.id}>
-                  <Td fontWeight="semibold">{event.title}</Td>
+                  <Td>
+                    <HStack spacing={2}>
+                      {(event as any).imageUrl && (
+                        <Box
+                          as="img"
+                          src={(event as any).imageUrl}
+                          alt={event.title}
+                          w="40px"
+                          h="40px"
+                          objectFit="cover"
+                          borderRadius="md"
+                        />
+                      )}
+                      <Text fontWeight="semibold">{event.title}</Text>
+                    </HStack>
+                  </Td>
                   <Td>{new Date(event.date).toLocaleDateString()}</Td>
                   <Td>{event.location}</Td>
                   <Td>{event.type}</Td>
@@ -382,13 +503,58 @@ export default function AdminEvents() {
                   placeholder="Optional"
                 />
               </FormControl>
+              <FormControl>
+                <FormLabel>Event Photo</FormLabel>
+                {imagePreview ? (
+                  <Box position="relative" mb={2}>
+                    <Box
+                      as="img"
+                      src={imagePreview}
+                      alt="Event preview"
+                      maxH="200px"
+                      borderRadius="md"
+                      objectFit="cover"
+                      w="100%"
+                    />
+                    <IconButton
+                      aria-label="Remove image"
+                      icon={<FiX />}
+                      size="sm"
+                      colorScheme="red"
+                      position="absolute"
+                      top={2}
+                      right={2}
+                      onClick={handleRemoveImage}
+                    />
+                  </Box>
+                ) : null}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  disabled={uploadingImage}
+                />
+                {uploadingImage && (
+                  <Text fontSize="sm" color="blue.500" mt={2}>
+                    Uploading image...
+                  </Text>
+                )}
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Optional: Upload an image for this event (max 5MB)
+                </Text>
+              </FormControl>
             </VStack>
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
+            <Button variant="ghost" mr={3} onClick={onClose} disabled={uploadingImage}>
               Cancel
             </Button>
-            <Button colorScheme="blue" onClick={handleSave}>
+            <Button 
+              colorScheme="blue" 
+              onClick={handleSave}
+              isLoading={uploadingImage}
+              loadingText="Uploading..."
+            >
               {isEditMode ? 'Update' : 'Create'}
             </Button>
           </ModalFooter>
