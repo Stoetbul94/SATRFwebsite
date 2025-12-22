@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { verifyAdminFromToken } from '@/lib/admin';
 
 interface ScoreData {
   eventName: string;
@@ -37,74 +38,10 @@ export default async function handler(
     }
 
     // Verify admin role using multiple methods (with fallbacks)
-    let isAdmin = false;
+    const { isAdmin, email: userEmail, method } = await verifyAdminFromToken(token);
     
-    // Method 1: Try to verify via backend API (primary method)
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
-      const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
-      
-      const userResponse = await fetch(`${API_BASE_URL}/${API_VERSION}/users/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        signal: AbortSignal.timeout(5000), // 5 second timeout
-      });
-
-      if (userResponse.ok) {
-        const user = await userResponse.json();
-        isAdmin = user.role === 'admin';
-      } else {
-        console.warn('Backend API unavailable, using fallback admin verification');
-      }
-    } catch (error) {
-      console.warn('Backend API unavailable, using fallback admin verification:', error);
-    }
-
-    // Method 2: Check environment variable for admin emails (fallback)
-    if (!isAdmin) {
-      const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(email => email.trim().toLowerCase()) || [];
-      
-      // Try to decode JWT token to get email (if token contains email)
-      try {
-        // Simple JWT decode (without verification for fallback check)
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-          const userEmail = payload.email?.toLowerCase() || payload.sub?.toLowerCase();
-          
-          if (userEmail && adminEmails.includes(userEmail)) {
-            isAdmin = true;
-            console.log('Admin verified via email whitelist:', userEmail);
-          }
-        }
-      } catch (decodeError) {
-        // Token decode failed, continue to next method
-      }
-    }
-
-    // Method 3: Check hardcoded admin emails for development (last resort)
-    if (!isAdmin) {
-      const devAdminEmails = [
-        'demo@satrf.org.za', // Demo account
-        'admin@satrf.org.za',
-        // Add more admin emails here for development
-      ];
-      
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-          const userEmail = payload.email?.toLowerCase() || payload.sub?.toLowerCase();
-          
-          if (userEmail && devAdminEmails.includes(userEmail)) {
-            isAdmin = true;
-            console.log('Admin verified via dev email list:', userEmail);
-          }
-        }
-      } catch (decodeError) {
-        // Token decode failed
-      }
+    if (isAdmin && method) {
+      console.log(`Admin verified via ${method}:`, userEmail);
     }
 
     // Final check: If still not admin, deny access
