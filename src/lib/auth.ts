@@ -315,10 +315,42 @@ export const passwordValidator = {
 
 // Auth API functions
 export const authAPI = {
-  // User registration
+  // User registration - Use Next.js API route to prevent Network Errors
   register: async (userData: UserRegistrationData): Promise<AuthResponse> => {
-    const response = await authApi.post('/users/register', userData);
-    return response.data;
+    // ROOT CAUSE FIX: Use Next.js API route to prevent Network Errors
+    if (typeof window === 'undefined') {
+      // Server-side: use direct backend call
+      const response = await authApi.post('/users/register', userData);
+      return response.data;
+    }
+
+    // Client-side: use Next.js API route proxy
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Registration failed');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      // Re-throw with proper format
+      throw {
+        response: {
+          data: {
+            detail: error.message || 'Registration failed'
+          }
+        }
+      };
+    }
   },
 
   // User login
