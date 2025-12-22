@@ -43,7 +43,7 @@ const ForgotPasswordPage: NextPage = () => {
       // Use Firebase Auth to send password reset email
       // Note: If handleCodeInApp is true, the continueUrl must be in Firebase's authorized domains
       // For development, we'll use handleCodeInApp: false to let Firebase handle the redirect
-      const isProduction = process.env.NODE_ENV === 'production' || appUrl;
+      const isProduction = process.env.NODE_ENV === 'production' || !!appUrl;
       
       await sendPasswordResetEmail(auth, email.toLowerCase().trim(), {
         url: continueUrl,
