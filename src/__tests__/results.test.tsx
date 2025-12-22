@@ -1,0 +1,321 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useRouter } from 'next/router';
+import Results from '../pages/results';
+
+// Mock Next.js router
+jest.mock('next/router', () => ({
+  useRouter: jest.fn(),
+}));
+
+// Mock the Layout component
+jest.mock('../components/layout/Layout', () => {
+  return function MockLayout({ children }: { children: React.ReactNode }) {
+    return <div data-testid="layout">{children}</div>;
+  };
+});
+
+// Mock the resultsAPI
+jest.mock('../lib/api', () => ({
+  resultsAPI: {
+    getResults: jest.fn(),
+  },
+}));
+
+describe('Results Page', () => {
+  const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
+  const mockGetResults = require('../lib/api').resultsAPI.getResults;
+
+  beforeEach(() => {
+    mockUseRouter.mockReturnValue({
+      route: '/results',
+      pathname: '/results',
+      query: {},
+      asPath: '/results',
+      push: jest.fn(),
+      pop: jest.fn(),
+      reload: jest.fn(),
+      back: jest.fn(),
+      prefetch: jest.fn(),
+      beforePopState: jest.fn(),
+      events: {
+        on: jest.fn(),
+        off: jest.fn(),
+        emit: jest.fn(),
+      },
+      isFallback: false,
+      isLocaleDomain: false,
+      isReady: true,
+      defaultLocale: 'en',
+      domainLocales: [],
+      isPreview: false,
+    });
+
+    mockGetResults.mockClear();
+  });
+
+  it('renders the results page with header', async () => {
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
+    });
+
+    render(<Results />);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Match Results')).toBeInTheDocument();
+      expect(screen.getByText('View and filter competition results by event and match number')).toBeInTheDocument();
+    });
+  });
+
+  it('shows loading state initially', () => {
+    mockGetResults.mockImplementation(() => new Promise(() => {})); // Never resolves
+
+    render(<Results />);
+    
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('displays results when API call succeeds', async () => {
+    const mockResults = [
+      {
+        event: 'Prone Match 1',
+        matchNumber: 1,
+        results: [
+          {
+            id: '1',
+            place: 1,
+            name: 'John Smith',
+            club: 'SATRF Club A',
+            division: 'Senior',
+            veteran: false,
+            series1: 98,
+            series2: 99,
+            series3: 97,
+            series4: 100,
+            series5: 98,
+            series6: 99,
+            total: 591,
+            isPersonalBest: true,
+            isMatchBest: true,
+          },
+        ],
+      },
+    ];
+
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
+    });
+
+    render(<Results />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Prone Match 1 - Match 1')).toBeInTheDocument();
+      expect(screen.getByText('John Smith')).toBeInTheDocument();
+      expect(screen.getByText('SATRF Club A')).toBeInTheDocument();
+      expect(screen.getByText('591')).toBeInTheDocument();
+    });
+  });
+
+  it('shows no results message when API returns empty data', async () => {
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
+    });
+
+    render(<Results />);
+
+    await waitFor(() => {
+      expect(screen.getByText('No results found')).toBeInTheDocument();
+      expect(screen.getByText('No match results are available for the selected filters.')).toBeInTheDocument();
+    });
+  });
+
+  it('filters results by event', async () => {
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
+    });
+
+    render(<Results />);
+
+    const eventSelect = screen.getByLabelText(/Event/i);
+    fireEvent.change(eventSelect, { target: { value: 'Prone Match 1' } });
+
+    await waitFor(() => {
+      expect(mockGetResults).toHaveBeenCalledWith({
+        event: 'Prone Match 1',
+        match: 'all',
+      });
+    });
+  });
+
+  it('filters results by match number', async () => {
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
+    });
+
+    render(<Results />);
+
+    const matchSelect = screen.getByLabelText(/Match Number/i);
+    fireEvent.change(matchSelect, { target: { value: '1' } });
+
+    await waitFor(() => {
+      expect(mockGetResults).toHaveBeenCalledWith({
+        event: 'all',
+        match: '1',
+      });
+    });
+  });
+
+  it('clears filters when clear button is clicked', async () => {
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: [],
+    });
+
+    render(<Results />);
+
+    const clearButton = screen.getByText(/Clear Filters/i);
+    fireEvent.click(clearButton);
+
+    await waitFor(() => {
+      expect(mockGetResults).toHaveBeenCalledWith({
+        event: 'all',
+        match: 'all',
+      });
+    });
+  });
+
+  it('handles API errors gracefully', async () => {
+    mockGetResults.mockRejectedValueOnce(new Error('Network error'));
+
+    render(<Results />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+    });
+  });
+
+  it('displays veteran badge for veteran shooters', async () => {
+    const mockResults = [
+      {
+        event: 'Prone Match 1',
+        matchNumber: 1,
+        results: [
+          {
+            id: '1',
+            place: 1,
+            name: 'Mike Brown',
+            club: 'SATRF Club C',
+            division: 'Veteran',
+            veteran: true,
+            series1: 96,
+            series2: 97,
+            series3: 95,
+            series4: 98,
+            series5: 96,
+            series6: 97,
+            total: 579,
+            isPersonalBest: true,
+            isMatchBest: false,
+          },
+        ],
+      },
+    ];
+
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
+    });
+
+    render(<Results />);
+
+    await waitFor(() => {
+      // Look for the veteran badge specifically (the span with yellow background)
+      const veteranBadge = screen.getByText('Veteran', { selector: 'span' });
+      expect(veteranBadge).toHaveClass('bg-yellow-100', 'text-yellow-800');
+    });
+  });
+
+  it('highlights personal best scores', async () => {
+    const mockResults = [
+      {
+        event: 'Prone Match 1',
+        matchNumber: 1,
+        results: [
+          {
+            id: '1',
+            place: 1,
+            name: 'John Smith',
+            club: 'SATRF Club A',
+            division: 'Senior',
+            veteran: false,
+            series1: 98,
+            series2: 99,
+            series3: 97,
+            series4: 100,
+            series5: 98,
+            series6: 99,
+            total: 591,
+            isPersonalBest: true,
+            isMatchBest: true,
+          },
+        ],
+      },
+    ];
+
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
+    });
+
+    render(<Results />);
+
+    await waitFor(() => {
+      const totalCell = screen.getByText('591');
+      expect(totalCell).toHaveClass('font-bold', 'text-green-600', 'bg-green-50');
+    });
+  });
+
+  it('shows legend for score highlighting', async () => {
+    const mockResults = [
+      {
+        event: 'Prone Match 1',
+        matchNumber: 1,
+        results: [
+          {
+            id: '1',
+            place: 1,
+            name: 'John Smith',
+            club: 'SATRF Club A',
+            division: 'Senior',
+            veteran: false,
+            series1: 98,
+            series2: 99,
+            series3: 97,
+            series4: 100,
+            series5: 98,
+            series6: 99,
+            total: 591,
+            isPersonalBest: true,
+            isMatchBest: true,
+          },
+        ],
+      },
+    ];
+
+    mockGetResults.mockResolvedValueOnce({
+      success: true,
+      data: mockResults,
+    });
+
+    render(<Results />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Match Best')).toBeInTheDocument();
+      expect(screen.getByText('Personal Best')).toBeInTheDocument();
+    });
+  });
+}); 

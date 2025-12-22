@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================================
+    // USERS COLLECTION RULES
+    // ============================================================================
+    // Users can read their own profile and create their own user document during registration
+    // Admins can read/write all user documents
+    // ============================================================================
+    
+    match /users/{userId} {
+      // Allow users to read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to create their own user document during registration
+      // This is critical for the registration flow to work
+      allow create: if request.auth != null 
+                   && request.auth.uid == userId
+                   && request.resource.data.id == userId
+                   && request.resource.data.email == request.auth.token.email
+                   && request.resource.data.role == 'user'; // Prevent users from creating admin accounts
+      
+      // Allow users to update their own profile (but not change critical fields)
+      allow update: if request.auth != null 
+                   && request.auth.uid == userId
+                   && request.resource.data.id == userId
+                   && request.resource.data.email == request.auth.token.email
+                   && request.resource.data.role == resource.data.role; // Cannot change role
+      
+      // Admins can read/write all user documents
+      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
+      allow read, write: if request.auth != null 
+                        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+    }
+    
+    // ============================================================================
+    // SCORES COLLECTION RULES
+    // ============================================================================
+    // Users can read all scores (public leaderboard)
+    // Users can create their own scores
+    // Admins can read/write all scores
+    // ============================================================================
+    
+    match /scores/{scoreId} {
+      // Public read access for leaderboard
+      allow read: if true;
+      
+      // Users can create their own scores
+      allow create: if request.auth != null 
+                   && request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own pending scores
+      allow update: if request.auth != null 
+                   && resource.data.userId == request.auth.uid
+                   && resource.data.status == 'pending';
+      
+      // Admins can read/write all scores
+      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
+      allow read, write: if request.auth != null 
+                        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+    }
+    
+    // ============================================================================
+    // ADMIN ACTIONS COLLECTION RULES
+    // ============================================================================
+    // Only admins can read/write admin actions
+    // ============================================================================
+    
+    match /adminActions/{actionId} {
+      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
+      allow read, write: if request.auth != null 
+                        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+    }
+    
+    // ============================================================================
+    // EVENTS COLLECTION RULES
+    // ============================================================================
+    // Public read access for events
+    // Admins can create/update/delete events
+    // ============================================================================
+    
+    match /events/{eventId} {
+      // Public read access
+      allow read: if true;
+      
+      // Only admins can create/update/delete events
+      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
+      allow write: if request.auth != null 
+                  && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+    }
+    
+    // ============================================================================
+    // DEFAULT DENY
+    // ============================================================================
+    // All other collections are denied by default
+    // ============================================================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
