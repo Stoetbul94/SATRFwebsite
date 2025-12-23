@@ -60,6 +60,8 @@ interface Event {
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationDeadline: Date;
   image?: string;
+  payfastUrl?: string | null;
+  eftInstructions?: string | null;
   requirements?: string[];
   schedule?: string[];
   contactInfo?: {
@@ -107,27 +109,43 @@ export default function Events() {
       const eventsData = await eventsAPI.getAll(filters);
       
       // Transform API response to match our Event interface
+      const toDate = (d: any) => {
+        if (!d) return null;
+        if (d.toDate) return d.toDate();
+        const parsed = new Date(d);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      };
+
       const transformedEvents: Event[] = Array.isArray(eventsData) 
-        ? eventsData.map((e: any) => ({
-            id: e.id,
-            title: e.title || e.name,
-            description: e.description || '',
-            date: e.date || e.startDate,
-            startDate: new Date(e.startDate || e.date),
-            endDate: new Date(e.endDate || e.date),
-            location: e.location || '',
-            category: e.category || e.type || 'All Categories',
-            discipline: e.discipline || e.type || 'Target Rifle',
-            price: e.price || 0,
-            maxSpots: e.maxParticipants || e.maxSpots || 0,
-            currentSpots: e.currentParticipants || e.currentSpots || 0,
-            status: e.status || 'upcoming',
-            registrationDeadline: new Date(e.registrationDeadline || e.deadline || e.date),
-            image: e.image || e.imageUrl,
-            requirements: e.requirements || [],
-            schedule: e.schedule || [],
-            contactInfo: e.contactInfo,
-          }))
+        ? eventsData.map((e: any) => {
+            const dateVal = toDate(e.date);
+            const start = toDate(e.startDate) || dateVal;
+            const end = toDate(e.endDate) || dateVal;
+            const deadline = toDate(e.registrationDeadline || e.deadline || e.date) || dateVal || new Date();
+
+            return {
+              id: e.id,
+              title: e.title || e.name || 'Untitled Event',
+              description: e.description || '',
+              date: dateVal ? dateVal.toISOString() : '',
+              startDate: start || new Date(),
+              endDate: end || start || new Date(),
+              location: e.location || '',
+              category: e.category || e.type || 'All Categories',
+              discipline: e.discipline || e.type || 'Target Rifle',
+              price: e.price || 0,
+              maxSpots: e.maxParticipants ?? e.maxSpots ?? 0,
+              currentSpots: e.currentParticipants ?? e.currentSpots ?? 0,
+              status: e.status || 'upcoming',
+              registrationDeadline: deadline,
+              image: e.image || e.imageUrl || e.imageURL || null,
+              payfastUrl: e.payfastUrl || null,
+              eftInstructions: e.eftInstructions || null,
+              requirements: e.requirements || [],
+              schedule: e.schedule || [],
+              contactInfo: e.contactInfo,
+            };
+          })
         : [];
       
       setEvents(transformedEvents);
@@ -468,6 +486,37 @@ export default function Events() {
                       >
                         Entry Fee: R{event.price}
                       </Text>
+
+                      {/* Payment options */}
+                      {event.payfastUrl && (
+                        <Button
+                          as="a"
+                          href={event.payfastUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          colorScheme="pink"
+                          w="100%"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Pay with PayFast
+                        </Button>
+                      )}
+                      {event.eftInstructions && (
+                        <Box
+                          w="100%"
+                          p={3}
+                          border="1px"
+                          borderColor={useColorModeValue('gray.200', 'gray.600')}
+                          rounded="md"
+                          bg={useColorModeValue('gray.50', 'gray.800')}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Text fontSize="sm" fontWeight="semibold">EFT Payment</Text>
+                          <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                            {event.eftInstructions}
+                          </Text>
+                        </Box>
+                      )}
                       
                       <Button
                         colorScheme={registrationStatus === 'open' ? 'blue' : 'gray'}

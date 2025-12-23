@@ -101,11 +101,13 @@ export default function Navbar() {
                   <Text color={textColor} fontSize="sm">
                     Welcome, {user.firstName}
                   </Text>
-                  <Link href="/dashboard">
-                    <Button size="sm" variant="outline" colorScheme="blue">
-                      Dashboard
-                    </Button>
-                  </Link>
+                  {!isAdmin && (
+                    <Link href="/dashboard">
+                      <Button size="sm" variant="outline" colorScheme="blue">
+                        Dashboard
+                      </Button>
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link href="/admin/dashboard">
                       <Button size="sm" variant="solid" colorScheme="red" leftIcon={<FiShield />}>
@@ -168,7 +170,9 @@ export default function Navbar() {
             {isAuthenticated && user ? (
               <>
                 <NavLink href="/profile" onClick={closeMobileMenu}>Profile</NavLink>
-                <NavLink href="/dashboard" onClick={closeMobileMenu}>Dashboard</NavLink>
+                {!isAdmin && (
+                  <NavLink href="/dashboard" onClick={closeMobileMenu}>Dashboard</NavLink>
+                )}
                 {isAdmin && (
                   <NavLink href="/admin/dashboard" onClick={closeMobileMenu}>
                     <HStack>

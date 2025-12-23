@@ -1,4 +1,5 @@
 import type { AppProps } from 'next/app';
+import React from 'react';
 import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '../contexts/AuthContext';

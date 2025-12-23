@@ -287,13 +287,6 @@ export default function Dashboard() {
                 href="/scores"
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <FiUpload className="h-5 w-5 text-blue-600 mr-3" />
-                <span className="font-medium">Submit Score</span>
-              </Link>
-              <Link
-                href="/scores"
-                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
                 <FiEye className="h-5 w-5 text-green-600 mr-3" />
                 <span className="font-medium">View Scores</span>
               </Link>

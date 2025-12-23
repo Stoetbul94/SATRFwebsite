@@ -40,6 +40,8 @@ interface Event {
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationDeadline: Date;
   image?: string;
+  payfastUrl?: string | null;
+  eftInstructions?: string | null;
   requirements?: string[];
   schedule?: string[];
   contactInfo?: {
@@ -89,7 +91,9 @@ export default function EventDetail() {
         currentSpots: eventData.currentParticipants || eventData.currentSpots || 0,
         status: eventData.status || 'upcoming',
         registrationDeadline: new Date(eventData.registrationDeadline || eventData.deadline || eventData.date),
-        image: eventData.image || eventData.imageUrl,
+        image: eventData.image || eventData.imageUrl || eventData.imageURL || null,
+        payfastUrl: eventData.payfastUrl || null,
+        eftInstructions: eventData.eftInstructions || null,
         requirements: eventData.requirements || [],
         schedule: eventData.schedule || [],
         contactInfo: eventData.contactInfo,
@@ -416,6 +420,36 @@ export default function EventDetail() {
                 Please log in to register for this event
               </Text>
             )}
+
+          {event.payfastUrl && (
+            <Button
+              as="a"
+              href={event.payfastUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              colorScheme="pink"
+              variant="outline"
+              w="100%"
+            >
+              Pay with PayFast
+            </Button>
+          )}
+
+          {event.eftInstructions && (
+            <Box
+              w="100%"
+              p={4}
+              border="1px"
+              borderColor={useColorModeValue('gray.200', 'gray.600')}
+              rounded="md"
+              bg={useColorModeValue('gray.50', 'gray.800')}
+            >
+              <Text fontWeight="semibold" mb={1}>EFT Payment Instructions</Text>
+              <Text fontSize="sm" color={useColorModeValue('gray.700', 'gray.200')}>
+                {event.eftInstructions}
+              </Text>
+            </Box>
+          )}
           </VStack>
         </VStack>
       </Container>

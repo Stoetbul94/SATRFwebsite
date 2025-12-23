@@ -2,9 +2,9 @@ import { NextApiRequest, NextApiResponse } from 'next';
 
 /**
  * Next.js API Route: /api/events/[id]
- * 
- * ROOT CAUSE FIX: Proxy route for individual event details.
- * Prevents Network Errors by handling requests server-side.
+ *
+ * Fetch a single event directly from Firestore (no backend proxy).
+ * Public, read-only.
  */
 export default async function handler(
   req: NextApiRequest,
@@ -20,53 +20,67 @@ export default async function handler(
       return res.status(400).json({ error: 'Event ID is required' });
     }
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
-    const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
-    const backendUrl = `${API_BASE_URL}/${API_VERSION}/events/${id}`;
+    const { initializeApp, getApps, cert, applicationDefault } = await import('firebase-admin/app');
+    const { getFirestore } = await import('firebase-admin/firestore');
 
-    // Get auth token from request headers
-    const authToken = req.headers.authorization?.replace('Bearer ', '') || null;
+    if (!getApps().length) {
+      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+        : null;
 
-    try {
-      const backendResponse = await fetch(backendUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
-        },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (backendResponse.ok) {
-        const data = await backendResponse.json();
-        return res.status(200).json(data);
+      if (serviceAccount) {
+        initializeApp({
+          credential: cert(serviceAccount),
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
+        });
+      } else {
+        initializeApp({
+          credential: applicationDefault(),
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
+        });
       }
-
-      const errorData = await backendResponse.json().catch(() => ({}));
-      return res.status(backendResponse.status).json({
-        error: errorData.detail || errorData.message || 'Event not found',
-        status: backendResponse.status,
-      });
-    } catch (fetchError: any) {
-      console.warn('Backend unavailable for event details:', {
-        error: fetchError.message,
-        eventId: id,
-        url: backendUrl,
-      });
-
-      // Return 404 if backend unavailable (event doesn't exist)
-      return res.status(404).json({
-        error: 'Event not found or backend unavailable',
-        eventId: id,
-      });
     }
+
+    const db = getFirestore();
+    const docRef = db.collection('events').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Event not found', id });
+    }
+
+    const data = doc.data() || {};
+    const toIso = (d: any) => {
+      if (!d) return null;
+      if (d.toDate) return d.toDate().toISOString();
+      if (typeof d === 'string') return d;
+      return null;
+    };
+
+    const event = {
+      id: doc.id,
+      title: data.title || '',
+      description: data.description || '',
+      date: toIso(data.date),
+      location: data.location || '',
+      type: data.type || data.category || 'Target Rifle',
+      status: data.status || 'upcoming',
+      maxParticipants: data.maxParticipants || 0,
+      currentParticipants: data.currentParticipants || 0,
+      imageUrl: data.imageUrl || data.imageURL || data.image || null,
+      payfastUrl: data.payfastUrl || null,
+      eftInstructions: data.eftInstructions || null,
+      isTestEvent: data.isTestEvent || false,
+      createdAt: toIso(data.createdAt),
+      updatedAt: toIso(data.updatedAt),
+    };
+
+    return res.status(200).json(event);
   } catch (error) {
     console.error('Event API route error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
-
-

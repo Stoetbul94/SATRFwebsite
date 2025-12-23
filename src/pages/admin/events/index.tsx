@@ -32,6 +32,7 @@ import {
   Select,
   VStack,
   FormErrorMessage,
+  FormHelperText,
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -190,7 +191,7 @@ export default function AdminEvents() {
     setFormData({ ...formData, imageUrl: '' });
   };
 
-  const uploadImage = async (): Promise<string | null> => {
+  const uploadImage = async (skipOnTimeout: boolean = true): Promise<string | null> => {
     if (!imageFile) return formData.imageUrl || null;
 
     try {
@@ -199,18 +200,45 @@ export default function AdminEvents() {
       const fileName = `events/${timestamp}_${imageFile.name}`;
       const storageRef = ref(storage, fileName);
       
-      await uploadBytes(storageRef, imageFile);
+      // Reduced timeout to 15 seconds - if it takes longer, skip it
+      const uploadPromise = uploadBytes(storageRef, imageFile, {
+        contentType: imageFile.type,
+      });
+      
+      // Create a timeout promise (15 seconds - faster failure)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Upload timeout'));
+        }, 15000); // 15 seconds - fail fast
+      });
+      
+      // Race between upload and timeout
+      await Promise.race([uploadPromise, timeoutPromise]);
       const downloadURL = await getDownloadURL(storageRef);
       
       return downloadURL;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
+      
+      // Check if it's a retry limit error or timeout
+      const isTimeout = error?.code === 'storage/retry-limit-exceeded' || 
+                       error?.message?.includes('retry') ||
+                       error?.message?.includes('timeout');
+      
+      if (isTimeout && skipOnTimeout) {
+        // Silently skip image upload on timeout - don't show error, just proceed
+        console.log('Image upload timed out - proceeding without image');
+        return null;
+      }
+      
       toast({
-        title: 'Upload failed',
-        description: 'Failed to upload image. Please try again.',
-        status: 'error',
-        duration: 3000,
+        title: 'Image upload failed',
+        description: 'Failed to upload image. Event will be created without an image. You can add it later by editing the event.',
+        status: 'warning',
+        duration: 4000,
       });
+      
+      // Return null to indicate failure, but allow event creation to proceed
       return null;
     } finally {
       setUploadingImage(false);
@@ -283,23 +311,23 @@ export default function AdminEvents() {
         return;
       }
 
-      // Upload image first if a new one was selected
+      // Upload image first if a new one was selected (optional - event can be created without image)
+      // If upload fails or times out, we'll proceed without the image
       let imageUrl = formData.imageUrl;
       if (imageFile) {
-        toast({
-          title: 'Uploading image...',
-          description: 'Please wait while we upload your image',
-          status: 'info',
-          duration: 2000,
-        });
-        
-        const uploadedUrl = await uploadImage();
-        if (uploadedUrl) {
-          imageUrl = uploadedUrl;
-        } else {
-          // Don't proceed if image upload failed
-          setIsSaving(false);
-          return;
+        // Try to upload, but don't block event creation if it fails
+        try {
+          const uploadedUrl = await uploadImage(true); // skipOnTimeout = true
+          if (uploadedUrl) {
+            imageUrl = uploadedUrl;
+          } else {
+            // Upload failed/timed out - proceed without image
+            imageUrl = null;
+          }
+        } catch (error) {
+          // If upload throws an error, just proceed without image
+          console.log('Image upload error, proceeding without image:', error);
+          imageUrl = null;
         }
       }
 
@@ -332,12 +360,26 @@ export default function AdminEvents() {
 
       let responseData;
       try {
-        responseData = await response.json();
-      } catch (parseError) {
-        // If response is not JSON, get text
-        const text = await response.text();
-        throw new Error(text || `HTTP ${response.status}: ${response.statusText}`);
+        const responseText = await response.text();
+        console.log('[EVENT CREATE] Raw API response:', responseText);
+        console.log('[EVENT CREATE] Response status:', response.status);
+        
+        if (responseText) {
+          try {
+            responseData = JSON.parse(responseText);
+          } catch (parseError) {
+            // If not JSON, use the text as error message
+            throw new Error(responseText || `HTTP ${response.status}: ${response.statusText}`);
+          }
+        } else {
+          responseData = {};
+        }
+      } catch (parseError: any) {
+        console.error('[EVENT CREATE] Failed to parse response:', parseError);
+        throw new Error(parseError.message || `HTTP ${response.status}: ${response.statusText}`);
       }
+
+      console.log('[EVENT CREATE] Parsed response data:', responseData);
 
       if (response.ok) {
         toast({
@@ -363,11 +405,23 @@ export default function AdminEvents() {
         setImagePreview(null);
         setFormErrors({});
       } else {
-        const errorMessage = responseData.error || responseData.details || 'Failed to save event';
+        // Log detailed error information
+        console.error('[EVENT CREATE] API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: responseData,
+        });
+        
+        const errorMessage = responseData.error || responseData.details || `Failed to save event (${response.status})`;
         throw new Error(errorMessage);
       }
     } catch (error: any) {
-      console.error('Error saving event:', error);
+      console.error('[EVENT CREATE] Error saving event:', error);
+      console.error('[EVENT CREATE] Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
       
       let errorMessage = 'Failed to save event. Please try again.';
       
@@ -380,12 +434,15 @@ export default function AdminEvents() {
       }
       
       toast({
-        title: 'Error',
+        title: 'Error Creating Event',
         description: errorMessage,
         status: 'error',
-        duration: 5000,
+        duration: 7000,
         isClosable: true,
       });
+      
+      // Also log to console for debugging
+      console.error('[EVENT CREATE] Full error object:', error);
     } finally {
       setIsSaving(false);
     }
@@ -677,7 +734,12 @@ export default function AdminEvents() {
                   <FormErrorMessage>{formErrors.maxParticipants}</FormErrorMessage>
                 </FormControl>
                 <FormControl flex={1}>
-                  <FormLabel fontWeight="semibold" mb={2}>Event Photo</FormLabel>
+                  <FormLabel fontWeight="semibold" mb={2}>
+                    Event Photo <Text as="span" fontWeight="normal" color="gray.500" fontSize="sm">(Optional)</Text>
+                  </FormLabel>
+                  <FormHelperText mb={2} fontSize="xs" color="gray.500">
+                    You can add an image now or skip and add it later by editing the event
+                  </FormHelperText>
                   {imagePreview ? (
                     <Box position="relative" mb={2}>
                       <Box
@@ -713,6 +775,7 @@ export default function AdminEvents() {
                       cursor="pointer"
                       _hover={{ borderColor: 'blue.400', bg: 'blue.50' }}
                       transition="all 0.2s"
+                      position="relative"
                     >
                       <Input
                         type="file"
@@ -725,6 +788,8 @@ export default function AdminEvents() {
                         height="100%"
                         cursor="pointer"
                         zIndex={1}
+                        top={0}
+                        left={0}
                       />
                       <VStack spacing={2}>
                         <FiImage size={24} color="gray" />
@@ -732,16 +797,21 @@ export default function AdminEvents() {
                           Click to upload image
                         </Text>
                         <Text fontSize="xs" color="gray.500">
-                          Max 5MB (JPG, PNG, GIF)
+                          Max 5MB (JPG, PNG, GIF) - Optional
                         </Text>
                       </VStack>
                     </Box>
                   )}
                   {uploadingImage && (
-                    <HStack mt={2} spacing={2}>
-                      <Spinner size="sm" color="blue.500" />
-                      <Text fontSize="sm" color="blue.500">Uploading image...</Text>
-                    </HStack>
+                    <VStack mt={2} spacing={2} align="stretch">
+                      <HStack spacing={2}>
+                        <Spinner size="sm" color="blue.500" />
+                        <Text fontSize="sm" color="blue.500">Uploading image...</Text>
+                      </HStack>
+                      <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                        If upload takes too long, you can skip and add the image later
+                      </Text>
+                    </VStack>
                   )}
                 </FormControl>
               </HStack>

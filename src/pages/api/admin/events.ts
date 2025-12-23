@@ -128,6 +128,8 @@ export default async function handler(
           maxParticipants: req.body.maxParticipants ? parseInt(req.body.maxParticipants) : undefined,
           currentParticipants: 0,
           imageUrl: req.body.imageUrl || null,
+          payfastUrl: req.body.payfastUrl || null,
+          eftInstructions: req.body.eftInstructions || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -169,6 +171,8 @@ export default async function handler(
             status: eventData.status,
             currentParticipants: eventData.currentParticipants,
             imageUrl: eventData.imageUrl,
+            payfastUrl: eventData.payfastUrl,
+            eftInstructions: eventData.eftInstructions,
           };
 
           // Add optional fields only if they exist
@@ -178,15 +182,20 @@ export default async function handler(
 
           // Convert dates to Firestore Timestamps
           try {
-            firestoreData.date = Timestamp.fromDate(new Date(eventData.date));
-            firestoreData.createdAt = Timestamp.fromDate(new Date(eventData.createdAt));
-            firestoreData.updatedAt = Timestamp.fromDate(new Date(eventData.updatedAt));
+            // Ensure date is valid before converting
+            const dateObj = new Date(eventData.date);
+            if (isNaN(dateObj.getTime())) {
+              throw new Error('Invalid date format');
+            }
+            firestoreData.date = Timestamp.fromDate(dateObj);
+            firestoreData.createdAt = Timestamp.now();
+            firestoreData.updatedAt = Timestamp.now();
           } catch (dateError: any) {
             console.warn('[EVENT CREATE] Date conversion warning:', dateError.message);
             // Fallback to ISO strings if Timestamp conversion fails
             firestoreData.date = eventData.date;
-            firestoreData.createdAt = eventData.createdAt;
-            firestoreData.updatedAt = eventData.updatedAt;
+            firestoreData.createdAt = new Date().toISOString();
+            firestoreData.updatedAt = new Date().toISOString();
           }
 
           console.log('[EVENT CREATE] Firestore data prepared:', JSON.stringify(firestoreData, null, 2));

@@ -114,13 +114,18 @@ export default function AdminScoreImport() {
                     </Text>
                     {importResult.details.errorDetails && importResult.details.errorDetails.length > 0 && (
                       <Box mt={2}>
-                        <Text fontSize="sm" fontWeight="semibold">Error Details:</Text>
+                        <Text fontSize="sm" fontWeight="semibold">Error Details (first 10 shown):</Text>
                         <Box maxH="200px" overflowY="auto" mt={1}>
-                          {importResult.details.errorDetails.map((error, index) => (
+                          {importResult.details.errorDetails.slice(0, 10).map((error, index) => (
                             <Text key={index} fontSize="xs" color="red.600">
                               • {error}
                             </Text>
                           ))}
+                          {importResult.details.errorDetails.length > 10 && (
+                            <Text fontSize="xs" color="gray.600">
+                              ...and {importResult.details.errorDetails.length - 10} more
+                            </Text>
+                          )}
                         </Box>
                       </Box>
                     )}
