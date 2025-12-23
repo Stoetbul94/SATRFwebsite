@@ -25,6 +25,7 @@ export default function Dashboard() {
   
   // Local state for dashboard data
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentScores, setRecentScores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Protected route guard - redirect to login if not authenticated
@@ -52,6 +53,14 @@ export default function Dashboard() {
           // Get user's scores (only their own)
           const myScoresResponse = await scoresAPI.getMyScores(1, 100);
           const myScores = myScoresResponse.data || [];
+          
+          // Set recent scores (all scores, sorted by date, limit to 10)
+          const sortedScores = [...myScores].sort((a: any, b: any) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+          setRecentScores(sortedScores.slice(0, 10));
           
           // Calculate statistics from user's own scores
           const approvedScores = myScores.filter((s: any) => s.status === 'approved');
@@ -158,25 +167,6 @@ export default function Dashboard() {
       </Head>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          {/* Demo Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <FiInfo className="h-5 w-5 text-blue-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Demo Dashboard
-                </h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>
-                    Welcome, {user.firstName} {user.lastName}! This is a demo dashboard showing mock data. 
-                    In a real application, this would display your actual shooting statistics, recent scores, and upcoming events.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Header */}
           <div className="mb-8">
@@ -278,6 +268,78 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* Recent Scores */}
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Recent Scores</h2>
+              <Link
+                href="/scores"
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                View All →
+              </Link>
+            </div>
+            {recentScores.length === 0 ? (
+              <div className="text-center py-8">
+                <FiTarget className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-600 mb-2">No scores yet</p>
+                <Link
+                  href="/scores/upload"
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Upload your first score →
+                </Link>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Discipline
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Score
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        X-Count
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {recentScores.map((score: any) => (
+                      <tr key={score.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {score.createdAt ? new Date(score.createdAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {score.discipline || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                          {score.score}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {score.xCount || 0}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={getStatusBadge(score.status)}>
+                            {score.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow p-6 mb-8">

@@ -212,36 +212,55 @@ export default function AdminEvents() {
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: 'Invalid file type',
-          description: 'Please select an image file',
-          status: 'error',
-          duration: 3000,
-        });
-        return;
-      }
+    if (!file) return;
 
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: 'File too large',
-          description: 'Please select an image smaller than 5MB',
-          status: 'error',
-          duration: 3000,
-        });
-        return;
+    // Validate file type (jpg, png, gif)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select a JPG, PNG, or GIF image file',
+        status: 'error',
+        duration: 3000,
+      });
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
-
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      return;
     }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast({
+        title: 'File too large',
+        description: `File size is ${(file.size / 1024 / 1024).toFixed(2)}MB. Please select an image smaller than 5MB`,
+        status: 'error',
+        duration: 3000,
+      });
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Set file and create preview
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.onerror = () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to read image file',
+        status: 'error',
+        duration: 3000,
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRemoveImage = () => {
@@ -256,38 +275,68 @@ export default function AdminEvents() {
   const handleImageUploadClick = (e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
-    console.log('[IMAGE UPLOAD] Click handler called', { uploadingImage, isSaving, hasRef: !!fileInputRef.current });
-    if (!uploadingImage && !isSaving && fileInputRef.current) {
-      console.log('[IMAGE UPLOAD] Triggering file input click');
+    
+    if (uploadingImage || isSaving) {
+      return;
+    }
+    
+    if (fileInputRef.current && !fileInputRef.current.disabled) {
       fileInputRef.current.click();
     } else {
-      console.log('[IMAGE UPLOAD] Cannot click - disabled or no ref');
+      console.error('[IMAGE UPLOAD] File input not available or disabled', {
+        hasRef: !!fileInputRef.current,
+        disabled: fileInputRef.current?.disabled,
+        uploadingImage,
+        isSaving,
+      });
     }
   };
 
-  const uploadImage = async (skipOnTimeout: boolean = true): Promise<string | null> => {
+  const uploadImage = async (eventId?: string, skipOnTimeout: boolean = true): Promise<string | null> => {
     if (!imageFile) return formData.imageUrl || null;
 
     try {
       setUploadingImage(true);
       setUploadProgress(0);
       
-      const timestamp = Date.now();
+      // Use provided eventId, or existing eventId if editing, otherwise use timestamp
+      const targetEventId = eventId || (isEditMode && selectedEvent ? selectedEvent.id : null);
       const sanitizedFileName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fileName = `events/${timestamp}_${sanitizedFileName}`;
+      const fileExtension = sanitizedFileName.split('.').pop() || 'jpg';
+      const fileName = targetEventId 
+        ? `events/${targetEventId}/cover.${fileExtension}`
+        : `events/temp_${Date.now()}_${sanitizedFileName}`;
       const storageRef = ref(storage, fileName);
+      
+      // Calculate timeout based on file size (minimum 3 minutes, add 2 minutes per MB)
+      // This gives plenty of time for slow connections
+      const fileSizeMB = imageFile.size / (1024 * 1024);
+      const baseTimeout = 180000; // 3 minutes base
+      const sizeTimeout = fileSizeMB * 120000; // 2 minutes per MB
+      const timeoutMs = Math.min(baseTimeout + sizeTimeout, 600000); // Max 10 minutes
       
       // Use uploadBytesResumable for progress tracking
       const uploadTask = uploadBytesResumable(storageRef, imageFile, {
         contentType: imageFile.type,
       });
       
+      let lastProgress = 0;
+      let lastProgressTime = Date.now();
+      
       // Track upload progress
       uploadTask.on('state_changed', 
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(Math.round(progress));
-          console.log(`Upload progress: ${progress}%`);
+          const roundedProgress = Math.round(progress);
+          setUploadProgress(roundedProgress);
+          
+          // Track progress timing
+          if (roundedProgress > lastProgress) {
+            lastProgress = roundedProgress;
+            lastProgressTime = Date.now();
+          }
+          
+          console.log(`Upload progress: ${progress.toFixed(1)}%`);
         },
         (error) => {
           console.error('Upload error:', error);
@@ -295,18 +344,41 @@ export default function AdminEvents() {
         }
       );
       
-      // Wait for upload to complete with a longer timeout (60 seconds for larger images)
+      // Wait for upload to complete with adaptive timeout
       const uploadPromise = new Promise<void>((resolve, reject) => {
         uploadTask.then(() => resolve()).catch(reject);
       });
       
+      // Create a timeout promise
+      let timeoutId: NodeJS.Timeout;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Upload timeout after 60 seconds. Please try again with a smaller image or check your internet connection.'));
-        }, 60000); // 60 seconds - reasonable for images up to 5MB
+        timeoutId = setTimeout(() => {
+          // Check if upload has made progress recently (within last 60 seconds)
+          const timeSinceProgress = Date.now() - lastProgressTime;
+          if (timeSinceProgress > 60000) {
+            reject(new Error('Upload appears to be stuck. Your connection may be interrupted. You can save the event without an image and try again later.'));
+          } else {
+            reject(new Error('Upload is taking longer than expected due to slow connection. Please wait or save without image.'));
+          }
+        }, timeoutMs);
       });
       
-      await Promise.race([uploadPromise, timeoutPromise]);
+      try {
+        await Promise.race([uploadPromise, timeoutPromise]);
+        clearTimeout(timeoutId);
+      } catch (raceError: any) {
+        clearTimeout(timeoutId);
+        
+        // Check if upload actually completed despite timeout
+        const taskSnapshot = uploadTask.snapshot;
+        if (taskSnapshot.state === 'success') {
+          // Upload completed successfully, ignore timeout
+          console.log('Upload completed successfully');
+        } else {
+          // Upload didn't complete, throw the error
+          throw raceError;
+        }
+      }
       
       // Get download URL after successful upload
       const downloadURL = await getDownloadURL(storageRef);
@@ -318,18 +390,20 @@ export default function AdminEvents() {
       console.error('Error uploading image:', error);
       setUploadProgress(0);
       
-      // Check if it's a retry limit error or timeout
+      // Check if it's a timeout error
       const isTimeout = error?.code === 'storage/retry-limit-exceeded' || 
                        error?.message?.includes('timeout') ||
-                       error?.message?.includes('retry');
+                       error?.message?.includes('retry') ||
+                       error?.message?.includes('slow');
       
       if (isTimeout && skipOnTimeout) {
         console.log('Image upload timed out - proceeding without image');
         toast({
           title: 'Image upload timeout',
-          description: 'Image upload took too long. Event will be created without an image. You can add it later by editing the event.',
+          description: 'Upload is taking longer than expected. You can save the event now and add the image later by editing the event.',
           status: 'warning',
-          duration: 5000,
+          duration: 7000,
+          isClosable: true,
         });
         return null;
       }
@@ -346,9 +420,9 @@ export default function AdminEvents() {
       
       toast({
         title: 'Image upload failed',
-        description: `${errorMessage}. Event will be created without an image. You can add it later by editing the event.`,
+        description: `${errorMessage}. You can save the event without an image and add it later by editing the event.`,
         status: 'warning',
-        duration: 5000,
+        duration: 7000,
         isClosable: true,
       });
       
@@ -450,31 +524,39 @@ export default function AdminEvents() {
         return;
       }
 
-      // Upload image first if a new one was selected (optional - event can be created without image)
-      // If upload fails or times out, we'll proceed without the image
+      // Upload image first if a new one was selected
+      // For edit mode: upload immediately with eventId
+      // For create mode: upload after event is created (so we have eventId)
       let imageUrl = formData.imageUrl;
       if (imageFile) {
-        // Try to upload, but don't block event creation if it fails
-        try {
-          const uploadedUrl = await uploadImage(true); // skipOnTimeout = true
-          if (uploadedUrl) {
-            imageUrl = uploadedUrl;
-          } else {
-            // Upload failed/timed out - proceed without image
-            imageUrl = null;
+        if (isEditMode && selectedEvent) {
+          // Edit mode: upload now with eventId
+          try {
+            const uploadedUrl = await uploadImage(selectedEvent.id, true);
+            if (uploadedUrl) {
+              imageUrl = uploadedUrl;
+            } else {
+              imageUrl = formData.imageUrl || '';
+            }
+          } catch (error: any) {
+            console.error('Image upload error:', error);
+            toast({
+              title: 'Image upload failed',
+              description: error?.message || 'Failed to upload image. Event will be saved without image.',
+              status: 'warning',
+              duration: 5000,
+            });
+            imageUrl = formData.imageUrl || '';
           }
-        } catch (error) {
-          // If upload throws an error, just proceed without image
-          console.log('Image upload error, proceeding without image:', error);
-          imageUrl = null;
         }
+        // For create mode, we'll upload after event creation (see below)
       }
 
       const eventData = {
         ...formData,
-        imageUrl,
-        payfastUrl: formData.payfastUrl || null,
-        eftInstructions: formData.eftInstructions || null,
+        imageUrl: imageUrl || undefined,
+        payfastUrl: formData.payfastUrl || undefined,
+        eftInstructions: formData.eftInstructions || undefined,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
         price: formData.price ? parseFloat(formData.price) : 0,
       };
@@ -524,6 +606,35 @@ export default function AdminEvents() {
       console.log('[EVENT CREATE] Parsed response data:', responseData);
 
       if (response.ok) {
+        const savedEvent = responseData.event || responseData;
+        const savedEventId = savedEvent?.id || (isEditMode && selectedEvent ? selectedEvent.id : null);
+        
+        // If creating new event and we have an image, upload it now with the eventId
+        if (imageFile && savedEventId && !isEditMode) {
+          try {
+            const uploadedUrl = await uploadImage(savedEventId, true);
+            if (uploadedUrl) {
+              // Update event with image URL
+              await fetch(`/api/admin/events/${savedEventId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ imageUrl: uploadedUrl }),
+              });
+            }
+          } catch (reuploadError: any) {
+            console.error('Failed to upload image after event creation:', reuploadError);
+            toast({
+              title: 'Image upload failed',
+              description: 'Event was created but image upload failed. You can add the image later by editing the event.',
+              status: 'warning',
+              duration: 5000,
+            });
+          }
+        }
+        
         toast({
           title: 'Success',
           description: isEditMode ? 'Event updated successfully' : 'Event created successfully',
@@ -906,6 +1017,17 @@ export default function AdminEvents() {
                   <FormHelperText mb={2} fontSize="xs" color="gray.500">
                     You can add an image now or skip and add it later by editing the event
                   </FormHelperText>
+                  {/* Always render the file input so ref is always available */}
+                  <input
+                    ref={fileInputRef}
+                    id="event-image-upload"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif"
+                    onChange={handleImageSelect}
+                    disabled={uploadingImage || isSaving}
+                    style={{ display: 'none' }}
+                    aria-label="Event photo upload"
+                  />
                   {imagePreview ? (
                     <Box position="relative" mb={2}>
                       <Box
@@ -933,17 +1055,8 @@ export default function AdminEvents() {
                     </Box>
                   ) : (
                     <>
-                      <Input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        disabled={uploadingImage || isSaving}
-                        display="none"
-                      />
                       <Box
                         onClick={handleImageUploadClick}
-                        onMouseDown={(e) => e.preventDefault()}
                         border="2px dashed"
                         borderColor="gray.300"
                         borderRadius="md"
@@ -952,16 +1065,9 @@ export default function AdminEvents() {
                         cursor={uploadingImage || isSaving ? 'not-allowed' : 'pointer'}
                         _hover={uploadingImage || isSaving ? {} : { borderColor: 'blue.400', bg: 'blue.50' }}
                         transition="all 0.2s"
-                        opacity={uploadingImage || isSaving ? 0.6 : 1}
                         userSelect="none"
-                        role="button"
-                        tabIndex={uploadingImage || isSaving ? -1 : 0}
-                        onKeyDown={(e) => {
-                          if ((e.key === 'Enter' || e.key === ' ') && !uploadingImage && !isSaving) {
-                            e.preventDefault();
-                            handleImageUploadClick();
-                          }
-                        }}
+                        opacity={uploadingImage || isSaving ? 0.6 : 1}
+                        pointerEvents={uploadingImage || isSaving ? 'none' : 'auto'}
                       >
                         <VStack spacing={2}>
                           <FiImage size={24} color="gray" />
