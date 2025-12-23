@@ -977,7 +977,6 @@ export default function AdminEvents() {
                     </VStack>
                   )}
                 </FormControl>
-              </HStack>
 
               {/* Payment options */}
               <FormControl>
