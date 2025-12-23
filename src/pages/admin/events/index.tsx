@@ -33,6 +33,7 @@ import {
   VStack,
   FormErrorMessage,
   FormHelperText,
+  Progress,
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -40,7 +41,7 @@ import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { Event } from '@/lib/api';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export default function AdminEvents() {
   useProtectedRoute();
@@ -66,6 +67,7 @@ export default function AdminEvents() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const cardBg = useColorModeValue('white', 'gray.800');
@@ -132,6 +134,7 @@ export default function AdminEvents() {
     setImagePreview(null);
     setFormErrors({});
     setIsSaving(false);
+    setUploadProgress(0);
     onOpen();
   };
 
@@ -248,52 +251,93 @@ export default function AdminEvents() {
 
     try {
       setUploadingImage(true);
+      setUploadProgress(0);
+      
       const timestamp = Date.now();
-      const fileName = `events/${timestamp}_${imageFile.name}`;
+      const sanitizedFileName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `events/${timestamp}_${sanitizedFileName}`;
       const storageRef = ref(storage, fileName);
       
-      // Reduced timeout to 15 seconds - if it takes longer, skip it
-      const uploadPromise = uploadBytes(storageRef, imageFile, {
+      // Use uploadBytesResumable for progress tracking
+      const uploadTask = uploadBytesResumable(storageRef, imageFile, {
         contentType: imageFile.type,
       });
       
-      // Create a timeout promise (15 seconds - faster failure)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Upload timeout'));
-        }, 15000); // 15 seconds - fail fast
+      // Track upload progress
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+          console.log(`Upload progress: ${progress}%`);
+        },
+        (error) => {
+          console.error('Upload error:', error);
+          throw error;
+        }
+      );
+      
+      // Wait for upload to complete with a longer timeout (60 seconds for larger images)
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        uploadTask.then(() => resolve()).catch(reject);
       });
       
-      // Race between upload and timeout
-      await Promise.race([uploadPromise, timeoutPromise]);
-      const downloadURL = await getDownloadURL(storageRef);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Upload timeout after 60 seconds. Please try again with a smaller image or check your internet connection.'));
+        }, 60000); // 60 seconds - reasonable for images up to 5MB
+      });
       
+      await Promise.race([uploadPromise, timeoutPromise]);
+      
+      // Get download URL after successful upload
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log('Image uploaded successfully:', downloadURL);
+      
+      setUploadProgress(100);
       return downloadURL;
     } catch (error: any) {
       console.error('Error uploading image:', error);
+      setUploadProgress(0);
       
       // Check if it's a retry limit error or timeout
       const isTimeout = error?.code === 'storage/retry-limit-exceeded' || 
-                       error?.message?.includes('retry') ||
-                       error?.message?.includes('timeout');
+                       error?.message?.includes('timeout') ||
+                       error?.message?.includes('retry');
       
       if (isTimeout && skipOnTimeout) {
-        // Silently skip image upload on timeout - don't show error, just proceed
         console.log('Image upload timed out - proceeding without image');
+        toast({
+          title: 'Image upload timeout',
+          description: 'Image upload took too long. Event will be created without an image. You can add it later by editing the event.',
+          status: 'warning',
+          duration: 5000,
+        });
         return null;
+      }
+      
+      // Check for specific Firebase Storage errors
+      let errorMessage = 'Failed to upload image';
+      if (error?.code === 'storage/unauthorized') {
+        errorMessage = 'Permission denied. Please check your authentication.';
+      } else if (error?.code === 'storage/canceled') {
+        errorMessage = 'Upload was canceled.';
+      } else if (error?.message) {
+        errorMessage = error.message;
       }
       
       toast({
         title: 'Image upload failed',
-        description: 'Failed to upload image. Event will be created without an image. You can add it later by editing the event.',
+        description: `${errorMessage}. Event will be created without an image. You can add it later by editing the event.`,
         status: 'warning',
-        duration: 4000,
+        duration: 5000,
+        isClosable: true,
       });
       
-      // Return null to indicate failure, but allow event creation to proceed
       return null;
     } finally {
       setUploadingImage(false);
+      // Reset progress after a short delay to show completion
+      setTimeout(() => setUploadProgress(0), 2000);
     }
   };
 
@@ -484,6 +528,7 @@ export default function AdminEvents() {
         setImageFile(null);
         setImagePreview(null);
         setFormErrors({});
+        setUploadProgress(0);
       } else {
         // Log detailed error information
         console.error('[EVENT CREATE] API Error Response:', {
@@ -689,6 +734,7 @@ export default function AdminEvents() {
             setFormErrors({});
             setImageFile(null);
             setImagePreview(null);
+            setUploadProgress(0);
           }
         }} 
         size="xl" 
@@ -886,10 +932,21 @@ export default function AdminEvents() {
                     <VStack mt={2} spacing={2} align="stretch">
                       <HStack spacing={2}>
                         <Spinner size="sm" color="blue.500" />
-                        <Text fontSize="sm" color="blue.500">Uploading image...</Text>
+                        <Text fontSize="sm" color="blue.500" fontWeight="medium">
+                          Uploading image... {uploadProgress}%
+                        </Text>
                       </HStack>
+                      <Progress 
+                        value={uploadProgress} 
+                        colorScheme="blue" 
+                        size="sm" 
+                        borderRadius="md"
+                        isAnimated
+                      />
                       <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                        If upload takes too long, you can skip and add the image later
+                        {uploadProgress < 100 
+                          ? 'Please wait while your image uploads...'
+                          : 'Upload complete! Saving event...'}
                       </Text>
                     </VStack>
                   )}
