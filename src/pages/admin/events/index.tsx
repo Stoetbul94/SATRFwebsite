@@ -174,20 +174,28 @@ export default function AdminEvents() {
   };
 
   const handleEdit = (event: Event) => {
+    console.log('[EDIT EVENT] Event data received:', event);
+    
     setIsEditMode(true);
     setSelectedEvent(event);
-    setFormData({
-      title: event.title,
+    
+    // Ensure all required fields have default values to prevent validation errors
+    const formDataToSet = {
+      title: event.title || '',
       date: normalizeDateForInput(event.date),
-      location: event.location,
-      type: event.type,
+      location: event.location || '',
+      type: event.type || '',
       description: event.description || '',
-      status: event.status,
+      status: (event.status || 'open') as 'open' | 'full' | 'closed',
       maxParticipants: event.maxParticipants?.toString() || '',
       imageUrl: (event as any).imageUrl || '',
       payfastUrl: (event as any).payfastUrl || '',
       eftInstructions: (event as any).eftInstructions || '',
-    });
+    };
+    
+    console.log('[EDIT EVENT] Form data prepared:', formDataToSet);
+    
+    setFormData(formDataToSet);
     setImageFile(null);
     setImagePreview((event as any).imageUrl || null);
     setFormErrors({});
@@ -292,6 +300,9 @@ export default function AdminEvents() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     
+    // Log form data for debugging
+    console.log('[VALIDATION] Form data:', formData);
+    
     if (!formData.title?.trim()) {
       errors.title = 'Title is required';
     }
@@ -318,6 +329,18 @@ export default function AdminEvents() {
       errors.maxParticipants = 'Max participants must be at least 1';
     }
     
+    // Log validation errors for debugging
+    if (Object.keys(errors).length > 0) {
+      console.error('[VALIDATION] Validation errors:', errors);
+      console.error('[VALIDATION] Form data state:', {
+        title: formData.title,
+        date: formData.date,
+        location: formData.location,
+        type: formData.type,
+        maxParticipants: formData.maxParticipants,
+      });
+    }
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -330,11 +353,20 @@ export default function AdminEvents() {
 
     // Validate form
     if (!validateForm()) {
+      const errorFields = Object.keys(formErrors);
+      const errorMessages = errorFields.map(field => {
+        const fieldName = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
+        return `${fieldName}: ${formErrors[field]}`;
+      });
+      
       toast({
         title: 'Validation Error',
-        description: 'Please fix the errors in the form',
+        description: errorMessages.length > 0 
+          ? `Please fix the following errors:\n${errorMessages.join('\n')}`
+          : 'Please fix the errors in the form',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
+        isClosable: true,
       });
       return;
     }

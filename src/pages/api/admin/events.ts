@@ -88,10 +88,17 @@ export default async function handler(
         .limit(1000)
         .get();
       
-      const events = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const events = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Convert Firestore Timestamps to ISO strings for consistency
+          date: data.date?.toDate ? data.date.toDate().toISOString() : data.date,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+        };
+      });
 
       return res.status(200).json({ events });
     }
