@@ -60,6 +60,8 @@ export default function AdminEvents() {
     status: 'open' as 'open' | 'full' | 'closed',
     maxParticipants: '',
     imageUrl: '',
+    payfastUrl: '',
+    eftInstructions: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -123,6 +125,8 @@ export default function AdminEvents() {
       status: 'open',
       maxParticipants: '',
       imageUrl: '',
+      payfastUrl: '',
+      eftInstructions: '',
     });
     setImageFile(null);
     setImagePreview(null);
@@ -143,6 +147,8 @@ export default function AdminEvents() {
       status: event.status,
       maxParticipants: event.maxParticipants?.toString() || '',
       imageUrl: (event as any).imageUrl || '',
+      payfastUrl: (event as any).payfastUrl || '',
+      eftInstructions: (event as any).eftInstructions || '',
     });
     setImageFile(null);
     setImagePreview((event as any).imageUrl || null);
@@ -334,6 +340,8 @@ export default function AdminEvents() {
       const eventData = {
         ...formData,
         imageUrl,
+        payfastUrl: formData.payfastUrl || null,
+        eftInstructions: formData.eftInstructions || null,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
       };
 
@@ -400,6 +408,8 @@ export default function AdminEvents() {
           status: 'open',
           maxParticipants: '',
           imageUrl: '',
+          payfastUrl: '',
+          eftInstructions: '',
         });
         setImageFile(null);
         setImagePreview(null);
@@ -815,6 +825,32 @@ export default function AdminEvents() {
                   )}
                 </FormControl>
               </HStack>
+
+              {/* Payment options */}
+              <FormControl>
+                <FormLabel fontWeight="semibold" mb={2}>PayFast URL (Optional)</FormLabel>
+                <Input
+                  value={formData.payfastUrl}
+                  onChange={(e) => setFormData({ ...formData, payfastUrl: e.target.value })}
+                  placeholder="https://www.payfast.co.za/eng/process/..."
+                  size="lg"
+                  isDisabled={isSaving || uploadingImage}
+                />
+                <FormHelperText>Provide a PayFast payment link for this event (optional)</FormHelperText>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel fontWeight="semibold" mb={2}>EFT Instructions (Optional)</FormLabel>
+                <Textarea
+                  value={formData.eftInstructions}
+                  onChange={(e) => setFormData({ ...formData, eftInstructions: e.target.value })}
+                  placeholder={"Bank: ...\\nAccount: ...\\nReference: ..."}
+                  rows={3}
+                  size="lg"
+                  isDisabled={isSaving || uploadingImage}
+                />
+                <FormHelperText>Displayed to users as EFT payment instructions</FormHelperText>
+              </FormControl>
             </VStack>
           </ModalBody>
           <ModalFooter borderTop="1px" borderColor="gray.200" pt={4}>
