@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import {
   Box,
@@ -247,6 +247,21 @@ export default function AdminEvents() {
     setImageFile(null);
     setImagePreview(null);
     setFormData({ ...formData, imageUrl: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageUploadClick = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    console.log('[IMAGE UPLOAD] Click handler called', { uploadingImage, isSaving, hasRef: !!fileInputRef.current });
+    if (!uploadingImage && !isSaving && fileInputRef.current) {
+      console.log('[IMAGE UPLOAD] Triggering file input click');
+      fileInputRef.current.click();
+    } else {
+      console.log('[IMAGE UPLOAD] Cannot click - disabled or no ref');
+    }
   };
 
   const uploadImage = async (skipOnTimeout: boolean = true): Promise<string | null> => {
@@ -918,7 +933,7 @@ export default function AdminEvents() {
                   ) : (
                     <>
                       <Input
-                        id="event-image-upload"
+                        ref={fileInputRef}
                         type="file"
                         accept="image/*"
                         onChange={handleImageSelect}
@@ -926,8 +941,8 @@ export default function AdminEvents() {
                         display="none"
                       />
                       <Box
-                        as="label"
-                        htmlFor="event-image-upload"
+                        onClick={handleImageUploadClick}
+                        onMouseDown={(e) => e.preventDefault()}
                         border="2px dashed"
                         borderColor="gray.300"
                         borderRadius="md"
@@ -937,7 +952,15 @@ export default function AdminEvents() {
                         _hover={uploadingImage || isSaving ? {} : { borderColor: 'blue.400', bg: 'blue.50' }}
                         transition="all 0.2s"
                         opacity={uploadingImage || isSaving ? 0.6 : 1}
-                        display="block"
+                        userSelect="none"
+                        role="button"
+                        tabIndex={uploadingImage || isSaving ? -1 : 0}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ' ') && !uploadingImage && !isSaving) {
+                            e.preventDefault();
+                            handleImageUploadClick();
+                          }
+                        }}
                       >
                         <VStack spacing={2}>
                           <FiImage size={24} color="gray" />
@@ -949,6 +972,18 @@ export default function AdminEvents() {
                           </Text>
                         </VStack>
                       </Box>
+                      {!uploadingImage && !isSaving && (
+                        <Button
+                          mt={2}
+                          size="sm"
+                          variant="outline"
+                          onClick={handleImageUploadClick}
+                          leftIcon={<FiImage />}
+                          w="full"
+                        >
+                          Or click here to browse files
+                        </Button>
+                      )}
                     </>
                   )}
                   {uploadingImage && (
