@@ -135,12 +135,50 @@ export default function AdminEvents() {
     onOpen();
   };
 
+  // Helper function to normalize date to YYYY-MM-DD format for date input
+  const normalizeDateForInput = (date: any): string => {
+    if (!date) return '';
+    
+    // If it's already a string in YYYY-MM-DD format
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+    
+    // If it's a string with ISO format, extract YYYY-MM-DD
+    if (typeof date === 'string' && date.includes('T')) {
+      return date.split('T')[0];
+    }
+    
+    // If it's a Firestore Timestamp (has toDate method)
+    if (date && typeof date.toDate === 'function') {
+      const dateObj = date.toDate();
+      return dateObj.toISOString().split('T')[0];
+    }
+    
+    // If it's a Date object
+    if (date instanceof Date) {
+      return date.toISOString().split('T')[0];
+    }
+    
+    // Try to parse as Date
+    try {
+      const dateObj = new Date(date);
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      console.warn('Failed to parse date:', date);
+    }
+    
+    return '';
+  };
+
   const handleEdit = (event: Event) => {
     setIsEditMode(true);
     setSelectedEvent(event);
     setFormData({
       title: event.title,
-      date: event.date.split('T')[0],
+      date: normalizeDateForInput(event.date),
       location: event.location,
       type: event.type,
       description: event.description || '',
