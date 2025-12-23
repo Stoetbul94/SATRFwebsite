@@ -134,6 +134,7 @@ export default async function handler(
           status: req.body.status || 'open',
           maxParticipants: req.body.maxParticipants ? parseInt(req.body.maxParticipants) : undefined,
           currentParticipants: 0,
+          price: req.body.price ? parseFloat(req.body.price) : 0,
           imageUrl: req.body.imageUrl || null,
           payfastUrl: req.body.payfastUrl || null,
           eftInstructions: req.body.eftInstructions || null,

@@ -60,6 +60,7 @@ export default function AdminEvents() {
     description: '',
     status: 'open' as 'open' | 'full' | 'closed',
     maxParticipants: '',
+    price: '',
     imageUrl: '',
     payfastUrl: '',
     eftInstructions: '',
@@ -126,6 +127,7 @@ export default function AdminEvents() {
       description: '',
       status: 'open',
       maxParticipants: '',
+      price: '',
       imageUrl: '',
       payfastUrl: '',
       eftInstructions: '',
@@ -191,6 +193,7 @@ export default function AdminEvents() {
       description: event.description || '',
       status: (event.status || 'open') as 'open' | 'full' | 'closed',
       maxParticipants: event.maxParticipants?.toString() || '',
+      price: (event as any).price?.toString() || '',
       imageUrl: (event as any).imageUrl || '',
       payfastUrl: (event as any).payfastUrl || '',
       eftInstructions: (event as any).eftInstructions || '',
@@ -457,6 +460,7 @@ export default function AdminEvents() {
         payfastUrl: formData.payfastUrl || null,
         eftInstructions: formData.eftInstructions || null,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
+        price: formData.price ? parseFloat(formData.price) : 0,
       };
 
       const url = isEditMode && selectedEvent
@@ -521,6 +525,7 @@ export default function AdminEvents() {
           description: '',
           status: 'open',
           maxParticipants: '',
+          price: '',
           imageUrl: '',
           payfastUrl: '',
           eftInstructions: '',
@@ -841,8 +846,8 @@ export default function AdminEvents() {
                 />
               </FormControl>
 
-              {/* Max Participants and Image Row */}
-              <HStack spacing={4} align="flex-start">
+              {/* Max Participants and Price Row */}
+              <HStack spacing={4}>
                 <FormControl isInvalid={!!formErrors.maxParticipants} flex={1}>
                   <FormLabel fontWeight="semibold" mb={2}>Max Participants</FormLabel>
                   <Input
@@ -860,6 +865,25 @@ export default function AdminEvents() {
                   <FormErrorMessage>{formErrors.maxParticipants}</FormErrorMessage>
                 </FormControl>
                 <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Entry Fee (R)</FormLabel>
+                  <Input
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => {
+                      setFormData({ ...formData, price: e.target.value });
+                    }}
+                    placeholder="0.00"
+                    size="lg"
+                    min="0"
+                    step="0.01"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                  <FormHelperText>Entry fee amount in South African Rand</FormHelperText>
+                </FormControl>
+              </HStack>
+
+              {/* Event Photo */}
+              <FormControl>
                   <FormLabel fontWeight="semibold" mb={2}>
                     Event Photo <Text as="span" fontWeight="normal" color="gray.500" fontSize="sm">(Optional)</Text>
                   </FormLabel>
@@ -902,6 +926,7 @@ export default function AdminEvents() {
                       _hover={{ borderColor: 'blue.400', bg: 'blue.50' }}
                       transition="all 0.2s"
                       position="relative"
+                      pointerEvents={uploadingImage || isSaving ? 'none' : 'auto'}
                     >
                       <Input
                         type="file"
@@ -913,11 +938,12 @@ export default function AdminEvents() {
                         width="100%"
                         height="100%"
                         cursor="pointer"
-                        zIndex={1}
+                        zIndex={10}
                         top={0}
                         left={0}
+                        pointerEvents="auto"
                       />
-                      <VStack spacing={2}>
+                      <VStack spacing={2} pointerEvents="none">
                         <FiImage size={24} color="gray" />
                         <Text fontSize="sm" color="gray.600">
                           Click to upload image
