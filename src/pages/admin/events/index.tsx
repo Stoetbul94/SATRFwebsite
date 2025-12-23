@@ -916,43 +916,40 @@ export default function AdminEvents() {
                       />
                     </Box>
                   ) : (
-                    <Box
-                      border="2px dashed"
-                      borderColor="gray.300"
-                      borderRadius="md"
-                      p={4}
-                      textAlign="center"
-                      cursor="pointer"
-                      _hover={{ borderColor: 'blue.400', bg: 'blue.50' }}
-                      transition="all 0.2s"
-                      position="relative"
-                      pointerEvents={uploadingImage || isSaving ? 'none' : 'auto'}
-                    >
+                    <>
                       <Input
+                        id="event-image-upload"
                         type="file"
                         accept="image/*"
                         onChange={handleImageSelect}
                         disabled={uploadingImage || isSaving}
-                        position="absolute"
-                        opacity={0}
-                        width="100%"
-                        height="100%"
-                        cursor="pointer"
-                        zIndex={10}
-                        top={0}
-                        left={0}
-                        pointerEvents="auto"
+                        display="none"
                       />
-                      <VStack spacing={2} pointerEvents="none">
-                        <FiImage size={24} color="gray" />
-                        <Text fontSize="sm" color="gray.600">
-                          Click to upload image
-                        </Text>
-                        <Text fontSize="xs" color="gray.500">
-                          Max 5MB (JPG, PNG, GIF) - Optional
-                        </Text>
-                      </VStack>
-                    </Box>
+                      <Box
+                        as="label"
+                        htmlFor="event-image-upload"
+                        border="2px dashed"
+                        borderColor="gray.300"
+                        borderRadius="md"
+                        p={4}
+                        textAlign="center"
+                        cursor={uploadingImage || isSaving ? 'not-allowed' : 'pointer'}
+                        _hover={uploadingImage || isSaving ? {} : { borderColor: 'blue.400', bg: 'blue.50' }}
+                        transition="all 0.2s"
+                        opacity={uploadingImage || isSaving ? 0.6 : 1}
+                        display="block"
+                      >
+                        <VStack spacing={2}>
+                          <FiImage size={24} color="gray" />
+                          <Text fontSize="sm" color="gray.600">
+                            Click to upload image
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            Max 5MB (JPG, PNG, GIF) - Optional
+                          </Text>
+                        </VStack>
+                      </Box>
+                    </>
                   )}
                   {uploadingImage && (
                     <VStack mt={2} spacing={2} align="stretch">
