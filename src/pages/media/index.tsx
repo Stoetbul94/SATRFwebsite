@@ -92,7 +92,6 @@ export default function Media() {
                   color={textColor}
                   maxW="md"
                   mx="auto"
-                  spacing={3}
                   sx={{
                     '& li': {
                       mb: 3,

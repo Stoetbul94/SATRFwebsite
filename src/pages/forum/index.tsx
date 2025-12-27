@@ -90,7 +90,6 @@ export default function Forum() {
                   color={textColor}
                   maxW="md"
                   mx="auto"
-                  spacing={3}
                   sx={{
                     '& li': {
                       mb: 2,
