@@ -383,13 +383,6 @@ const MonitoringDashboard: React.FC = () => {
         <div className="p-6">
           <div className="flex flex-wrap gap-4">
             <button
-              onClick={() => fetch('/api/test-error', { method: 'POST' })}
-              className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
-            >
-              🧪 Test Error Tracking
-            </button>
-            
-            <button
               onClick={() => window.open('/api/health', '_blank')}
               className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
             >
