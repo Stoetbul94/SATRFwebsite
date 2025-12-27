@@ -511,6 +511,24 @@ export const authFlow = {
             firebaseUser.uid
           );
           
+          // Generate demo data if enabled and user doesn't have any (non-blocking)
+          if (typeof window !== 'undefined') {
+            import('@/lib/demoData').then(({ generateDemoDataForUser, isDemoModeEnabled }) => {
+              if (isDemoModeEnabled()) {
+                generateDemoDataForUser(firebaseUser.uid, {
+                  id: firebaseUser.uid,
+                  firstName: userProfile.firstName,
+                  lastName: userProfile.lastName,
+                  club: userProfile.club,
+                  membershipType: userProfile.membershipType,
+                }).catch((error) => {
+                  // Log but don't fail login if demo data generation fails
+                  console.warn('[AUTH] Failed to generate demo data (non-critical):', error);
+                });
+              }
+            });
+          }
+          
           return { success: true, user: userProfile };
         } else {
           // User exists in Firebase Auth but not in Firestore - try backend
@@ -699,6 +717,25 @@ export const authFlow = {
         idToken, // Using same token for refresh (Firebase handles refresh internally)
         firebaseUser.uid
       );
+
+      // Step 5: Generate demo data for development (non-blocking)
+      if (typeof window !== 'undefined') {
+        // Run in background - don't block registration
+        import('@/lib/demoData').then(({ generateDemoDataForUser, isDemoModeEnabled }) => {
+          if (isDemoModeEnabled()) {
+            generateDemoDataForUser(firebaseUser.uid, {
+              id: firebaseUser.uid,
+              firstName: userProfile.firstName,
+              lastName: userProfile.lastName,
+              club: userProfile.club,
+              membershipType: userProfile.membershipType,
+            }).catch((error) => {
+              // Log but don't fail registration if demo data generation fails
+              console.warn('[AUTH] Failed to generate demo data (non-critical):', error);
+            });
+          }
+        });
+      }
 
       return { success: true, user: userProfile };
     } catch (error: any) {
