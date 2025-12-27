@@ -1,237 +1,135 @@
 import {
   Box,
-  Button,
   Container,
   Heading,
   Stack,
   Text,
   useColorModeValue,
   VStack,
-  HStack,
-  Badge,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  SimpleGrid,
-  Avatar,
-  IconButton,
-  useToast,
+  Icon,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import Head from 'next/head';
 import Layout from '@/components/layout/Layout';
-import { FaSearch, FaThumbsUp, FaComment, FaBookmark } from 'react-icons/fa';
-import { useRouter } from 'next/router';
+import { FaComments, FaClock } from 'react-icons/fa';
 
-interface Post {
-  id: string;
-  title: string;
-  content: string;
-  author: {
-    name: string;
-    avatar: string;
-  };
-  category: string;
-  likes: number;
-  comments: number;
-  createdAt: string;
-}
-
-// Mock data - in a real app, this would come from Firebase
-const MOCK_POSTS: Post[] = [
-  {
-    id: '1',
-    title: 'Tips for improving accuracy',
-    content: 'Here are some techniques I\'ve found helpful for improving shooting accuracy...',
-    author: {
-      name: 'John Smith',
-      avatar: '/avatars/john.jpg',
-    },
-    category: 'Training Tips',
-    likes: 15,
-    comments: 5,
-    createdAt: '2024-03-15',
-  },
-  {
-    id: '2',
-    title: 'Upcoming regional competition',
-    content: 'Details about the upcoming regional competition in Johannesburg...',
-    author: {
-      name: 'Sarah Johnson',
-      avatar: '/avatars/sarah.jpg',
-    },
-    category: 'Event Discussion',
-    likes: 8,
-    comments: 12,
-    createdAt: '2024-03-14',
-  },
-];
-
-const CATEGORIES = [
-  'All',
-  'Event Discussion',
-  'Training Tips',
-  'Equipment',
-  'General Chat',
-];
+/**
+ * Forum Page - Coming Soon
+ * 
+ * TODO: Future Firebase Integration
+ * - Set up Firestore collection for forum posts
+ * - Implement Firebase Auth for user authentication
+ * - Create post creation/editing/deletion functionality
+ * - Add comment/reply system
+ * - Implement likes/bookmarks with real-time updates
+ * - Add category filtering and search
+ * - Set up moderation tools for admins
+ * - Add notification system for replies/mentions
+ */
 
 export default function Forum() {
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const router = useRouter();
-  const toast = useToast();
-
-  const filteredPosts = MOCK_POSTS.filter((post) => {
-    const matchesCategory = selectedCategory === 'All' || post.category === selectedCategory;
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const handleCreatePost = () => {
-    router.push('/forum/create');
-  };
-
-  const handleLike = (postId: string) => {
-    // In a real app, this would update the likes in Firebase
-    toast({
-      title: 'Post liked',
-      status: 'success',
-      duration: 2000,
-      isClosable: true,
-    });
-  };
-
-  const handleBookmark = (postId: string) => {
-    // In a real app, this would add the post to user's bookmarks in Firebase
-    toast({
-      title: 'Post bookmarked',
-      status: 'success',
-      duration: 2000,
-      isClosable: true,
-    });
-  };
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const textColor = useColorModeValue('gray.600', 'gray.300');
+  const headingColor = useColorModeValue('gray.800', 'white');
 
   return (
     <Layout>
-      <Container maxW="container.xl" py={8}>
-        <Stack spacing={8}>
-          <Box>
-            <Heading size="xl" mb={2}>
-              SATRF Forum
-            </Heading>
-            <Text color={useColorModeValue('gray.600', 'gray.400')}>
-              Connect with fellow members and discuss shooting sports
-            </Text>
-          </Box>
+      <Head>
+        <title>Forum - Coming Soon | SATRF</title>
+        <meta name="description" content="SATRF community forum - coming soon. Connect with fellow members and discuss shooting sports." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
 
-          <HStack spacing={4} wrap="wrap">
-            <InputGroup maxW="400px">
-              <InputLeftElement pointerEvents="none">
-                <FaSearch color="gray.300" />
-              </InputLeftElement>
-              <Input
-                placeholder="Search posts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+      <Box bg={bgColor} minH="calc(100vh - 200px)" py={16}>
+        <Container maxW="container.md">
+          <VStack spacing={8} align="stretch">
+            {/* Header */}
+            <Box textAlign="center" py={8}>
+              <Icon
+                as={FaComments}
+                w={16}
+                h={16}
+                color="blue.500"
+                mb={6}
               />
-            </InputGroup>
+              <Heading size="2xl" mb={4} color={headingColor}>
+                Forum Coming Soon
+              </Heading>
+              <Text fontSize="xl" color={textColor} maxW="2xl" mx="auto">
+                We're building a community forum where SATRF members can connect, 
+                share experiences, and discuss all things related to target rifle shooting.
+              </Text>
+            </Box>
 
-            <HStack spacing={2}>
-              {CATEGORIES.map((category) => (
-                <Badge
-                  key={category}
-                  colorScheme={selectedCategory === category ? 'blue' : 'gray'}
-                  cursor="pointer"
-                  onClick={() => setSelectedCategory(category)}
-                  px={3}
-                  py={1}
-                  rounded="full"
-                >
-                  {category}
-                </Badge>
-              ))}
-            </HStack>
-
-            <Button
-              colorScheme="blue"
-              onClick={handleCreatePost}
-              ml="auto"
+            {/* Coming Soon Card */}
+            <Box
+              bg={cardBg}
+              p={8}
+              borderRadius="lg"
+              boxShadow="md"
+              textAlign="center"
             >
-              Create Post
-            </Button>
-          </HStack>
+              <VStack spacing={6}>
+                <Icon
+                  as={FaClock}
+                  w={12}
+                  h={12}
+                  color="blue.400"
+                />
+                <Heading size="lg" color={headingColor}>
+                  Under Development
+                </Heading>
+                <Text color={textColor} maxW="md" mx="auto">
+                  The SATRF forum is currently under development and will be available 
+                  in a future release. This will be a space for members to:
+                </Text>
 
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-            {filteredPosts.map((post) => (
-              <Box
-                key={post.id}
-                bg={useColorModeValue('white', 'gray.700')}
-                p={6}
-                rounded="lg"
-                shadow="md"
-                cursor="pointer"
-                onClick={() => router.push(`/forum/post/${post.id}`)}
-                _hover={{ shadow: 'lg' }}
-              >
-                <VStack align="start" spacing={4}>
-                  <HStack spacing={2}>
-                    <Badge colorScheme="blue">{post.category}</Badge>
-                    <Text fontSize="sm" color="gray.500">
-                      {new Date(post.createdAt).toLocaleDateString()}
-                    </Text>
-                  </HStack>
+                <Box
+                  as="ul"
+                  textAlign="left"
+                  color={textColor}
+                  maxW="md"
+                  mx="auto"
+                  spacing={3}
+                  sx={{
+                    '& li': {
+                      mb: 2,
+                      pl: 2,
+                    },
+                  }}
+                >
+                  <li>Share training tips and techniques</li>
+                  <li>Discuss equipment and gear</li>
+                  <li>Connect with fellow shooters</li>
+                  <li>Ask questions and get advice</li>
+                  <li>Discuss upcoming events and competitions</li>
+                  <li>Share achievements and celebrate successes</li>
+                </Box>
 
-                  <Heading size="md">{post.title}</Heading>
-                  <Text noOfLines={3} color={useColorModeValue('gray.600', 'gray.400')}>
-                    {post.content}
+                <Box
+                  mt={6}
+                  p={4}
+                  bg={useColorModeValue('blue.50', 'blue.900')}
+                  borderRadius="md"
+                  w="100%"
+                >
+                  <Text fontSize="sm" color={useColorModeValue('blue.800', 'blue.200')}>
+                    <strong>Stay tuned!</strong> We'll announce when the forum is ready 
+                    for launch. In the meantime, feel free to reach out through our{' '}
+                    <a
+                      href="/contact"
+                      style={{ textDecoration: 'underline' }}
+                    >
+                      contact page
+                    </a>
+                    .
                   </Text>
-
-                  <HStack spacing={4} w="100%" justify="space-between">
-                    <HStack spacing={4}>
-                      <HStack spacing={1}>
-                        <IconButton
-                          aria-label="Like post"
-                          icon={<FaThumbsUp />}
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLike(post.id);
-                          }}
-                        />
-                        <Text>{post.likes}</Text>
-                      </HStack>
-                      <HStack spacing={1}>
-                        <FaComment />
-                        <Text>{post.comments}</Text>
-                      </HStack>
-                    </HStack>
-
-                    <HStack spacing={4}>
-                      <Avatar
-                        size="sm"
-                        name={post.author.name}
-                        src={post.author.avatar}
-                      />
-                      <Text fontWeight="medium">{post.author.name}</Text>
-                      <IconButton
-                        aria-label="Bookmark post"
-                        icon={<FaBookmark />}
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleBookmark(post.id);
-                        }}
-                      />
-                    </HStack>
-                  </HStack>
-                </VStack>
-              </Box>
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </Container>
+                </Box>
+              </VStack>
+            </Box>
+          </VStack>
+        </Container>
+      </Box>
     </Layout>
   );
 } 
