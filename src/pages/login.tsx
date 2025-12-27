@@ -6,10 +6,11 @@ import { useRouter } from 'next/router';
 import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
 import { isEmailAdmin } from '@/lib/adminClient';
+import { isUserAdmin } from '@/lib/userRole';
 
 const LoginPage: NextPage = () => {
   const router = useRouter();
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, isLoading, error, clearError, user } = useAuth();
   
   // Redirect if already authenticated
   useRedirectIfAuthenticated();
@@ -23,11 +24,41 @@ const LoginPage: NextPage = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
   // Clear errors when component mounts
   useEffect(() => {
     clearError();
   }, [clearError]);
+
+  // Handle redirect after successful login
+  // This runs when user is set in context after login
+  useEffect(() => {
+    if (loginSuccess && user) {
+      // Check admin status using both user role and email whitelist
+      const email = user.email?.toLowerCase().trim() || '';
+      const isAdminEmail = isEmailAdmin(email);
+      const isAdmin = isUserAdmin(user as any) || isAdminEmail;
+      
+      // Determine redirect: admin → admin dashboard, user → user dashboard
+      let redirectTo = router.query.redirect as string;
+      
+      if (!redirectTo) {
+        // No explicit redirect: use role-based default
+        redirectTo = isAdmin ? '/admin/dashboard' : '/dashboard';
+      } else if (isAdmin && redirectTo === '/dashboard') {
+        // Admin trying to go to user dashboard: redirect to admin dashboard instead
+        redirectTo = '/admin/dashboard';
+      } else if (!isAdmin && redirectTo.startsWith('/admin')) {
+        // Non-admin trying to access admin area: redirect to user dashboard
+        redirectTo = '/dashboard';
+      }
+      
+      // Reset login success flag and redirect
+      setLoginSuccess(false);
+      router.replace(redirectTo);
+    }
+  }, [loginSuccess, user, router]);
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,28 +113,9 @@ const LoginPage: NextPage = () => {
       const success = await login(formData.email, formData.password);
       
       if (success) {
-        // Check admin status based on email whitelist (immediate check)
-        // Note: Firestore role check happens server-side, but email whitelist is immediate
-        const email = formData.email.toLowerCase().trim();
-        const isAdminEmail = isEmailAdmin(email);
-        
-        // Determine redirect: admin → admin dashboard, user → user dashboard
-        // Respect redirect query param if provided, otherwise use role-based redirect
-        let redirectTo = router.query.redirect as string;
-        
-        if (!redirectTo) {
-          // No explicit redirect: use role-based default
-          redirectTo = isAdminEmail ? '/admin/dashboard' : '/dashboard';
-        } else if (isAdminEmail && redirectTo === '/dashboard') {
-          // Admin trying to go to user dashboard: redirect to admin dashboard instead
-          redirectTo = '/admin/dashboard';
-        } else if (!isAdminEmail && redirectTo.startsWith('/admin')) {
-          // Non-admin trying to access admin area: redirect to user dashboard
-          redirectTo = '/dashboard';
-        }
-        
-        // Use router.replace to prevent back button from returning to login
-        await router.replace(redirectTo);
+        // Set flag to trigger redirect useEffect when user is available
+        setLoginSuccess(true);
+        // Redirect will be handled by useEffect when user is set in context
       } else {
         // Login failed - error will be displayed by the auth context
         console.log('Login failed - check error state');
