@@ -141,29 +141,73 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
 
   // Check authentication status on mount and when router is ready
+  // CRITICAL: Only run on client-side to prevent SSR blocking
   useEffect(() => {
-    if (router.isReady) {
-      checkAuth();
+    // Guard: Only run on client-side
+    if (typeof window === 'undefined') {
+      dispatch({ type: 'SET_INITIALIZED', payload: true });
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return;
     }
+    
+    // Guard: Only run when router is ready
+    if (!router.isReady) {
+      return;
+    }
+    
+    // Add timeout to prevent hanging if backend is unavailable
+    const timeoutId = setTimeout(() => {
+      console.warn('Auth check timeout - backend may be unavailable');
+      dispatch({ type: 'SET_INITIALIZED', payload: true });
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }, 5000); // 5 second timeout
+    
+    // Run auth check with timeout protection
+    checkAuth()
+      .finally(() => {
+        clearTimeout(timeoutId);
+        dispatch({ type: 'SET_INITIALIZED', payload: true });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // checkAuth is stable and doesn't need to be in deps
   }, [router.isReady]);
 
   // Check if user is authenticated - improved with better error handling
   const checkAuth = async (): Promise<void> => {
+    // CRITICAL: Never run on server-side
+    if (typeof window === 'undefined') {
+      return;
+    }
+    
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
       
       // Check if we have valid tokens first
       if (authFlow.isAuthenticated()) {
-        // Try to get current user from stored tokens
-        const user = await authFlow.getCurrentUser();
-        if (user) {
-          dispatch({ type: 'AUTH_SUCCESS', payload: user });
-          return;
-        } else {
-          // Token exists but user fetch failed - clear invalid tokens
+        // Try to get current user from stored tokens with timeout
+        try {
+          const user = await Promise.race([
+            authFlow.getCurrentUser(),
+            new Promise<UserProfile | null>((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            )
+          ]);
+          
+          if (user) {
+            dispatch({ type: 'AUTH_SUCCESS', payload: user });
+            return;
+          } else {
+            // Token exists but user fetch failed - clear invalid tokens
+            tokenManager.clearTokens();
+            dispatch({ type: 'AUTH_FAILURE', payload: 'Session expired' });
+            return;
+          }
+        } catch (timeoutError) {
+          // API call timed out or failed - backend likely unavailable
+          console.warn('Auth check failed - backend may be unavailable:', timeoutError);
           tokenManager.clearTokens();
-          dispatch({ type: 'AUTH_FAILURE', payload: 'Session expired' });
+          dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
           return;
         }
       } else {

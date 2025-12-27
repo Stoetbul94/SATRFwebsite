@@ -97,3 +97,10 @@ console.log('   2. Make sure your backend is running (if using FastAPI)');
 console.log('   3. Restart the dev server after adding env vars');
 console.log('   4. Then run: node test-event-creation.js\n');
 
+
+
+
+
+
+
+

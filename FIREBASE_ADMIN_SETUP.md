@@ -94,3 +94,10 @@ After setup, try creating an event and check:
 2. Server console for detailed Firebase logs
 3. Firestore Console to see if event appears
 
+
+
+
+
+
+
+

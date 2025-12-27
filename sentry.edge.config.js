@@ -3,12 +3,16 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  
-  // Adjust this value in production, or use tracesSampler for greater control
-  tracesSampleRate: 1.0,
-  
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
-}); 
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+// Only initialize Sentry if a valid DSN is provided
+if (!dsn || dsn.includes("your-sentry-dsn") || dsn.includes("project-id")) {
+  // Sentry disabled – exit immediately
+  // Sentry.init() will never be called
+} else {
+  Sentry.init({
+    dsn,
+    tracesSampleRate: 1.0,
+    debug: false,
+  });
+} 

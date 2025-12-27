@@ -89,3 +89,10 @@ If client-side Firebase features aren't working, update these in `.env.local`:
 
 The **critical fix** (Firebase Project ID) is complete. Once the React JSX error is resolved, event creation should work perfectly.
 
+
+
+
+
+
+
+

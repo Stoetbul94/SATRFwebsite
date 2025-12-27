@@ -99,3 +99,10 @@ node test-event-creation.js
 - Check that the file is saved as `.env.local` (not `.env.local.txt`)
 - Verify the file is in the project root directory
 
+
+
+
+
+
+
+

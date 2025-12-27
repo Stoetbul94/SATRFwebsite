@@ -67,3 +67,10 @@ If you still get `auth/unauthorized-continue-uri`:
 If you can't add the domain immediately, the code will automatically retry without `handleCodeInApp`, which lets Firebase handle the redirect. This works but users will be redirected to Firebase's default action handler first, then to your site.
 
 
+
+
+
+
+
+
+

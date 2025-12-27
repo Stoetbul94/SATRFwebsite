@@ -209,3 +209,10 @@ For production, set up admins using Method 1 (Firestore) or Method 2 (Environmen
 - `firestore.rules` - Security rules for admin access
 
 
+
+
+
+
+
+
+

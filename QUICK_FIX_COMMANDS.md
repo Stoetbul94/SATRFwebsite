@@ -97,3 +97,4 @@ Next.js automatically sets:
 
 Use `.env.local` for local-only configuration (already in .gitignore).
 
+

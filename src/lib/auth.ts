@@ -5,9 +5,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
 // Create axios instance for auth
+// CRITICAL: Reduce timeout to prevent dev server hangs when backend is unavailable
 const authApi: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/${API_VERSION}`,
-  timeout: 10000,
+  timeout: 3000, // Reduced from 10000 to 3000ms to prevent hanging
   headers: {
     'Content-Type': 'application/json',
   },

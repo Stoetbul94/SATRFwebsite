@@ -4,27 +4,24 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  
-  // Adjust this value in production, or use tracesSampler for greater control
-  tracesSampleRate: 1.0,
-  
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
-  replaysOnErrorSampleRate: 1.0,
-
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
-
-  // You can remove this option if you're not planning to use the Reasons feature:
-  integrations: [
-    Sentry.replayIntegration({
-      // Additional Replay configuration goes in here, for example:
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ],
-}); 
+// Only initialize Sentry if a valid DSN is provided
+if (!dsn || dsn.includes("your-sentry-dsn") || dsn.includes("project-id")) {
+  // Sentry disabled – exit immediately
+  // Sentry.init() will never be called
+} else {
+  Sentry.init({
+    dsn,
+    tracesSampleRate: 1.0,
+    debug: false,
+    replaysOnErrorSampleRate: 1.0,
+    replaysSessionSampleRate: 0.1,
+    integrations: [
+      Sentry.replayIntegration({
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ],
+  });
+} 

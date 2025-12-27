@@ -350,7 +350,7 @@ export default function AdminEvents() {
       });
       
       // Create a timeout promise
-      let timeoutId: NodeJS.Timeout;
+      let timeoutId: NodeJS.Timeout | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
           // Check if upload has made progress recently (within last 60 seconds)
@@ -365,9 +365,9 @@ export default function AdminEvents() {
       
       try {
         await Promise.race([uploadPromise, timeoutPromise]);
-        clearTimeout(timeoutId);
+        if (timeoutId) clearTimeout(timeoutId);
       } catch (raceError: any) {
-        clearTimeout(timeoutId);
+        if (timeoutId) clearTimeout(timeoutId);
         
         // Check if upload actually completed despite timeout
         const taskSnapshot = uploadTask.snapshot;
