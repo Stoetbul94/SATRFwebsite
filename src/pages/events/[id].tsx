@@ -54,6 +54,14 @@ interface Event {
 }
 
 export default function EventDetail() {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const textColorMuted = useColorModeValue('gray.500', 'gray.500');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const bgLight = useColorModeValue('gray.50', 'gray.800');
+  const textColorLight = useColorModeValue('gray.700', 'gray.200');
+  
   const router = useRouter();
   const { id } = router.query;
   const { user, isAuthenticated } = useAuth();
@@ -184,7 +192,7 @@ export default function EventDetail() {
         <Container maxW="container.xl" py={8}>
           <Box textAlign="center" py={12}>
             <Spinner size="xl" color="blue.500" />
-            <Text mt={4} color={useColorModeValue('gray.600', 'gray.400')}>
+            <Text mt={4} color={textColorSecondary}>
               Loading event details...
             </Text>
           </Box>
@@ -275,14 +283,14 @@ export default function EventDetail() {
             <Heading size="2xl" mb={4} color="satrf.navy">
               {event.title}
             </Heading>
-            <Text fontSize="lg" color={useColorModeValue('gray.600', 'gray.400')}>
+            <Text fontSize="lg" color={textColorSecondary}>
               {event.description}
             </Text>
           </Box>
 
           {/* Event Details Grid */}
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-            <VStack align="start" spacing={4} bg={useColorModeValue('white', 'gray.700')} p={6} borderRadius="lg" shadow="md">
+            <VStack align="start" spacing={4} bg={cardBg} p={6} borderRadius="lg" shadow="md">
               <Heading size="md" color="satrf.navy">
                 Event Information
               </Heading>
@@ -335,20 +343,20 @@ export default function EventDetail() {
               )}
             </VStack>
 
-            <VStack align="start" spacing={4} bg={useColorModeValue('white', 'gray.700')} p={6} borderRadius="lg" shadow="md">
+            <VStack align="start" spacing={4} bg={cardBg} p={6} borderRadius="lg" shadow="md">
               <Heading size="md" color="satrf.navy">
                 Requirements
               </Heading>
               {event.requirements && event.requirements.length > 0 ? (
                 <VStack align="start" spacing={1}>
                   {event.requirements.map((req, index) => (
-                    <Text key={index} fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
+                    <Text key={index} fontSize="sm" color={textColorSecondary}>
                       • {req}
                     </Text>
                   ))}
                 </VStack>
               ) : (
-                <Text fontSize="sm" color={useColorModeValue('gray.500', 'gray.500')}>
+                <Text fontSize="sm" color={textColorMuted}>
                   No specific requirements listed.
                 </Text>
               )}
@@ -357,13 +365,13 @@ export default function EventDetail() {
 
           {/* Schedule */}
           {event.schedule && event.schedule.length > 0 && (
-            <Box bg={useColorModeValue('white', 'gray.700')} p={6} borderRadius="lg" shadow="md">
+            <Box bg={cardBg} p={6} borderRadius="lg" shadow="md">
               <Heading size="md" mb={4} color="satrf.navy">
                 Schedule
               </Heading>
               <VStack align="start" spacing={2}>
                 {event.schedule.map((item, index) => (
-                  <Text key={index} fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
+                  <Text key={index} fontSize="sm" color={textColorSecondary}>
                     {item}
                   </Text>
                 ))}
@@ -373,7 +381,7 @@ export default function EventDetail() {
 
           {/* Contact Information */}
           {event.contactInfo && (
-            <Box bg={useColorModeValue('white', 'gray.700')} p={6} borderRadius="lg" shadow="md">
+            <Box bg={cardBg} p={6} borderRadius="lg" shadow="md">
               <Heading size="md" mb={4} color="satrf.navy">
                 Contact Information
               </Heading>
@@ -440,12 +448,12 @@ export default function EventDetail() {
               w="100%"
               p={4}
               border="1px"
-              borderColor={useColorModeValue('gray.200', 'gray.600')}
+              borderColor={borderColor}
               rounded="md"
-              bg={useColorModeValue('gray.50', 'gray.800')}
+              bg={bgLight}
             >
               <Text fontWeight="semibold" mb={1}>EFT Payment Instructions</Text>
-              <Text fontSize="sm" color={useColorModeValue('gray.700', 'gray.200')}>
+              <Text fontSize="sm" color={textColorLight}>
                 {event.eftInstructions}
               </Text>
             </Box>

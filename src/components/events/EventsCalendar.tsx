@@ -84,6 +84,12 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
   onFiltersChange,
   filters = {}
 }) => {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const filterBgColor = useColorModeValue('gray.50', 'gray.700');
+  
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [calendarView, setCalendarView] = useState<'dayGridMonth' | 'timeGridWeek' | 'listWeek'>('dayGridMonth');
@@ -92,11 +98,6 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const { user, isAuthenticated } = useAuth();
   const toast = useToast();
-
-  // Color scheme for SATRF branding
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
-  const textColor = useColorModeValue('gray.800', 'white');
   const primaryColor = 'satrf.navy';
   const accentColor = 'satrf.red';
 
@@ -358,7 +359,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
               borderWidth="1px"
               borderColor={borderColor}
               rounded="md"
-              bg={useColorModeValue('gray.50', 'gray.700')}
+              bg={filterBgColor}
             >
               <Flex direction={{ base: 'column', md: 'row' }} gap={4} wrap="wrap">
                 {/* Discipline Filter */}

@@ -30,6 +30,11 @@ type SortField = 'score' | 'rank' | 'date';
 type SortOrder = 'asc' | 'desc';
 
 export default function Scores() {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const textColorMuted = useColorModeValue('gray.500', 'gray.400');
+  
   const [selectedEvent, setSelectedEvent] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -165,7 +170,7 @@ export default function Scores() {
             <Heading size="xl" mb={2}>
               Event Scores & Leaderboards
             </Heading>
-            <Text color={useColorModeValue('gray.600', 'gray.400')}>
+            <Text color={textColorSecondary}>
               View and track competition results (Public scores only)
             </Text>
           </Box>
@@ -180,7 +185,7 @@ export default function Scores() {
           {loading && (
             <Box textAlign="center" py={8}>
               <Spinner size="xl" color="blue.500" />
-              <Text mt={4} color={useColorModeValue('gray.600', 'gray.400')}>
+              <Text mt={4} color={textColorSecondary}>
                 Loading scores...
               </Text>
             </Box>
@@ -247,7 +252,7 @@ export default function Scores() {
 
           <Box
             overflowX="auto"
-            bg={useColorModeValue('white', 'gray.700')}
+            bg={cardBg}
             rounded="lg"
             shadow="md"
           >
@@ -304,7 +309,7 @@ export default function Scores() {
                 {filteredScores.length === 0 && !loading ? (
                   <Tr>
                     <Td colSpan={6} textAlign="center" py={8}>
-                      <Text color={useColorModeValue('gray.500', 'gray.400')}>
+                      <Text color={textColorMuted}>
                         No scores found. Try adjusting your filters.
                       </Text>
                     </Td>

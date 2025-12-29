@@ -20,7 +20,6 @@ export default async function handler(
     const { initializeApp, getApps, cert, applicationDefault } = await import('firebase-admin/app');
     const { getFirestore, Timestamp } = await import('firebase-admin/firestore');
 
-    let db;
     let firebaseInitialized = false;
 
     if (!getApps().length) {
@@ -79,7 +78,7 @@ export default async function handler(
       });
     }
 
-    db = getFirestore();
+    const db = getFirestore();
     console.log('[EVENT API] Firestore instance obtained');
 
     if (req.method === 'GET') {

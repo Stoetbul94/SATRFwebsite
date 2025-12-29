@@ -52,10 +52,12 @@ export default function AdminScores() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedScore, setSelectedScore] = useState<Score | null>(null);
-  const [editScore, setEditScore] = useState<Partial<Score>>({});
+  // All useColorModeValue calls must be at the very top, before any other hooks
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  
+  const [selectedScore, setSelectedScore] = useState<Score | null>(null);
+  const [editScore, setEditScore] = useState<Partial<Score>>({});
 
   useEffect(() => {
     if (router.query.status) {

@@ -29,17 +29,22 @@ const events = [
 ];
 
 const EventHighlights = () => {
-  const router = useRouter();
+  // All useColorModeValue calls must be at the very top, before any other hooks
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const eventTextColor = useColorModeValue('gray.600', 'gray.400');
+  const sectionBg = useColorModeValue('gray.50', 'gray.900');
+  const headerTextColor = useColorModeValue('gray.600', 'gray.400');
+  
+  const router = useRouter();
 
   return (
-    <Box py={16} bg={useColorModeValue('gray.50', 'gray.900')}>
+    <Box py={16} bg={sectionBg}>
       <Container maxW="container.xl">
         <VStack spacing={12}>
           <VStack spacing={4} textAlign="center">
             <Heading size="xl">Upcoming Events</Heading>
-            <Text fontSize="lg" color={useColorModeValue('gray.600', 'gray.400')}>
+            <Text fontSize="lg" color={headerTextColor}>
               Join us at these exciting competitions and training sessions
             </Text>
           </VStack>
@@ -76,13 +81,13 @@ const EventHighlights = () => {
                   </Badge>
                   <Heading size="md">{event.title}</Heading>
                   <VStack align="start" spacing={2} w="full">
-                    <Text color={useColorModeValue('gray.600', 'gray.400')}>
+                    <Text color={eventTextColor}>
                       📅 {event.date}
                     </Text>
-                    <Text color={useColorModeValue('gray.600', 'gray.400')}>
+                    <Text color={eventTextColor}>
                       📍 {event.location}
                     </Text>
-                    <Text color={useColorModeValue('gray.600', 'gray.400')}>
+                    <Text color={eventTextColor}>
                       🎯 {event.discipline}
                     </Text>
                   </VStack>

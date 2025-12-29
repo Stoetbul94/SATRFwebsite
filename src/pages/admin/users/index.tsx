@@ -45,10 +45,12 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [newRole, setNewRole] = useState<'user' | 'admin' | 'event_scorer'>('user');
+  // All useColorModeValue calls must be at the very top, before any other hooks
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [newRole, setNewRole] = useState<'user' | 'admin' | 'event_scorer'>('user');
 
   useEffect(() => {
     fetchUsers();

@@ -78,6 +78,20 @@ interface UserRegistration {
 }
 
 export default function Events() {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const imageBg = useColorModeValue('gray.100', 'gray.600');
+  const imageTextColor = useColorModeValue('gray.500', 'gray.400');
+  const textColorPrimary = useColorModeValue('gray.800', 'white');
+  const bgLight = useColorModeValue('gray.50', 'gray.800');
+  const textColorLight = useColorModeValue('gray.600', 'gray.300');
+  const loadingTextColor = useColorModeValue('gray.600', 'gray.400');
+  const modalImageBg = useColorModeValue('gray.100', 'gray.600');
+  const modalImageTextColor = useColorModeValue('gray.500', 'gray.400');
+  const modalTextColor = useColorModeValue('gray.600', 'gray.400');
+  
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,7 +104,6 @@ export default function Events() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { isOpen, onOpen, onClose } = useDisclosure();
-
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   // Fetch events from API
@@ -293,7 +306,7 @@ export default function Events() {
             <Heading size="xl" mb={2} color="satrf.navy">
               Events & Competitions
             </Heading>
-            <Text color={useColorModeValue('gray.600', 'gray.400')} fontSize="lg">
+            <Text color={textColorSecondary} fontSize="lg">
               Discover and register for upcoming shooting events and competitions
             </Text>
           </Box>
@@ -313,7 +326,7 @@ export default function Events() {
           {isLoading && (
             <Box textAlign="center" py={8}>
               <Spinner size="xl" color="blue.500" />
-              <Text mt={4} color={useColorModeValue('gray.600', 'gray.400')}>
+              <Text mt={4} color={loadingTextColor}>
                 Loading events...
               </Text>
             </Box>
@@ -321,12 +334,12 @@ export default function Events() {
 
           {/* Search and Filters */}
           <Box
-            bg={useColorModeValue('white', 'gray.700')}
+            bg={cardBg}
             p={6}
             rounded="lg"
             shadow="md"
             borderWidth="1px"
-            borderColor={useColorModeValue('gray.200', 'gray.600')}
+            borderColor={borderColor}
           >
             <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap={4}>
               <GridItem>
@@ -373,7 +386,7 @@ export default function Events() {
           </Box>
 
           {/* Results Count */}
-          <Text color={useColorModeValue('gray.600', 'gray.400')}>
+          <Text color={textColorSecondary}>
             Showing {filteredEvents.length} of {events.length} events
           </Text>
 
@@ -385,12 +398,12 @@ export default function Events() {
               return (
                 <Box
                   key={event.id}
-                  bg={useColorModeValue('white', 'gray.700')}
+                  bg={cardBg}
                   p={6}
                   rounded="lg"
                   shadow="md"
                   borderWidth="1px"
-                  borderColor={useColorModeValue('gray.200', 'gray.600')}
+                  borderColor={borderColor}
                   _hover={{
                     shadow: 'lg',
                     transform: 'translateY(-2px)',
@@ -405,7 +418,7 @@ export default function Events() {
                       <Box
                         w="100%"
                         h="200px"
-                        bg={useColorModeValue('gray.100', 'gray.600')}
+                        bg={imageBg}
                         rounded="md"
                         overflow="hidden"
                         position="relative"
@@ -420,13 +433,13 @@ export default function Events() {
                       <Box
                         w="100%"
                         h="200px"
-                        bg={useColorModeValue('gray.100', 'gray.600')}
+                        bg={imageBg}
                         rounded="md"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
                       >
-                        <Text color={useColorModeValue('gray.500', 'gray.400')}>
+                        <Text color={imageTextColor}>
                           Event Image
                         </Text>
                       </Box>
@@ -450,28 +463,28 @@ export default function Events() {
                     <Stack spacing={2} w="100%">
                       <HStack spacing={2}>
                         <FaRegCalendarAlt color="#4a5568" />
-                        <Text color={useColorModeValue('gray.600', 'gray.400')} fontSize="sm">
+                        <Text color={textColorSecondary} fontSize="sm">
                           {event.date}
                         </Text>
                       </HStack>
                       
                       <HStack spacing={2}>
                         <FaMapMarkerAlt color="#4a5568" />
-                        <Text color={useColorModeValue('gray.600', 'gray.400')} fontSize="sm">
+                        <Text color={textColorSecondary} fontSize="sm">
                           {event.location}
                         </Text>
                       </HStack>
                       
                       <HStack spacing={2}>
                         <FaUsers color="#4a5568" />
-                        <Text color={useColorModeValue('gray.600', 'gray.400')} fontSize="sm">
+                        <Text color={textColorSecondary} fontSize="sm">
                           {event.currentSpots}/{event.maxSpots} spots filled
                         </Text>
                       </HStack>
                       
                       <HStack spacing={2}>
                         <FaClock color="#4a5568" />
-                        <Text color={useColorModeValue('gray.600', 'gray.400')} fontSize="sm">
+                        <Text color={textColorSecondary} fontSize="sm">
                           Registration closes: {formatDate(event.registrationDeadline)}
                         </Text>
                       </HStack>
@@ -480,7 +493,7 @@ export default function Events() {
                     {/* Price and Registration */}
                     <VStack spacing={3} w="100%">
                       <Text
-                        color={useColorModeValue('gray.800', 'white')}
+                        color={textColorPrimary}
                         fontWeight="bold"
                         fontSize="lg"
                       >
@@ -506,13 +519,13 @@ export default function Events() {
                           w="100%"
                           p={3}
                           border="1px"
-                          borderColor={useColorModeValue('gray.200', 'gray.600')}
+                          borderColor={borderColor}
                           rounded="md"
-                          bg={useColorModeValue('gray.50', 'gray.800')}
+                          bg={bgLight}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Text fontSize="sm" fontWeight="semibold">EFT Payment</Text>
-                          <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
+                          <Text fontSize="sm" color={textColorLight}>
                             {event.eftInstructions}
                           </Text>
                         </Box>
@@ -565,13 +578,13 @@ export default function Events() {
                   <Box
                     w="100%"
                     h="300px"
-                    bg={useColorModeValue('gray.100', 'gray.600')}
+                    bg={modalImageBg}
                     rounded="md"
                     display="flex"
                     alignItems="center"
                     justifyContent="center"
                   >
-                    <Text color={useColorModeValue('gray.500', 'gray.400')}>
+                    <Text color={modalImageTextColor}>
                       Event Image
                     </Text>
                   </Box>
@@ -590,7 +603,7 @@ export default function Events() {
                     <Heading size="md" mb={3} color="satrf.navy">
                       Description
                     </Heading>
-                    <Text color={useColorModeValue('gray.600', 'gray.400')}>
+                    <Text color={modalTextColor}>
                       {selectedEvent.description}
                     </Text>
                   </Box>
@@ -641,7 +654,7 @@ export default function Events() {
                       </Heading>
                       <VStack align="start" spacing={1}>
                         {selectedEvent.requirements?.map((req, index) => (
-                          <Text key={index} fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
+                          <Text key={index} fontSize="sm" color={modalTextColor}>
                             • {req}
                           </Text>
                         ))}
@@ -657,7 +670,7 @@ export default function Events() {
                       </Heading>
                       <VStack align="start" spacing={2}>
                         {selectedEvent.schedule.map((item, index) => (
-                          <Text key={index} fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
+                          <Text key={index} fontSize="sm" color={modalTextColor}>
                             {item}
                           </Text>
                         ))}

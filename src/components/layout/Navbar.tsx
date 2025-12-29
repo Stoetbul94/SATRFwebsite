@@ -20,6 +20,11 @@ import { isEmailAdmin } from '@/lib/adminClient';
 import { isUserAdmin } from '@/lib/userRole';
 
 export default function Navbar() {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const bgColor = useColorModeValue('blue.900', 'blue.800');
+  const textColor = useColorModeValue('white', 'gray.100');
+  const hoverColor = useColorModeValue('blue.700', 'blue.600');
+  
   const { user, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -37,10 +42,6 @@ export default function Navbar() {
   const handleLogout = async () => {
     await logout();
   };
-
-  const bgColor = useColorModeValue('blue.900', 'blue.800');
-  const textColor = useColorModeValue('white', 'gray.100');
-  const hoverColor = useColorModeValue('blue.700', 'blue.600');
 
   const NavLink = ({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) => (
     <Link href={href} onClick={onClick}>

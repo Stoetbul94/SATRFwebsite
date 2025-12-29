@@ -33,11 +33,13 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
   useProtectedRoute();
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  
   const { isAdmin, isLoading } = useAdminRoute();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   useEffect(() => {
     const fetchStats = async () => {

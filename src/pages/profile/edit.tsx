@@ -34,6 +34,10 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export default function EditProfile() {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const cardBg = useColorModeValue('white', 'gray.700');
+  
   const router = useRouter();
   const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,13 +144,13 @@ export default function EditProfile() {
             <Heading size="xl" mb={2}>
               Edit Profile
             </Heading>
-            <Text color={useColorModeValue('gray.600', 'gray.400')}>
+            <Text color={textColorSecondary}>
               Update your personal information
             </Text>
           </Box>
 
           <Box
-            bg={useColorModeValue('white', 'gray.700')}
+            bg={cardBg}
             p={8}
             rounded="lg"
             shadow="md"

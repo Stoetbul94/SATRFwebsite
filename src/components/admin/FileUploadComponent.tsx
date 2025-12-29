@@ -101,12 +101,13 @@ export default function FileUploadComponent({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ScoreRow[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-
+  // All useColorModeValue calls must be at the very top, before any other hooks
   const borderColor = useColorModeValue('gray.300', 'gray.600');
   const bgColor = useColorModeValue('gray.50', 'gray.700');
   const hoverBgColor = useColorModeValue('gray.100', 'gray.600');
+  
+  const [isDragOver, setIsDragOver] = useState(false);
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const validateScore = (score: number): boolean => {
     return score >= 0 && score <= 109 && Number.isFinite(score);

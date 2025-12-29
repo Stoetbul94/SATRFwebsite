@@ -4,6 +4,12 @@ import { FaUserPlus, FaHandHoldingHeart, FaCalendarAlt, FaShoppingCart, FaMedal 
 import { useEffect, useState } from 'react';
 
 const DashboardSection = () => {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const tileTextColor = useColorModeValue('gray.600', 'gray.400');
+  const sectionBg = useColorModeValue('gray.50', 'gray.900');
+  
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
@@ -68,11 +74,8 @@ const DashboardSection = () => {
     }
   ];
 
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-
   return (
-    <Box py={16} bg={useColorModeValue('gray.50', 'gray.900')}>
+    <Box py={16} bg={sectionBg}>
       <Container maxW="container.xl">
         <VStack spacing={12}>
           {/* Countdown Timer */}
@@ -132,7 +135,7 @@ const DashboardSection = () => {
                 <VStack spacing={4} align="start">
                   <Icon as={tile.icon} w={8} h={8} color={tile.color} />
                   <Heading size="md">{tile.title}</Heading>
-                  <Text color={useColorModeValue('gray.600', 'gray.400')}>
+                  <Text color={tileTextColor}>
                     {tile.description}
                   </Text>
                 </VStack>

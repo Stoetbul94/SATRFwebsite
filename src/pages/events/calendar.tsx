@@ -64,6 +64,13 @@ import { GetServerSideProps } from 'next';
 import { eventsAPI, MOCK_EVENTS, Event, EventFilters, EventRegistration, eventUtils } from '@/lib/events';
 
 const EventsCalendarPage: NextPage = () => {
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const hoverBg = useColorModeValue('gray.50', 'gray.700');
+  
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,11 +83,6 @@ const EventsCalendarPage: NextPage = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const toast = useToast();
   const { user, isAuthenticated } = useAuth();
-
-  // Color scheme for SATRF branding
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
-  const textColor = useColorModeValue('gray.800', 'white');
 
   // Load events on component mount and when filters change
   useEffect(() => {
@@ -346,7 +348,7 @@ END:VCALENDAR`;
                 <Text>Events Calendar</Text>
               </HStack>
             </Heading>
-            <Text color={useColorModeValue('gray.600', 'gray.400')} fontSize="lg">
+            <Text color={textColorSecondary} fontSize="lg">
               Interactive calendar featuring SATRF local events and ISSF international competitions
             </Text>
           </Box>
@@ -495,7 +497,7 @@ END:VCALENDAR`;
                     borderWidth="1px"
                     borderColor={borderColor}
                     rounded="md"
-                    _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}
+                    _hover={{ bg: hoverBg }}
                     cursor="pointer"
                     onClick={() => handleEventClick(event)}
                   >

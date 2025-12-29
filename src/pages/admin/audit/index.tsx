@@ -35,11 +35,13 @@ export default function AdminAudit() {
   useProtectedRoute();
   const { isAdmin, isLoading: authLoading } = useAdminRoute();
   const toast = useToast();
+  // All useColorModeValue calls must be at the very top, before any other hooks
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  
   const [actions, setActions] = useState<AdminAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState<string>('all');
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   useEffect(() => {
     fetchAuditLog();
