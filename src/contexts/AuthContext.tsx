@@ -32,6 +32,7 @@ type AuthAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'CLEAR_ERROR' }
   | { type: 'UPDATE_PROFILE'; payload: UserProfile }
+  | { type: 'PROFILE_UPDATE_ERROR'; payload: string }
   | { type: 'SET_DASHBOARD'; payload: UserDashboardData }
   | { type: 'SET_INITIALIZED'; payload: boolean };
 
@@ -96,6 +97,15 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
       return {
         ...state,
         user: action.payload,
+        error: null, // Clear any previous errors on successful update
+      };
+    case 'PROFILE_UPDATE_ERROR':
+      // Profile update errors should NOT log the user out
+      // Only set the error, keep authentication state intact
+      return {
+        ...state,
+        error: action.payload,
+        isLoading: false,
       };
     case 'SET_DASHBOARD':
       return {
@@ -299,6 +309,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateProfile = async (profileData: UserProfileUpdate): Promise<boolean> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' }); // Clear any previous errors
       
       const updatedUser = await authAPI.updateProfile(profileData);
       dispatch({ type: 'UPDATE_PROFILE', payload: updatedUser });
@@ -306,7 +317,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return true;
     } catch (error: any) {
       console.error('Profile update error:', error);
-      dispatch({ type: 'AUTH_FAILURE', payload: error.message || 'Profile update failed' });
+      // Use PROFILE_UPDATE_ERROR instead of AUTH_FAILURE to avoid logging user out
+      dispatch({ type: 'PROFILE_UPDATE_ERROR', payload: error.message || 'Profile update failed' });
       return false;
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });

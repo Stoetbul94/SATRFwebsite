@@ -12,6 +12,9 @@ import {
   useColorModeValue,
   useToast,
   VStack,
+  HStack,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
@@ -19,15 +22,22 @@ import Layout from '@/components/layout/Layout';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
+
+// Phone validation: allows international format with + prefix (e.g., +27, +1, etc.)
+const phoneRegex = /^[\+]?[1-9][\d\s\-\(\)]{0,20}$/;
 
 const profileSchema = z.object({
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
   membershipType: z.enum(['junior', 'senior', 'veteran']),
   club: z.string().min(2, 'Club name is required'),
-  phone: z.string().optional(),
+  phone: z.string()
+    .optional()
+    .refine(
+      (val) => !val || phoneRegex.test(val.replace(/\s/g, '')),
+      'Please enter a valid phone number (e.g., +27 12 345 6789)'
+    ),
   address: z.string().optional(),
 });
 
@@ -40,8 +50,10 @@ export default function EditProfile() {
   
   const router = useRouter();
   const toast = useToast();
+  const { user, updateProfile, isLoading: authLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const {
     register,
@@ -53,70 +65,76 @@ export default function EditProfile() {
   });
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          reset({
-            firstName: data.firstName,
-            lastName: data.lastName,
-            membershipType: data.membershipType,
-            club: data.club,
-            phone: data.phone || '',
-            address: data.address || '',
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load profile data',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, [router, reset, toast]);
-
-  const onSubmit = async (data: ProfileFormData) => {
-    setIsSubmitting(true);
-    const user = auth.currentUser;
-    if (!user) {
+    // Redirect to login if not authenticated
+    if (!authLoading && !user) {
       router.push('/login');
       return;
     }
 
-    try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        ...data,
-        updatedAt: new Date().toISOString(),
+    // Load user data when available
+    if (user) {
+      reset({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        membershipType: user.membershipType || 'senior',
+        club: user.club || '',
+        phone: user.phone || user.phoneNumber || '',
+        address: user.address || '',
       });
+      setIsLoading(false);
+    }
+  }, [user, authLoading, router, reset]);
 
+  const onSubmit = async (data: ProfileFormData) => {
+    if (!user) {
       toast({
-        title: 'Profile updated',
-        description: 'Your profile has been updated successfully',
-        status: 'success',
+        title: 'Authentication required',
+        description: 'Please log in to update your profile',
+        status: 'warning',
         duration: 3000,
         isClosable: true,
       });
+      router.push('/login');
+      return;
+    }
 
-      router.push('/profile');
+    setIsSubmitting(true);
+    setSaveSuccess(false);
+
+    try {
+      // Use AuthContext's updateProfile to maintain auth state
+      const success = await updateProfile({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        membershipType: data.membershipType,
+        club: data.club,
+        phone: data.phone || undefined,
+        phoneNumber: data.phone || undefined, // Support both field names
+        address: data.address || undefined,
+      });
+
+      if (success) {
+        setSaveSuccess(true);
+        toast({
+          title: 'Profile updated successfully',
+          description: 'Your profile changes have been saved',
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        });
+
+        // Delay navigation slightly to show success message
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500);
+      } else {
+        throw new Error('Failed to update profile');
+      }
     } catch (error: any) {
+      console.error('Profile update error:', error);
       toast({
         title: 'Update failed',
-        description: error.message,
+        description: error.message || 'Failed to update profile. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -126,7 +144,7 @@ export default function EditProfile() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <Layout>
         <Container maxW="container.xl" py={8}>
@@ -134,6 +152,10 @@ export default function EditProfile() {
         </Container>
       </Layout>
     );
+  }
+
+  if (!user) {
+    return null; // Will redirect in useEffect
   }
 
   return (
@@ -149,6 +171,16 @@ export default function EditProfile() {
             </Text>
           </Box>
 
+          {saveSuccess && (
+            <Alert status="success" borderRadius="md">
+              <AlertIcon />
+              <Box flex={1}>
+                <Text fontWeight="bold">Profile updated successfully!</Text>
+                <Text fontSize="sm">Redirecting to dashboard...</Text>
+              </Box>
+            </Alert>
+          )}
+
           <Box
             bg={cardBg}
             p={8}
@@ -161,7 +193,7 @@ export default function EditProfile() {
                   <FormLabel>First Name</FormLabel>
                   <Input {...register('firstName')} />
                   {errors.firstName && (
-                    <Text color="red.500">{errors.firstName.message}</Text>
+                    <Text color="red.500" fontSize="sm">{errors.firstName.message}</Text>
                   )}
                 </FormControl>
 
@@ -169,7 +201,7 @@ export default function EditProfile() {
                   <FormLabel>Last Name</FormLabel>
                   <Input {...register('lastName')} />
                   {errors.lastName && (
-                    <Text color="red.500">{errors.lastName.message}</Text>
+                    <Text color="red.500" fontSize="sm">{errors.lastName.message}</Text>
                   )}
                 </FormControl>
 
@@ -181,7 +213,7 @@ export default function EditProfile() {
                     <option value="veteran">Veteran</option>
                   </Select>
                   {errors.membershipType && (
-                    <Text color="red.500">{errors.membershipType.message}</Text>
+                    <Text color="red.500" fontSize="sm">{errors.membershipType.message}</Text>
                   )}
                 </FormControl>
 
@@ -189,13 +221,23 @@ export default function EditProfile() {
                   <FormLabel>Club</FormLabel>
                   <Input {...register('club')} />
                   {errors.club && (
-                    <Text color="red.500">{errors.club.message}</Text>
+                    <Text color="red.500" fontSize="sm">{errors.club.message}</Text>
                   )}
                 </FormControl>
 
-                <FormControl>
+                <FormControl isInvalid={!!errors.phone}>
                   <FormLabel>Phone Number (Optional)</FormLabel>
-                  <Input type="tel" {...register('phone')} />
+                  <Input 
+                    type="tel" 
+                    placeholder="+27 12 345 6789"
+                    {...register('phone')} 
+                  />
+                  {errors.phone && (
+                    <Text color="red.500" fontSize="sm">{errors.phone.message}</Text>
+                  )}
+                  <Text fontSize="xs" color={textColorSecondary} mt={1}>
+                    International format accepted (e.g., +27 12 345 6789)
+                  </Text>
                 </FormControl>
 
                 <FormControl>
@@ -209,19 +251,40 @@ export default function EditProfile() {
                     colorScheme="blue"
                     size="lg"
                     isLoading={isSubmitting}
+                    loadingText="Saving..."
                     flex={1}
+                    isDisabled={saveSuccess}
                   >
-                    Save Changes
+                    {saveSuccess ? 'Saved!' : 'Save Changes'}
                   </Button>
                   <Button
                     variant="outline"
                     size="lg"
                     onClick={() => router.push('/profile')}
                     flex={1}
+                    isDisabled={isSubmitting || saveSuccess}
                   >
                     Cancel
                   </Button>
                 </Stack>
+
+                {saveSuccess && (
+                  <HStack spacing={4} justify="center" mt={4}>
+                    <Button
+                      colorScheme="green"
+                      variant="solid"
+                      onClick={() => router.push('/dashboard')}
+                    >
+                      Go to Dashboard
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => router.push('/profile')}
+                    >
+                      View Profile
+                    </Button>
+                  </HStack>
+                )}
               </Stack>
             </form>
           </Box>
