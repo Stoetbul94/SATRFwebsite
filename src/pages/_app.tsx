@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '../contexts/AuthContext';
 import '@/styles/globals.css';
 import { Oxanium } from 'next/font/google';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const oxanium = Oxanium({ 
   subsets: ['latin'],
@@ -76,6 +77,7 @@ export default function App({ Component, pageProps }: AppProps) {
               },
             }}
                       />
+            <SpeedInsights />
           </AuthProvider>
         </ChakraProvider>
       </div>
