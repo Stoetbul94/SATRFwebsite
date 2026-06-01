@@ -141,7 +141,8 @@ const RegisterPage: NextPage = () => {
 
     const success = await register(formData);
     if (success) {
-      router.push('/dashboard');
+      // Account is created but pending admin approval — send to login with notice.
+      router.push('/login?registered=pending');
     }
   };
 

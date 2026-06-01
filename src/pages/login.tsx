@@ -170,6 +170,15 @@ const LoginPage: NextPage = () => {
             </p>
           </div>
 
+          {/* Pending-approval notice after registration */}
+          {router.query.registered === 'pending' && (
+            <div className="bg-emerald-900/50 border border-emerald-500 text-emerald-100 px-4 py-3 rounded-lg">
+              <p className="text-sm font-oxanium">
+                Registration received. Your account is awaiting admin approval — you&apos;ll be able to sign in once approved.
+              </p>
+            </div>
+          )}
+
           {/* Error Alert */}
           {error && (
             <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg">

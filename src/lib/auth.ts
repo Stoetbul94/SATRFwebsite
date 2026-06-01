@@ -98,8 +98,11 @@ export interface UserProfile {
   membershipType: 'junior' | 'senior' | 'veteran';
   club: string;
   role: 'user' | 'admin' | 'event_scorer';
+  /** Approval lifecycle: members must be 'active' to use the member area. */
+  status: 'pending' | 'active' | 'rejected' | 'suspended';
   profileImageUrl?: string;
-  phoneNumber?: string;
+  phone?: string; // Preferred field name
+  phoneNumber?: string; // Legacy field name for backward compatibility
   dateOfBirth?: string;
   address?: string;
   emergencyContact?: string;
@@ -118,7 +121,8 @@ export interface UserProfileUpdate {
   membershipType?: 'junior' | 'senior' | 'veteran';
   club?: string;
   profileImageUrl?: string;
-  phoneNumber?: string;
+  phone?: string; // Preferred field name
+  phoneNumber?: string; // Legacy field name for backward compatibility
   dateOfBirth?: string;
   address?: string;
   emergencyContact?: string;
@@ -427,41 +431,55 @@ export const authAPI = {
   }
 };
 
+// Map a Firestore user document to a UserProfile.
+function mapUserDoc(uid: string, data: any): UserProfile {
+  let role = data.role || 'user';
+  if (role === 'user' && data.roles?.admin === true) {
+    role = 'admin';
+  }
+  return {
+    id: uid,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    membershipType: data.membershipType,
+    club: data.club,
+    role,
+    status: data.status || (data.isActive === false ? 'suspended' : 'active'),
+    profileImageUrl: data.profileImageUrl,
+    phone: data.phone ?? data.phoneNumber,
+    phoneNumber: data.phoneNumber,
+    dateOfBirth: data.dateOfBirth,
+    address: data.address,
+    emergencyContact: data.emergencyContact,
+    emergencyPhone: data.emergencyPhone,
+    isActive: data.isActive !== false,
+    emailConfirmed: data.emailConfirmed || false,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    lastLoginAt: data.lastLoginAt,
+    loginCount: data.loginCount || 0,
+  };
+}
+
+/**
+ * Read a member's profile from Firestore by UID.
+ * This is the source of truth for the logged-in user (no external backend).
+ */
+export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
+  const { doc, getDoc } = await import('firebase/firestore');
+  const { db } = await import('@/lib/firebase');
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return null;
+  return mapUserDoc(uid, snap.data());
+}
+
 // Auth flow utilities
 export const authFlow = {
   // Complete login flow
   login: async (email: string, password: string): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
     try {
-      // Check for demo credentials first
-      if (email === 'demo@satrf.org.za' && password === 'DemoPass123') {
-        // Mock demo user - TEMPORARILY SET AS ADMIN FOR TESTING
-        // TODO: Change back to 'user' role after testing
-        const demoUser: UserProfile = {
-          id: 'demo-user-123',
-          firstName: 'Demo',
-          lastName: 'User',
-          email: 'demo@satrf.org.za',
-          membershipType: 'senior',
-          club: 'SATRF Demo Club',
-          role: 'admin', // TEMPORARY: Set to admin for testing admin pages
-          isActive: true,
-          emailConfirmed: true,
-          createdAt: new Date().toISOString(),
-          loginCount: 1,
-          lastLoginAt: new Date().toISOString(),
-        };
-
-        // Store mock tokens
-        tokenManager.setTokens(
-          'demo-access-token',
-          'demo-refresh-token',
-          demoUser.id
-        );
-
-        return { success: true, user: demoUser };
-      }
-
-      // For real credentials, try Firebase Auth first (for users who reset password via Firebase)
+      // Authenticate against Firebase Auth.
       try {
         const { signInWithEmailAndPassword } = await import('firebase/auth');
         const { doc, getDoc } = await import('firebase/firestore');
@@ -482,27 +500,25 @@ export const authFlow = {
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          // Handle both role structures: 'role' (flat) or 'roles.admin' (nested)
-          let userRole = userData.role || 'user';
-          if (userRole === 'user' && userData.roles?.admin === true) {
-            userRole = 'admin';
+          const userProfile = mapUserDoc(firebaseUser.uid, userData);
+
+          // Approval gate: only 'active' members (or admins) may proceed.
+          // Pending/rejected/suspended accounts are signed straight back out.
+          if (userProfile.role !== 'admin' && userProfile.status !== 'active') {
+            const { signOut } = await import('firebase/auth');
+            await signOut(auth).catch(() => {});
+            tokenManager.clearTokens();
+            const statusMessage: Record<string, string> = {
+              pending: 'Your account is awaiting admin approval. You will be notified once approved.',
+              rejected: 'Your registration was not approved. Please contact SATRF.',
+              suspended: 'Your account has been suspended. Please contact SATRF.',
+            };
+            return {
+              success: false,
+              error: statusMessage[userProfile.status] || 'Your account is not active.',
+            };
           }
-          
-          const userProfile: UserProfile = {
-            id: firebaseUser.uid,
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            email: userData.email,
-            membershipType: userData.membershipType,
-            club: userData.club,
-            role: userRole,
-            isActive: userData.isActive !== false,
-            emailConfirmed: userData.emailConfirmed || false,
-            createdAt: userData.createdAt,
-            loginCount: (userData.loginCount || 0) + 1,
-            lastLoginAt: new Date().toISOString(),
-          };
-          
+
           // Store Firebase ID token
           const idToken = await firebaseUser.getIdToken();
           tokenManager.setTokens(
@@ -531,13 +547,15 @@ export const authFlow = {
           
           return { success: true, user: userProfile };
         } else {
-          // User exists in Firebase Auth but not in Firestore - try backend
-          throw new Error('User not found in Firestore');
+          // Authenticated but no profile doc — treat as not-approved / orphaned.
+          const { signOut } = await import('firebase/auth');
+          await signOut(auth).catch(() => {});
+          return {
+            success: false,
+            error: 'No member profile found for this account. Please contact SATRF.',
+          };
         }
       } catch (firebaseError: any) {
-        // Firebase Auth failed, try backend API as fallback
-        console.log('Firebase Auth login failed, trying backend API:', firebaseError.code);
-        
         // Convert Firebase error codes to user-friendly messages
         const getFirebaseErrorMessage = (code: string, originalMessage?: string): string => {
           // Strip "Firebase:" prefix if present
@@ -550,7 +568,7 @@ export const authFlow = {
             case 'auth/user-not-found':
               return 'No account found with this email address.';
             case 'auth/user-disabled':
-              return 'This account has been disabled. Please contact support.';
+              return 'Your account is awaiting admin approval (or has been disabled). You will be able to sign in once approved.';
             case 'auth/too-many-requests':
               return 'Too many failed login attempts. Please try again later.';
             case 'auth/network-request-failed':
@@ -565,77 +583,24 @@ export const authFlow = {
               return 'Login failed. Please check your credentials and try again.';
           }
         };
-        
-        // Try backend API as fallback for credential errors
-        if (firebaseError.code === 'auth/invalid-credential' || 
-            firebaseError.code === 'auth/user-not-found' || 
-            firebaseError.code === 'auth/wrong-password') {
-          try {
-            // User doesn't exist in Firebase Auth or wrong password - try backend
-            const response = await authAPI.login({ email, password });
-            
-            // Store tokens
-            tokenManager.setTokens(
-              response.access_token,
-              response.refresh_token,
-              response.user.id
-            );
-            
-            return { success: true, user: response.user };
-          } catch (backendError: any) {
-            // Both Firebase and backend failed - return user-friendly error
-            return {
-              success: false,
-              error: getFirebaseErrorMessage(firebaseError.code, firebaseError.message)
-            };
-          }
-        } else {
-          // Other Firebase error - still try backend as fallback
-          try {
-            const response = await authAPI.login({ email, password });
-            
-            tokenManager.setTokens(
-              response.access_token,
-              response.refresh_token,
-              response.user.id
-            );
-            
-            return { success: true, user: response.user };
-          } catch (backendError: any) {
-            // Both failed - return user-friendly Firebase error message
-            return {
-              success: false,
-              error: getFirebaseErrorMessage(firebaseError.code, firebaseError.message)
-            };
-          }
-        }
+
+        return {
+          success: false,
+          error: getFirebaseErrorMessage(firebaseError.code, firebaseError.message),
+        };
       }
     } catch (error: any) {
-      // Handle backend API errors with user-friendly messages
-      let errorMessage = 'Login failed. Please check your credentials and try again.';
-      
-      if (error.response?.data?.detail) {
-        const detail = error.response.data.detail;
-        if (typeof detail === 'string') {
-          // Backend error messages are usually already user-friendly
-          errorMessage = detail;
-        } else {
-          errorMessage = 'Login failed. Please check your credentials and try again.';
-        }
-      } else if (error.message && !error.message.includes('Firebase')) {
-        // Only use error message if it's not a Firebase technical error
-        errorMessage = error.message;
-      }
-      
       return {
         success: false,
-        error: errorMessage
+        error: error?.message?.includes('Firebase')
+          ? 'Login failed. Please check your credentials and try again.'
+          : error?.message || 'Login failed. Please check your credentials and try again.',
       };
     }
   },
 
-  // Complete registration flow - Firebase Auth + Firestore
-  register: async (userData: UserRegistrationData): Promise<{ success: boolean; user?: UserProfile; error?: string }> => {
+  // Complete registration flow - creates a pending account via server route.
+  register: async (userData: UserRegistrationData): Promise<{ success: boolean; user?: UserProfile; error?: string; pending?: boolean }> => {
     // Use Firebase Auth for registration in production
     if (typeof window === 'undefined') {
       // Server-side: fallback to API (for SSR compatibility)
@@ -658,128 +623,30 @@ export const authFlow = {
       }
     }
 
-    // Client-side: Use Firebase Auth + Firestore
+    // Client-side: call the server route, which creates a DISABLED auth user
+    // + a 'pending' Firestore profile. The member is NOT logged in; an admin
+    // must approve them before they can sign in.
     try {
-      const { createUserWithEmailAndPassword } = await import('firebase/auth');
-      const { doc, setDoc, getDoc } = await import('firebase/firestore');
-      const { auth, db } = await import('@/lib/firebase');
-
-      // Step 1: Create Firebase Auth user
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        userData.email.toLowerCase().trim(),
-        userData.password
-      );
-      
-      const firebaseUser = userCredential.user;
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Firebase Auth user created:', firebaseUser.uid);
-      }
-
-      // Step 2: Create user profile in Firestore
-      const userProfile: UserProfile = {
-        id: firebaseUser.uid,
-        firstName: userData.firstName.trim(),
-        lastName: userData.lastName.trim(),
-        email: userData.email.toLowerCase().trim(),
-        membershipType: userData.membershipType,
-        club: userData.club.trim(),
-        role: 'user',
-        isActive: true,
-        emailConfirmed: false,
-        createdAt: new Date().toISOString(),
-        loginCount: 0,
-      };
-
-      // Create user document in Firestore 'users' collection
-      const userDocRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userDocRef, {
-        ...userProfile,
-        // Store additional metadata
-        updatedAt: new Date().toISOString(),
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
       });
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Firestore user document created:', firebaseUser.uid);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error || data.message || 'Registration failed. Please try again.',
+        };
       }
 
-      // Step 3: Verify document was created
-      const createdDoc = await getDoc(userDocRef);
-      if (!createdDoc.exists()) {
-        throw new Error('Failed to create user profile in database');
-      }
-
-      // Step 4: Store Firebase ID token for session management
-      const idToken = await firebaseUser.getIdToken();
-      tokenManager.setTokens(
-        idToken,
-        idToken, // Using same token for refresh (Firebase handles refresh internally)
-        firebaseUser.uid
-      );
-
-      // Step 5: Generate demo data for development (non-blocking)
-      if (typeof window !== 'undefined') {
-        // Run in background - don't block registration
-        import('@/lib/demoData').then(({ generateDemoDataForUser, isDemoModeEnabled }) => {
-          if (isDemoModeEnabled()) {
-            generateDemoDataForUser(firebaseUser.uid, {
-              id: firebaseUser.uid,
-              firstName: userProfile.firstName,
-              lastName: userProfile.lastName,
-              club: userProfile.club,
-              membershipType: userProfile.membershipType,
-            }).catch((error) => {
-              // Log but don't fail registration if demo data generation fails
-              console.warn('[AUTH] Failed to generate demo data (non-critical):', error);
-            });
-          }
-        });
-      }
-
-      return { success: true, user: userProfile };
+      return { success: true, pending: true };
     } catch (error: any) {
-      // Enhanced error handling with specific Firebase error messages
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/email-already-in-use':
-            errorMessage = 'An account with this email already exists. Please sign in instead.';
-            break;
-          case 'auth/invalid-email':
-            errorMessage = 'Invalid email address. Please check your email and try again.';
-            break;
-          case 'auth/weak-password':
-            errorMessage = 'Password is too weak. Please use a stronger password.';
-            break;
-          case 'auth/operation-not-allowed':
-            errorMessage = 'Email/password accounts are not enabled. Please contact support.';
-            break;
-          case 'permission-denied':
-            errorMessage = 'Permission denied. Please check Firestore security rules.';
-            if (process.env.NODE_ENV === 'development') {
-              console.error('Firestore permission error. Check security rules allow users to create their own document.');
-            }
-            break;
-          default:
-            errorMessage = error.message || `Registration failed: ${error.code || 'Unknown error'}`;
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Registration error:', {
-          code: error.code,
-          message: error.message,
-          fullError: error,
-        });
-      }
-
       return {
         success: false,
-        error: errorMessage
+        error: error?.message || 'Registration failed. Please try again.',
       };
     }
   },
@@ -800,16 +667,15 @@ export const authFlow = {
     return tokenManager.isAuthenticated() && !tokenManager.isTokenExpired();
   },
 
-  // Get current user profile
+  // Get current user profile from Firebase Auth + Firestore.
   getCurrentUser: async (): Promise<UserProfile | null> => {
-    if (!authFlow.isAuthenticated()) {
-      return null;
-    }
-    
+    if (typeof window === 'undefined') return null;
     try {
-      return await authAPI.getProfile();
+      const { auth } = await import('@/lib/firebase');
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) return null;
+      return await fetchUserProfile(firebaseUser.uid);
     } catch (error) {
-      tokenManager.clearTokens();
       return null;
     }
   }

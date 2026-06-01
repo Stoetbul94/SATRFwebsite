@@ -7,6 +7,8 @@ import { useAuth, useProtectedRoute } from '../../contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { isUserAdmin } from '@/lib/userRole';
 import { isEmailAdmin } from '@/lib/adminClient';
+import { auth } from '@/lib/firebase';
+import { DISCIPLINES } from '@/lib/issf';
 
 interface DashboardStats {
   totalScores: number;
@@ -47,46 +49,41 @@ export default function Dashboard() {
       try {
         // Only fetch data if user is authenticated
         if (isAuthenticated && user) {
-          // Fetch user's own scores from API
-          const { scoresAPI, leaderboardAPI } = await import('@/lib/api');
-          
-          // Get user's scores (only their own)
-          const myScoresResponse = await scoresAPI.getMyScores(1, 100);
-          const myScores = myScoresResponse.data || [];
-          
-          // Set recent scores (all scores, sorted by date, limit to 10)
-          const sortedScores = [...myScores].sort((a: any, b: any) => {
-            const dateA = new Date(a.createdAt || 0).getTime();
-            const dateB = new Date(b.createdAt || 0).getTime();
-            return dateB - dateA;
+          const token = await auth.currentUser?.getIdToken();
+
+          // Get the member's own scores from Firestore (new ISSF model).
+          const myScoresRes = await fetch('/api/scores/my-scores', {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           });
-          setRecentScores(sortedScores.slice(0, 10));
-          
-          // Calculate statistics from user's own scores
-          const approvedScores = myScores.filter((s: any) => s.status === 'approved');
-          const totalScores = approvedScores.length;
-          const bestScore = approvedScores.length > 0 
-            ? Math.max(...approvedScores.map((s: any) => s.score))
+          const myScoresJson = await myScoresRes.json().catch(() => ({ data: [] }));
+          const myScores: any[] = myScoresJson.data || [];
+
+          // Recent scores (already date-sorted by the API), limit 10.
+          setRecentScores(myScores.slice(0, 10));
+
+          // Statistics based on decimal totals.
+          const totals = myScores.map((s) => s.decimalTotal || 0);
+          const totalScores = myScores.length;
+          const bestScore = totals.length ? Math.max(...totals) : 0;
+          const averageScore = totals.length
+            ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10
             : 0;
-          const averageScore = approvedScores.length > 0
-            ? Math.round(approvedScores.reduce((sum: number, s: any) => sum + s.score, 0) / approvedScores.length)
-            : 0;
-          const totalXCount = approvedScores.reduce((sum: number, s: any) => sum + (s.xCount || 0), 0);
-          
-          // Get user's ranking (if available)
-          const leaderboardData = await leaderboardAPI.getOverall({}).catch(() => ({ data: [] }));
-          const userRank = leaderboardData.data.findIndex((entry: any) => entry.userId === user.id) + 1;
-          
-          const calculatedStats: DashboardStats = {
+          const totalInnerTens = myScores.reduce((sum, s) => sum + (s.innerTens || 0), 0);
+
+          // Rank within prone rankings (default discipline).
+          const lbRes = await fetch('/api/leaderboard/overall?discipline=prone_50m').catch(() => null);
+          const lbJson = lbRes ? await lbRes.json().catch(() => ({ data: [] })) : { data: [] };
+          const userRank = (lbJson.data || []).findIndex((e: any) => e.userId === user.id) + 1;
+
+          setStats({
             totalScores,
             bestScore,
             averageScore,
-            totalXCount,
+            totalXCount: totalInnerTens,
             currentRank: userRank > 0 ? userRank : null,
-            clubRank: null, // Would need club-specific leaderboard
-            categoryRank: null, // Would need category-specific leaderboard
-          };
-          setStats(calculatedStats);
+            clubRank: null,
+            categoryRank: null,
+          });
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -117,12 +114,10 @@ export default function Dashboard() {
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
     switch (status) {
-      case 'approved':
+      case 'official':
         return `${baseClasses} bg-green-100 text-green-800`;
-      case 'pending':
+      case 'provisional':
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
-      case 'rejected':
-        return `${baseClasses} bg-red-100 text-red-800`;
       default:
         return `${baseClasses} bg-gray-100 text-gray-800`;
     }
@@ -303,10 +298,10 @@ export default function Dashboard() {
                         Discipline
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Score
+                        Total
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        X-Count
+                        Inner 10s
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
@@ -317,16 +312,16 @@ export default function Dashboard() {
                     {recentScores.map((score: any) => (
                       <tr key={score.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {score.createdAt ? new Date(score.createdAt).toLocaleDateString() : 'N/A'}
+                          {score.date ? new Date(score.date).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {score.discipline || 'N/A'}
+                          {DISCIPLINES[score.discipline as keyof typeof DISCIPLINES]?.label || score.discipline || 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          {score.score}
+                          {typeof score.decimalTotal === 'number' ? score.decimalTotal.toFixed(1) : 'N/A'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {score.xCount || 0}
+                          {score.innerTens || 0}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={getStatusBadge(score.status)}>

@@ -9,30 +9,31 @@ service cloud.firestore {
     // Admins can read/write all user documents
     // ============================================================================
     
+    function isAdmin() {
+      return request.auth != null
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+    }
+
     match /users/{userId} {
-      // Allow users to read their own profile
+      // Users can read their own profile.
       allow read: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow users to create their own user document during registration
-      // This is critical for the registration flow to work
-      allow create: if request.auth != null 
+
+      // Registration is handled server-side via the Admin SDK (which bypasses
+      // these rules), so client-side create is intentionally NOT allowed.
+      allow create: if false;
+
+      // Users may update their own profile but cannot change role, status,
+      // email, or id (privilege-escalation / self-approval protection).
+      allow update: if request.auth != null
                    && request.auth.uid == userId
-                   && request.resource.data.id == userId
-                   && request.resource.data.email == request.auth.token.email
-                   && request.resource.data.role == 'user'; // Prevent users from creating admin accounts
-      
-      // Allow users to update their own profile (but not change critical fields)
-      allow update: if request.auth != null 
-                   && request.auth.uid == userId
-                   && request.resource.data.id == userId
-                   && request.resource.data.email == request.auth.token.email
-                   && request.resource.data.role == resource.data.role; // Cannot change role
-      
-      // Admins can read/write all user documents
-      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
-      allow read, write: if request.auth != null 
-                        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-                            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+                   && request.resource.data.id == resource.data.id
+                   && request.resource.data.email == resource.data.email
+                   && request.resource.data.role == resource.data.role
+                   && request.resource.data.status == resource.data.status;
+
+      // Admins can read/write all user documents.
+      allow read, write: if isAdmin();
     }
     
     // ============================================================================
@@ -44,23 +45,12 @@ service cloud.firestore {
     // ============================================================================
     
     match /scores/{scoreId} {
-      // Public read access for leaderboard
+      // Public read access for the leaderboard / rankings.
       allow read: if true;
-      
-      // Users can create their own scores
-      allow create: if request.auth != null 
-                   && request.resource.data.userId == request.auth.uid;
-      
-      // Users can update their own pending scores
-      allow update: if request.auth != null 
-                   && resource.data.userId == request.auth.uid
-                   && resource.data.status == 'pending';
-      
-      // Admins can read/write all scores
-      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
-      allow read, write: if request.auth != null 
-                        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-                            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+
+      // Scores are official results — only admins (or the server Admin SDK)
+      // may create, update, or delete them. Members cannot self-insert scores.
+      allow write: if isAdmin();
     }
     
     // ============================================================================
@@ -70,10 +60,7 @@ service cloud.firestore {
     // ============================================================================
     
     match /adminActions/{actionId} {
-      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
-      allow read, write: if request.auth != null 
-                        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-                            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+      allow read, write: if isAdmin();
     }
     
     // ============================================================================
@@ -86,12 +73,16 @@ service cloud.firestore {
     match /events/{eventId} {
       // Public read access
       allow read: if true;
-      
+
       // Only admins can create/update/delete events
-      // Support both role structures: 'role' (flat) or 'roles.admin' (nested)
-      allow write: if request.auth != null 
-                  && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.admin == true);
+      allow write: if isAdmin();
+    }
+
+    // Event registrations: members create their own; admins manage all.
+    match /eventRegistrations/{regId} {
+      allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow write: if isAdmin();
     }
     
     // ============================================================================

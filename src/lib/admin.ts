@@ -101,50 +101,11 @@ export async function verifyAdminFromToken(token: string): Promise<AdminVerifica
     // Firebase Admin SDK not available, continue to other methods
   }
   
-  // Method 2: Try backend API (for backend JWT tokens)
-  try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
-    const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
-    
-    const userResponse = await fetch(`${API_BASE_URL}/${API_VERSION}/users/profile`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (userResponse.ok) {
-      const user = await userResponse.json();
-      isAdmin = user.role === 'admin';
-      userEmail = user.email?.toLowerCase() || userEmail;
-      userId = user.id || userId;
-      if (isAdmin) {
-        method = 'backend-api';
-        return { isAdmin: true, email: userEmail, userId, method };
-      }
-    }
-  } catch (error) {
-    // Backend API unavailable, continue to fallback methods
-  }
-  
-  // Method 3: Check environment variable for admin emails
+  // Method 2: Check environment variable for admin emails
   if (!isAdmin && userEmail) {
     const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(email => email.trim().toLowerCase()) || [];
     if (adminEmails.includes(userEmail)) {
       method = 'email-whitelist';
-      return { isAdmin: true, email: userEmail, userId, method };
-    }
-  }
-  
-  // Method 4: Check hardcoded admin emails for development
-  if (!isAdmin && userEmail) {
-    const devAdminEmails = [
-      'demo@satrf.org.za',
-      'admin@satrf.org.za',
-      'techaim10.9@gmail.com',
-    ];
-    if (devAdminEmails.includes(userEmail)) {
-      method = 'dev-email-list';
       return { isAdmin: true, email: userEmail, userId, method };
     }
   }
@@ -162,18 +123,8 @@ export function isEmailAdmin(email: string | null): boolean {
   
   const normalizedEmail = email.toLowerCase().trim();
   
-  // Check environment variable
+  // Check environment variable allowlist (server-side only).
   const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim().toLowerCase()) || [];
-  if (adminEmails.includes(normalizedEmail)) {
-    return true;
-  }
-  
-  // Check dev list
-  const devAdminEmails = [
-    'demo@satrf.org.za',
-    'admin@satrf.org.za',
-    'techaim10.9@gmail.com',
-  ];
-  return devAdminEmails.includes(normalizedEmail);
+  return adminEmails.includes(normalizedEmail);
 }
 

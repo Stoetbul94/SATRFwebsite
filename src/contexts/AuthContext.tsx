@@ -150,85 +150,70 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const router = useRouter();
 
-  // Check authentication status on mount and when router is ready
-  // CRITICAL: Only run on client-side to prevent SSR blocking
+  // Restore session via Firebase's own persistence. Firebase keeps the user
+  // signed in across reloads; onAuthStateChanged fires once it has resolved.
   useEffect(() => {
-    // Guard: Only run on client-side
     if (typeof window === 'undefined') {
       dispatch({ type: 'SET_INITIALIZED', payload: true });
       dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }
-    
-    // Guard: Only run when router is ready
-    if (!router.isReady) {
-      return;
-    }
-    
-    // Add timeout to prevent hanging if backend is unavailable
-    const timeoutId = setTimeout(() => {
-      console.warn('Auth check timeout - backend may be unavailable');
-      dispatch({ type: 'SET_INITIALIZED', payload: true });
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }, 5000); // 5 second timeout
-    
-    // Run auth check with timeout protection
-    checkAuth()
-      .finally(() => {
-        clearTimeout(timeoutId);
-        dispatch({ type: 'SET_INITIALIZED', payload: true });
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // checkAuth is stable and doesn't need to be in deps
-  }, [router.isReady]);
 
-  // Check if user is authenticated - improved with better error handling
+    let unsubscribe: () => void = () => {};
+
+    (async () => {
+      try {
+        const { onAuthStateChanged } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        const { fetchUserProfile } = await import('@/lib/auth');
+
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            try {
+              const profile = await fetchUserProfile(firebaseUser.uid);
+              if (profile && (profile.role === 'admin' || profile.status === 'active')) {
+                dispatch({ type: 'AUTH_SUCCESS', payload: profile });
+              } else {
+                // Profile missing or not approved: don't keep them signed in.
+                const { signOut } = await import('firebase/auth');
+                await signOut(auth).catch(() => {});
+                dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
+              }
+            } catch (error) {
+              console.error('Failed to load profile:', error);
+              dispatch({ type: 'AUTH_FAILURE', payload: 'Failed to load profile' });
+            }
+          } else {
+            dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
+          }
+          dispatch({ type: 'SET_INITIALIZED', payload: true });
+          dispatch({ type: 'SET_LOADING', payload: false });
+        });
+      } catch (error) {
+        console.error('Auth init error:', error);
+        dispatch({ type: 'AUTH_FAILURE', payload: 'Authentication unavailable' });
+        dispatch({ type: 'SET_INITIALIZED', payload: true });
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    })();
+
+    return () => unsubscribe();
+  }, []);
+
+  // Re-read the current user's profile from Firestore.
   const checkAuth = async (): Promise<void> => {
-    // CRITICAL: Never run on server-side
-    if (typeof window === 'undefined') {
-      return;
-    }
-    
+    if (typeof window === 'undefined') return;
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
-      
-      // Check if we have valid tokens first
-      if (authFlow.isAuthenticated()) {
-        // Try to get current user from stored tokens with timeout
-        try {
-          const user = await Promise.race([
-            authFlow.getCurrentUser(),
-            new Promise<UserProfile | null>((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout')), 3000)
-            )
-          ]);
-          
-          if (user) {
-            dispatch({ type: 'AUTH_SUCCESS', payload: user });
-            return;
-          } else {
-            // Token exists but user fetch failed - clear invalid tokens
-            tokenManager.clearTokens();
-            dispatch({ type: 'AUTH_FAILURE', payload: 'Session expired' });
-            return;
-          }
-        } catch (timeoutError) {
-          // API call timed out or failed - backend likely unavailable
-          console.warn('Auth check failed - backend may be unavailable:', timeoutError);
-          tokenManager.clearTokens();
-          dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
-          return;
-        }
+      const user = await authFlow.getCurrentUser();
+      if (user && (user.role === 'admin' || user.status === 'active')) {
+        dispatch({ type: 'AUTH_SUCCESS', payload: user });
       } else {
-        // No valid tokens found
         dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
-        return;
       }
     } catch (error: any) {
       console.error('Auth check error:', error);
-      // Clear any invalid tokens on error
-      tokenManager.clearTokens();
       dispatch({ type: 'AUTH_FAILURE', payload: 'Authentication check failed' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -264,9 +249,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       dispatch({ type: 'CLEAR_ERROR' });
       
       const result = await authFlow.register(userData);
-      
-      if (result.success && result.user) {
-        dispatch({ type: 'AUTH_SUCCESS', payload: result.user });
+
+      if (result.success) {
+        // New accounts are pending approval and are NOT logged in.
+        dispatch({ type: 'SET_LOADING', payload: false });
+        dispatch({ type: 'CLEAR_ERROR' });
         return true;
       } else {
         dispatch({ type: 'AUTH_FAILURE', payload: result.error || 'Registration failed' });
@@ -282,16 +269,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout function - improved with proper cleanup
   const logout = async (): Promise<void> => {
     try {
-      // Clear tokens first
-      tokenManager.clearTokens();
-      
-      // Try to call logout API (optional)
+      // Sign out of Firebase (clears its persisted session + fires onAuthStateChanged).
       try {
-        await authFlow.logout();
+        const { signOut } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        await signOut(auth);
       } catch (error) {
-        // Ignore logout API errors
-        console.warn('Logout API call failed:', error);
+        console.warn('Firebase signOut failed:', error);
       }
+      tokenManager.clearTokens();
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

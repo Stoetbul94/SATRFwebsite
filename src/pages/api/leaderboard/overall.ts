@@ -1,102 +1,90 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import type { Score } from '@/types/scores';
 
 /**
- * Next.js API Route: /api/leaderboard/overall
- * 
- * ROOT CAUSE FIX: This route proxies leaderboard requests to the backend API.
- * This prevents Network Errors when the backend is unavailable by:
- * 1. Handling the request server-side (no CORS issues)
- * 2. Providing fallback data if backend is down
- * 3. Centralizing error handling
- * 
- * This route acts as a proxy/gateway to the FastAPI backend.
+ * GET /api/leaderboard/overall
+ *
+ * Public rankings. Aggregates official scores per shooter and ranks by the
+ * AVERAGE of their decimal totals (per discipline). Higher average = better.
+ *
+ * Query: ?discipline=prone_50m|three_position_50m  (default prone_50m)
+ *        &category=open|junior|veteran|ladies       (optional)
  */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+interface RankRow {
+  rank: number;
+  userId: string | null;
+  shooterName: string;
+  club: string;
+  category: string;
+  discipline: string;
+  average: number;
+  best: number;
+  eventCount: number;
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const discipline = (req.query.discipline as string) || 'prone_50m';
+  const category = req.query.category as string | undefined;
+
   try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
-    const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
-    const backendUrl = `${API_BASE_URL}/${API_VERSION}/leaderboard/overall`;
+    const db = getAdminDb();
+    let query: FirebaseFirestore.Query = db
+      .collection('scores')
+      .where('discipline', '==', discipline);
 
-    // Extract query parameters
-    const queryParams = new URLSearchParams();
-    if (req.query.discipline) queryParams.append('discipline', req.query.discipline as string);
-    if (req.query.category) queryParams.append('category', req.query.category as string);
-    if (req.query.time_period) queryParams.append('time_period', req.query.time_period as string);
-    if (req.query.page) queryParams.append('page', req.query.page as string);
-    if (req.query.limit) queryParams.append('limit', req.query.limit as string);
-
-    const queryString = queryParams.toString();
-    const fullUrl = queryString ? `${backendUrl}?${queryString}` : backendUrl;
-
-    // Get auth token from request headers (optional for leaderboard)
-    const authToken = req.headers.authorization?.replace('Bearer ', '') || null;
-
-    // Try to fetch from backend
-    try {
-      const backendResponse = await fetch(fullUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
-        },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (backendResponse.ok) {
-        const data = await backendResponse.json();
-        return res.status(200).json(data);
-      }
-
-      // If backend returns error, forward it
-      const errorData = await backendResponse.json().catch(() => ({}));
-      return res.status(backendResponse.status).json({
-        error: errorData.detail || errorData.message || 'Backend request failed',
-        status: backendResponse.status,
-      });
-    } catch (fetchError: any) {
-      // Backend unavailable - return empty array as fallback
-      // This allows the frontend to continue working without crashing
-      console.warn('Backend unavailable, returning empty leaderboard:', {
-        error: fetchError.message,
-        url: fullUrl,
-        suggestion: 'Ensure backend is running at ' + API_BASE_URL,
-      });
-
-      // Return response in format expected by frontend
-      return res.status(200).json({
-        data: [],
-        total: 0,
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 50,
-        total_pages: 0,
-        filters: {
-          discipline: req.query.discipline || undefined,
-          category: req.query.category || undefined,
-          time_period: req.query.time_period || 'all',
-        },
-      });
+    // Only official results count toward rankings.
+    query = query.where('status', '==', 'official');
+    if (category && category !== 'all') {
+      query = query.where('category', '==', category);
     }
-  } catch (error) {
-    console.error('Leaderboard API route error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+
+    const snapshot = await query.get();
+    const scores = snapshot.docs.map((d) => d.data() as Score);
+
+    // Group by member (userId when present, else name|club).
+    const groups = new Map<string, Score[]>();
+    for (const s of scores) {
+      const key = s.userId || `${s.shooterName.toLowerCase()}|${s.club.toLowerCase()}`;
+      const list = groups.get(key) ?? [];
+      list.push(s);
+      groups.set(key, list);
+    }
+
+    const rows: RankRow[] = Array.from(groups.values()).map((list) => {
+      const totals = list.map((s) => s.decimalTotal);
+      const average = round1(totals.reduce((a, b) => a + b, 0) / totals.length);
+      const best = Math.max(...totals);
+      const latest = list[0];
+      return {
+        rank: 0,
+        userId: latest.userId,
+        shooterName: latest.shooterName,
+        club: latest.club,
+        category: latest.category,
+        discipline,
+        average,
+        best: round1(best),
+        eventCount: list.length,
+      };
     });
+
+    rows.sort((a, b) => b.average - a.average);
+    rows.forEach((r, i) => (r.rank = i + 1));
+
+    return res.status(200).json({
+      data: rows,
+      total: rows.length,
+      filters: { discipline, category: category || 'all' },
+    });
+  } catch (error: any) {
+    console.error('leaderboard error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
-
-
-
-
-
-
-
-
-

@@ -4,31 +4,15 @@
  */
 
 /**
- * Check if a user email is in the admin whitelist
- * This is safe to use in client components
+ * @deprecated Admin status is determined by the Firestore user role
+ * (see `isUserAdmin` in '@/lib/userRole'), which is the single source of truth.
+ *
+ * This client-side email check is retained only as a no-op for backward
+ * compatibility and intentionally returns false — no admin emails are
+ * hardcoded in the client bundle.
  */
-export function isEmailAdmin(email: string | null | undefined): boolean {
-  if (!email) return false;
-  
-  const normalizedEmail = email.toLowerCase().trim();
-  
-  // Check environment variable (only available at build time in Next.js)
-  // Note: process.env.NEXT_PUBLIC_* vars are available in browser
-  const adminEmails = typeof window !== 'undefined' 
-    ? [] // Can't access server env vars in browser
-    : (process.env.ADMIN_EMAILS?.split(',').map(e => e.trim().toLowerCase()) || []);
-  
-  if (adminEmails.includes(normalizedEmail)) {
-    return true;
-  }
-  
-  // Check hardcoded dev list (safe for client-side)
-  const devAdminEmails = [
-    'demo@satrf.org.za',
-    'admin@satrf.org.za',
-    'techaim10.9@gmail.com',
-  ];
-  return devAdminEmails.includes(normalizedEmail);
+export function isEmailAdmin(_email: string | null | undefined): boolean {
+  return false;
 }
 
 
