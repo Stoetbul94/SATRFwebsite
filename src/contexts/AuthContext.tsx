@@ -191,6 +191,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             if (profile && canAccessApp(profile)) {
+              try {
+                const idToken = await firebaseUser.getIdToken();
+                tokenManager.setTokens(idToken, idToken, firebaseUser.uid);
+              } catch {
+                /* non-fatal; profile still valid */
+              }
               dispatch({ type: 'AUTH_SUCCESS', payload: profile });
             } else if (profile) {
               // Profile exists but is genuinely not approved → sign out.

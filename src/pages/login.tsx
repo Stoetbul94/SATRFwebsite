@@ -91,7 +91,15 @@ const LoginPage: NextPage = () => {
         if (isAdmin && dest.startsWith('/dashboard')) dest = '/admin/dashboard';
         if (!isAdmin && dest.startsWith('/admin')) dest = '/dashboard';
 
-        // Hard navigation: deterministic, immune to context/router timing races.
+        // Ensure middleware can read auth (it checks cookies, not localStorage).
+        const token =
+          typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        if (token) {
+          const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+          const maxAge = 7 * 24 * 60 * 60;
+          document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+          document.cookie = `auth_token=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+        }
         window.location.assign(dest);
         return;
       }

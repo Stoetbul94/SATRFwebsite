@@ -206,6 +206,23 @@ export interface EmailConfirmationRequest {
   token: string;
 }
 
+/** Middleware reads cookies; Firebase auth also uses localStorage — keep both in sync. */
+const AUTH_COOKIE_MAX_AGE_DAYS = 7;
+
+function setAuthCookie(token: string) {
+  if (typeof document === 'undefined') return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  const maxAge = AUTH_COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
+  document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+  document.cookie = `auth_token=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+}
+
+function clearAuthCookies() {
+  if (typeof document === 'undefined') return;
+  document.cookie = 'access_token=; Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = 'auth_token=; Path=/; Max-Age=0; SameSite=Lax';
+}
+
 // Token management utilities
 export const tokenManager = {
   setTokens: (accessToken: string, refreshToken: string, sessionId: string) => {
@@ -213,6 +230,7 @@ export const tokenManager = {
       localStorage.setItem('access_token', accessToken);
       localStorage.setItem('refresh_token', refreshToken);
       localStorage.setItem('session_id', sessionId);
+      setAuthCookie(accessToken);
     }
   },
 
@@ -242,6 +260,7 @@ export const tokenManager = {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('session_id');
+      clearAuthCookies();
     }
   },
 

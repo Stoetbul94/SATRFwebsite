@@ -2,15 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { authAPI } from '../lib/auth';
 
 const ForgotPasswordPage: NextPage = () => {
-  const router = useRouter();
-  
   // Redirect if already authenticated
   useRedirectIfAuthenticated();
 
@@ -31,95 +27,32 @@ const ForgotPasswordPage: NextPage = () => {
     }
 
     try {
-      // Determine the continue URL based on environment
-      // Use environment variable if available, otherwise use current origin
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-      const continueUrl = appUrl 
-        ? `${appUrl}/reset-password`
-        : typeof window !== 'undefined' 
-          ? `${window.location.origin}/reset-password`
-          : 'http://localhost:3000/reset-password';
-      
-      // Use Firebase Auth to send password reset email
-      // Note: If handleCodeInApp is true, the continueUrl must be in Firebase's authorized domains
-      // For development, we'll use handleCodeInApp: false to let Firebase handle the redirect
-      const isProduction = process.env.NODE_ENV === 'production' || !!appUrl;
-      
-      await sendPasswordResetEmail(auth, email.toLowerCase().trim(), {
-        url: continueUrl,
-        handleCodeInApp: isProduction, // Only use in production where domain is authorized
-      });
-      
+      // Default Firebase reset email (no custom continue URL — avoids unauthorized-domain errors).
+      await sendPasswordResetEmail(auth, email.toLowerCase().trim());
+
       setMessage({
         type: 'success',
-        text: 'Password reset email sent! Please check your inbox and follow the instructions to reset your password.'
+        text: 'Password reset email sent! Check your inbox (and spam). Use the link in the email, then sign in with your new password.',
       });
       setEmail('');
-      
-      // Redirect to login after 5 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 5000);
     } catch (error: any) {
-      console.error('Password reset error:', {
-        code: error.code,
-        message: error.message,
-        fullError: error
-      });
-      
-      // Handle specific Firebase errors
+      console.error('Password reset error:', error?.code, error?.message);
+
       let errorMessage = 'Failed to send password reset email. Please try again.';
-      let isError = true;
-      
       if (error.code === 'auth/user-not-found') {
-        // User doesn't exist in Firebase Auth
-        // Try backend API as fallback (for users registered before Firebase Auth integration)
-        try {
-          console.log('User not found in Firebase Auth, trying backend API fallback...');
-          const backendResult = await authAPI.forgotPassword(email.toLowerCase().trim());
-          if (backendResult.success) {
-            errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
-            isError = false; // Show as success message
-          } else {
-            // Backend also failed, show generic message
-            errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
-            isError = false; // Show as success for security
-          }
-        } catch (backendError: any) {
-          console.error('Backend fallback also failed:', backendError);
-          // For security, don't reveal if user exists
-          errorMessage = 'If an account exists with this email, a password reset link has been sent. Please check your inbox.';
-          isError = false; // Show as success for security
-        }
-      } else if (error.code === 'auth/unauthorized-continue-uri') {
-        // Domain not authorized in Firebase Console
-        // Try without handleCodeInApp (let Firebase handle redirect)
-        try {
-          console.log('Domain not authorized, retrying without handleCodeInApp...');
-          await sendPasswordResetEmail(auth, email.toLowerCase().trim());
-          errorMessage = 'Password reset email sent! Please check your inbox and follow the instructions.';
-          isError = false;
-        } catch (retryError: any) {
-          console.error('Retry also failed:', retryError);
-          errorMessage = 'Password reset email sent! Please check your inbox. If you don\'t receive it, the domain may need to be authorized in Firebase Console.';
-          isError = false; // Show as success for security
-        }
+        errorMessage =
+          'No account found with this email in Firebase Auth. Use Firebase Console → Authentication → reset password for that user.';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Please enter a valid email address.';
       } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many password reset requests. Please try again later.';
+        errorMessage = 'Too many requests. Wait a few minutes and try again.';
       } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (error.code === 'auth/internal-error') {
-        errorMessage = 'An internal error occurred. Please try again in a few moments.';
-      } else {
-        // For unknown errors, log more details but show generic message
-        errorMessage = `Failed to send password reset email. ${error.message || 'Please try again.'}`;
+        errorMessage = 'Network error. Check your connection and try again.';
       }
-      
-      setMessage({ 
-        type: isError ? 'error' : 'success', 
-        text: errorMessage 
+
+      setMessage({
+        type: 'error',
+        text: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
