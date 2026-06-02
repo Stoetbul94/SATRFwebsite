@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
-import { isEmailAdmin } from '@/lib/adminClient';
+import { isProfileAdmin } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/userRole';
+
+const isAdminUser = (user: { role?: string; email?: string; roles?: { admin?: boolean }; admin?: boolean }) =>
+  isUserAdmin(user) || isProfileAdmin(user as Parameters<typeof isProfileAdmin>[0]);
 
 const LoginPage: NextPage = () => {
   const router = useRouter();
@@ -83,7 +86,7 @@ const LoginPage: NextPage = () => {
 
       if (loggedInUser) {
         // Determine destination from role + any requested redirect.
-        const isAdmin = isUserAdmin(loggedInUser as any) || isEmailAdmin(loggedInUser.email);
+        const isAdmin = isAdminUser(loggedInUser);
         let dest = (router.query.redirect as string) || (isAdmin ? '/admin/dashboard' : '/dashboard');
         if (isAdmin && dest.startsWith('/dashboard')) dest = '/admin/dashboard';
         if (!isAdmin && dest.startsWith('/admin')) dest = '/dashboard';

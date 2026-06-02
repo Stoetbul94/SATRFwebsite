@@ -431,21 +431,44 @@ export const authAPI = {
   }
 };
 
+/** True if this profile is an admin (handles common Firestore/console field shapes). */
+export function isProfileAdmin(profile: Pick<UserProfile, 'role'> & { roles?: { admin?: boolean }; admin?: boolean }): boolean {
+  if (profile.role === 'admin') return true;
+  if ((profile as { admin?: boolean }).admin === true) return true;
+  if (profile.roles?.admin === true) return true;
+  return false;
+}
+
+/** Admins always pass; members need status active. */
+export function canAccessApp(profile: UserProfile | null | undefined): boolean {
+  if (!profile) return false;
+  if (isProfileAdmin(profile)) return true;
+  return profile.status === 'active';
+}
+
 // Map a Firestore user document to a UserProfile.
-function mapUserDoc(uid: string, data: any): UserProfile {
-  let role = data.role || 'user';
-  if (role === 'user' && data.roles?.admin === true) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapUserDoc(uid: string, data: any): UserProfile {
+  let role = (data.role as UserProfile['role']) || 'user';
+  // Support nested roles.admin or mistaken top-level admin: true from console edits.
+  if (role !== 'admin' && ((data.roles as { admin?: boolean })?.admin === true || data.admin === true)) {
     role = 'admin';
   }
+
+  let status = data.status as UserProfile['status'] | undefined;
+  if (!status) {
+    status = role === 'admin' ? 'active' : data.isActive === false ? 'suspended' : 'active';
+  }
+
   return {
     id: uid,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    email: data.email,
-    membershipType: data.membershipType,
-    club: data.club,
+    firstName: data.firstName as string,
+    lastName: data.lastName as string,
+    email: data.email as string,
+    membershipType: data.membershipType as UserProfile['membershipType'],
+    club: data.club as string,
     role,
-    status: data.status || (data.isActive === false ? 'suspended' : 'active'),
+    status,
     profileImageUrl: data.profileImageUrl,
     phone: data.phone ?? data.phoneNumber,
     phoneNumber: data.phoneNumber,
@@ -463,10 +486,29 @@ function mapUserDoc(uid: string, data: any): UserProfile {
 }
 
 /**
- * Read a member's profile from Firestore by UID.
- * This is the source of truth for the logged-in user (no external backend).
+ * Load the signed-in user's profile. Prefer the server API (Admin SDK) so login
+ * does not depend on client Firestore reads right after sign-in.
  */
 export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
+  if (typeof window !== 'undefined') {
+    try {
+      const { auth } = await import('@/lib/firebase');
+      const firebaseUser = auth.currentUser;
+      if (firebaseUser?.uid === uid) {
+        const token = await firebaseUser.getIdToken();
+        const res = await fetch('/api/auth/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data.profile as UserProfile;
+        }
+      }
+    } catch (err) {
+      console.warn('[AUTH] Server profile fetch failed, trying Firestore client:', err);
+    }
+  }
+
   const { doc, getDoc } = await import('firebase/firestore');
   const { db } = await import('@/lib/firebase');
   const snap = await getDoc(doc(db, 'users', uid));
@@ -502,9 +544,8 @@ export const authFlow = {
           const userData = userDoc.data();
           const userProfile = mapUserDoc(firebaseUser.uid, userData);
 
-          // Approval gate: only 'active' members (or admins) may proceed.
-          // Pending/rejected/suspended accounts are signed straight back out.
-          if (userProfile.role !== 'admin' && userProfile.status !== 'active') {
+          // Approval gate: members need active status; admins never need approval.
+          if (!canAccessApp(userProfile)) {
             const { signOut } = await import('firebase/auth');
             await signOut(auth).catch(() => {});
             tokenManager.clearTokens();

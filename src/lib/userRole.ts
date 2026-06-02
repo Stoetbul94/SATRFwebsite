@@ -5,6 +5,8 @@
 
 export interface UserData {
   role?: string;
+  /** Mistaken console field — still honoured if present */
+  admin?: boolean;
   roles?: {
     admin?: boolean;
     event_scorer?: boolean;
@@ -20,15 +22,9 @@ export interface UserData {
 export function isUserAdmin(userData: UserData | null | undefined): boolean {
   if (!userData) return false;
   
-  // Check flat structure
-  if (userData.role === 'admin') {
-    return true;
-  }
-  
-  // Check nested structure
-  if (userData.roles?.admin === true) {
-    return true;
-  }
+  if (userData.role === 'admin') return true;
+  if (userData.admin === true) return true;
+  if (userData.roles?.admin === true) return true;
   
   return false;
 }

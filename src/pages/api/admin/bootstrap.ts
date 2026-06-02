@@ -40,7 +40,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const now = new Date().toISOString();
     await adminDb.collection('users').doc(userRecord.uid).set(
       {
+        id: userRecord.uid,
+        email: userRecord.email?.toLowerCase() || email,
         role: 'admin',
+        roles: { admin: true, user: false },
         status: 'active',
         isActive: true,
         updatedAt: now,

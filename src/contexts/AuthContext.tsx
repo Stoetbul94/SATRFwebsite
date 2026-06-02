@@ -8,7 +8,8 @@ import {
   UserDashboardData,
   authFlow,
   tokenManager,
-  authAPI
+  authAPI,
+  canAccessApp,
 } from '../lib/auth';
 import { isUserAdmin } from '@/lib/userRole';
 import { isEmailAdmin } from '@/lib/adminClient';
@@ -189,7 +190,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
             }
 
-            if (profile && (profile.role === 'admin' || profile.status === 'active')) {
+            if (profile && canAccessApp(profile)) {
               dispatch({ type: 'AUTH_SUCCESS', payload: profile });
             } else if (profile) {
               // Profile exists but is genuinely not approved → sign out.
@@ -225,7 +226,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
       const user = await authFlow.getCurrentUser();
-      if (user && (user.role === 'admin' || user.status === 'active')) {
+      if (user && canAccessApp(user)) {
         dispatch({ type: 'AUTH_SUCCESS', payload: user });
       } else {
         dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
