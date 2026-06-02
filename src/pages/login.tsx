@@ -10,7 +10,7 @@ import { isUserAdmin } from '@/lib/userRole';
 
 const LoginPage: NextPage = () => {
   const router = useRouter();
-  const { login, isLoading, error, clearError, user } = useAuth();
+  const { login, isLoading, error, clearError } = useAuth();
   
   // Redirect if already authenticated
   useRedirectIfAuthenticated();
@@ -24,41 +24,11 @@ const LoginPage: NextPage = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loginSuccess, setLoginSuccess] = useState(false);
 
   // Clear errors when component mounts
   useEffect(() => {
     clearError();
   }, [clearError]);
-
-  // Handle redirect after successful login
-  // This runs when user is set in context after login
-  useEffect(() => {
-    if (loginSuccess && user) {
-      // Check admin status using both user role and email whitelist
-      const email = user.email?.toLowerCase().trim() || '';
-      const isAdminEmail = isEmailAdmin(email);
-      const isAdmin = isUserAdmin(user as any) || isAdminEmail;
-      
-      // Determine redirect: admin → admin dashboard, user → user dashboard
-      let redirectTo = router.query.redirect as string;
-      
-      if (!redirectTo) {
-        // No explicit redirect: use role-based default
-        redirectTo = isAdmin ? '/admin/dashboard' : '/dashboard';
-      } else if (isAdmin && redirectTo === '/dashboard') {
-        // Admin trying to go to user dashboard: redirect to admin dashboard instead
-        redirectTo = '/admin/dashboard';
-      } else if (!isAdmin && redirectTo.startsWith('/admin')) {
-        // Non-admin trying to access admin area: redirect to user dashboard
-        redirectTo = '/dashboard';
-      }
-      
-      // Reset login success flag and redirect
-      setLoginSuccess(false);
-      router.replace(redirectTo);
-    }
-  }, [loginSuccess, user, router]);
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,20 +79,22 @@ const LoginPage: NextPage = () => {
     clearError();
 
     try {
-      // Attempt login with provided credentials (handles both demo and real users)
-      const success = await login(formData.email, formData.password);
-      
-      if (success) {
-        // Set flag to trigger redirect useEffect when user is available
-        setLoginSuccess(true);
-        // Redirect will be handled by useEffect when user is set in context
-      } else {
-        // Login failed - error will be displayed by the auth context
-        console.log('Login failed - check error state');
+      const loggedInUser = await login(formData.email, formData.password);
+
+      if (loggedInUser) {
+        // Determine destination from role + any requested redirect.
+        const isAdmin = isUserAdmin(loggedInUser as any) || isEmailAdmin(loggedInUser.email);
+        let dest = (router.query.redirect as string) || (isAdmin ? '/admin/dashboard' : '/dashboard');
+        if (isAdmin && dest.startsWith('/dashboard')) dest = '/admin/dashboard';
+        if (!isAdmin && dest.startsWith('/admin')) dest = '/dashboard';
+
+        // Hard navigation: deterministic, immune to context/router timing races.
+        window.location.assign(dest);
+        return;
       }
+      // Login failed - error is displayed via the auth context error state.
     } catch (error) {
       console.error('Login error:', error);
-      // Error will be handled by the auth context
     } finally {
       setIsSubmitting(false);
     }
@@ -321,19 +293,6 @@ const LoginPage: NextPage = () => {
             </div>
           </form>
 
-          {/* Demo Account Info */}
-          <div className="mt-6 p-4 bg-midnight-light/30 rounded-lg border border-gray-600">
-            <h3 className="text-sm font-oxanium font-medium text-electric-cyan mb-2">
-              Demo Account
-            </h3>
-            <p className="text-xs text-gray-400 font-oxanium mb-2">
-              For testing purposes, you can use:
-            </p>
-            <div className="text-xs text-gray-300 font-oxanium space-y-1">
-              <p><span className="text-electric-cyan">Email:</span> demo@satrf.org.za</p>
-              <p><span className="text-electric-cyan">Password:</span> DemoPass123</p>
-            </div>
-          </div>
         </div>
       </div>
     </>

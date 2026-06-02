@@ -124,8 +124,9 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
 
 // Auth context interface
 interface AuthContextType extends AuthState {
-  // Auth actions
-  login: (email: string, password: string) => Promise<boolean>;
+  // Auth actions. login resolves to the signed-in profile (or null on failure)
+  // so the caller can redirect deterministically without waiting on context.
+  login: (email: string, password: string) => Promise<UserProfile | null>;
   register: (userData: UserRegistrationData) => Promise<boolean>;
   logout: () => Promise<void>;
   updateProfile: (profileData: UserProfileUpdate) => Promise<boolean>;
@@ -169,19 +170,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
           if (firebaseUser) {
+            // Read the profile, retrying once: right after sign-in the Firestore
+            // client can briefly lack the auth context and reject the read.
+            let profile = null;
             try {
-              const profile = await fetchUserProfile(firebaseUser.uid);
-              if (profile && (profile.role === 'admin' || profile.status === 'active')) {
-                dispatch({ type: 'AUTH_SUCCESS', payload: profile });
-              } else {
-                // Profile missing or not approved: don't keep them signed in.
-                const { signOut } = await import('firebase/auth');
-                await signOut(auth).catch(() => {});
-                dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
+              profile = await fetchUserProfile(firebaseUser.uid);
+              if (!profile) {
+                await new Promise((r) => setTimeout(r, 600));
+                profile = await fetchUserProfile(firebaseUser.uid);
               }
             } catch (error) {
-              console.error('Failed to load profile:', error);
-              dispatch({ type: 'AUTH_FAILURE', payload: 'Failed to load profile' });
+              console.error('Failed to load profile (will retry):', error);
+              try {
+                await new Promise((r) => setTimeout(r, 600));
+                profile = await fetchUserProfile(firebaseUser.uid);
+              } catch (retryError) {
+                console.error('Profile load retry failed:', retryError);
+              }
+            }
+
+            if (profile && (profile.role === 'admin' || profile.status === 'active')) {
+              dispatch({ type: 'AUTH_SUCCESS', payload: profile });
+            } else if (profile) {
+              // Profile exists but is genuinely not approved → sign out.
+              const { signOut } = await import('firebase/auth');
+              await signOut(auth).catch(() => {});
+              dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
+            } else {
+              // Couldn't load a profile (transient/permission). Do NOT sign out —
+              // avoid nuking a valid session on a read hiccup.
+              dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
             }
           } else {
             dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' });
@@ -220,8 +238,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Login function - improved with better state management
-  const login = async (email: string, password: string): Promise<boolean> => {
+  // Login function - returns the profile so the caller can redirect immediately.
+  const login = async (email: string, password: string): Promise<UserProfile | null> => {
     try {
       dispatch({ type: 'AUTH_START' });
       dispatch({ type: 'CLEAR_ERROR' });
@@ -230,15 +248,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (result.success && result.user) {
         dispatch({ type: 'AUTH_SUCCESS', payload: result.user });
-        return true;
+        return result.user;
       } else {
         dispatch({ type: 'AUTH_FAILURE', payload: result.error || 'Login failed' });
-        return false;
+        return null;
       }
     } catch (error: any) {
       console.error('Login error:', error);
       dispatch({ type: 'AUTH_FAILURE', payload: error.message || 'Login failed' });
-      return false;
+      return null;
     }
   };
 
