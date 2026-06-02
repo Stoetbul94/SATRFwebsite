@@ -1,14 +1,9 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Event images - allow authenticated users to read, admins to write
-    match /events/{fileName} {
-      // Public read access for event images
+    // Event images (flat or nested: events/{eventId}/cover.jpg)
+    match /events/{allPaths=**} {
       allow read: if true;
-      
-      // Only authenticated admins can upload event images
-      // Note: This requires checking Firestore for admin status
-      // For now, allow authenticated users (we'll verify admin on backend)
       allow write: if request.auth != null;
     }
     

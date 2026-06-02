@@ -26,92 +26,68 @@ import * as XLSX from 'xlsx';
 export default function ScoreTemplate() {
   const downloadTemplate = () => {
     // Create sample data
-    const sampleData = [
+  const sampleData = [
       {
-        'Event Name': 'Prone Match 1',
-        'Match Number': '001',
-        'Shooter Name': 'John Doe',
+        'Date (YYYY-MM-DD)': '2026-06-10',
+        'Event Name': 'Nationals',
+        'Discipline': 'prone_50m',
+        'Shooter Name': 'Arnold Bailie',
+        'Club': 'Modderbee',
+        'Category': 'open',
+        'Veteran (Y/N)': 'N',
+        'Series 1': 100.0,
+        'Series 2': 100.0,
+        'Series 3': 100.0,
+        'Series 4': 102.0,
+        'Series 5': 101.0,
+        'Series 6': 100.0,
+      },
+      {
+        'Date (YYYY-MM-DD)': '2026-06-10',
+        'Event Name': 'Nationals',
+        'Discipline': 'prone_50m',
+        'Shooter Name': 'Jane Member',
         'Club': 'SATRF Club',
-        'Division': 'Prone A class',
-        'Veteran': 'N',
-        'Series 1': 95.5,
-        'Series 2': 96.2,
-        'Series 3': 94.8,
-        'Series 4': 97.1,
-        'Series 5': 95.9,
-        'Series 6': 96.5,
-        'Total': 576.0,
-        'Place': 1,
-      },
-      {
-        'Event Name': 'Prone Match 1',
-        'Match Number': '001',
-        'Shooter Name': 'Jane Smith',
-        'Club': 'Target Club',
-        'Division': 'Prone B class',
-        'Veteran': 'N',
-        'Series 1': 92.3,
-        'Series 2': 94.1,
-        'Series 3': 93.7,
-        'Series 4': 95.2,
-        'Series 5': 92.8,
-        'Series 6': 94.5,
-        'Total': 562.6,
-        'Place': 2,
-      },
-      {
-        'Event Name': 'Air Rifle',
-        'Match Number': '002',
-        'Shooter Name': 'Bob Johnson',
-        'Club': 'Precision Club',
-        'Division': '3P',
-        'Veteran': 'Y',
+        'Category': 'ladies',
+        'Veteran (Y/N)': 'N',
         'Series 1': 98.5,
-        'Series 2': 97.8,
-        'Series 3': 99.1,
-        'Series 4': 98.2,
-        'Series 5': 97.9,
+        'Series 2': 99.1,
+        'Series 3': 97.8,
+        'Series 4': 100.2,
+        'Series 5': 99.0,
         'Series 6': 98.7,
-        'Total': 590.2,
-        'Place': 1,
       },
     ];
 
-    // Create workbook and worksheet
+    const instructions = [
+      { Topic: 'Discipline', Value: 'prone_50m or three_position_50m' },
+      { Topic: 'Category', Value: 'open, junior, veteran, ladies' },
+      { Topic: 'Series', Value: 'Decimal series totals (max 109.0 per series for prone)' },
+      { Topic: 'Members', Value: 'Use exact first + last name + club as on the website for auto-linking' },
+      { Topic: 'Tip', Value: 'Manual entry in admin can pick member & event from dropdowns (recommended)' },
+    ];
+
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(sampleData);
-
-    // Set column widths (adjusted for better visibility)
-    const colWidths = [
-      { wch: 20 }, // Event Name (manual input - any text)
-      { wch: 15 }, // Match Number
-      { wch: 25 }, // Shooter Name
-      { wch: 18 }, // Club
-      { wch: 18 }, // Division (contains class: Prone A class, Prone B class, etc.)
-      { wch: 10 }, // Veteran
-      { wch: 12 }, // Series 1
-      { wch: 12 }, // Series 2
-      { wch: 12 }, // Series 3
-      { wch: 12 }, // Series 4
-      { wch: 12 }, // Series 5
-      { wch: 12 }, // Series 6
-      { wch: 12 }, // Total
-      { wch: 10 }, // Place
+    ws['!cols'] = [
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
     ];
-    ws['!cols'] = colWidths;
-
-    // Note: Excel dropdown validation requires Excel's native format
-    // The XLSX library doesn't fully support data validation in the browser
-    // Users should manually add dropdown validation in Excel for Division column:
-    // 1. Select the Division column (E column)
-    // 2. Data > Data Validation > List
-    // 3. Enter: Prone A class,Prone B class,Prone C class,3P,F-Class,H-class
-
-    // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Score Template');
-
-    // Write to file and download
-    XLSX.writeFile(wb, 'SATRF_Score_Template.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, 'Prone Scores');
+    const wsInfo = XLSX.utils.json_to_sheet(instructions);
+    wsInfo['!cols'] = [{ wch: 18 }, { wch: 60 }];
+    XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
+    XLSX.writeFile(wb, 'SATRF_ISSF_Score_Template.xlsx');
   };
 
   return (

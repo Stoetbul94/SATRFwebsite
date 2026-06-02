@@ -23,22 +23,28 @@ async function findMemberUid(
   const key = `${shooterName.toLowerCase()}|${club.toLowerCase()}`;
   if (cache.has(key)) return cache.get(key)!;
 
-  const parts = shooterName.trim().split(/\s+/);
-  let uid: string | null = null;
-  if (parts.length >= 2) {
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ');
-    const snap = await db
-      .collection('users')
-      .where('firstName', '==', firstName)
-      .where('lastName', '==', lastName)
-      .where('club', '==', club)
-      .limit(1)
-      .get();
-    if (!snap.empty) uid = snap.docs[0].id;
+  try {
+    const parts = shooterName.trim().split(/\s+/);
+    let uid: string | null = null;
+    if (parts.length >= 2) {
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(' ');
+      const snap = await db
+        .collection('users')
+        .where('firstName', '==', firstName)
+        .where('lastName', '==', lastName)
+        .where('club', '==', club)
+        .limit(1)
+        .get();
+      if (!snap.empty) uid = snap.docs[0].id;
+    }
+    cache.set(key, uid);
+    return uid;
+  } catch (err) {
+    console.warn('findMemberUid failed (missing index or no match):', err);
+    cache.set(key, null);
+    return null;
   }
-  cache.set(key, uid);
-  return uid;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -113,8 +119,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const created: string[] = [];
 
       for (const input of inputs) {
-        let userId = input.userId ?? null;
-        if (!userId) {
+        let userId = input.userId?.trim() ? input.userId : null;
+        if (!userId && input.shooterName?.trim()) {
           userId = await findMemberUid(db, input.shooterName, input.club, cache);
         }
         const score = buildScore({ ...input, userId }, { createdBy: adminUid || 'admin' });

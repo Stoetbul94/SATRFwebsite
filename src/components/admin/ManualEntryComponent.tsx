@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Box,
   VStack,
@@ -51,6 +51,30 @@ interface StagedScore {
   decimalTotal: number;
 }
 
+interface MemberOption {
+  id: string;
+  label: string;
+  firstName: string;
+  lastName: string;
+  club: string;
+  status?: string;
+}
+
+interface EventOption {
+  id: string;
+  title: string;
+  date?: string;
+}
+
+const GUEST_MEMBER = '__guest__';
+const CUSTOM_EVENT = '__custom__';
+
+const getToken = async (): Promise<string | null> => {
+  const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+  if (fresh) return fresh;
+  return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+};
+
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function emptySeries(): SeriesEntry {
@@ -73,9 +97,14 @@ export default function ManualEntryComponent({
   setIsLoading,
 }: ManualEntryComponentProps) {
   const [discipline, setDiscipline] = useState<Discipline>('prone_50m');
+  const [selectedEventId, setSelectedEventId] = useState('');
   const [eventName, setEventName] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [loadingRefs, setLoadingRefs] = useState(true);
 
+  const [selectedMemberId, setSelectedMemberId] = useState('');
   const [shooterName, setShooterName] = useState('');
   const [club, setClub] = useState('');
   const [category, setCategory] = useState<Category>('open');
@@ -88,6 +117,95 @@ export default function ManualEntryComponent({
   const [stagedInputs, setStagedInputs] = useState<any[]>([]); // ScoreInput[] kept in parallel
 
   const spec = DISCIPLINES[discipline];
+
+  const loadMembersAndEvents = useCallback(async () => {
+    try {
+      setLoadingRefs(true);
+      const token = await getToken();
+      if (!token) return;
+      const headers = { Authorization: `Bearer ${token}` };
+      const [usersRes, eventsRes] = await Promise.all([
+        fetch('/api/admin/users', { headers }),
+        fetch('/api/admin/events', { headers }),
+      ]);
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        const list = (data.users || []) as {
+          id: string;
+          firstName?: string;
+          lastName?: string;
+          email?: string;
+          club?: string;
+          status?: string;
+          role?: string;
+          isActive?: boolean;
+        }[];
+        const active = list.filter((u) => {
+          const s = u.status || (u.isActive === false ? 'suspended' : 'active');
+          return s === 'active';
+        });
+        setMembers(
+          active.map((u) => ({
+            id: u.id,
+            firstName: u.firstName || '',
+            lastName: u.lastName || '',
+            club: u.club || '',
+            status: u.status,
+            label: `${u.firstName || ''} ${u.lastName || ''}`.trim() + (u.club ? ` (${u.club})` : ''),
+          }))
+        );
+      }
+      if (eventsRes.ok) {
+        const data = await eventsRes.json();
+        const list = (data.events || []) as { id: string; title?: string; name?: string; date?: string }[];
+        setEvents(
+          list.map((e) => ({
+            id: e.id,
+            title: e.title || e.name || 'Untitled event',
+            date: e.date,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load members/events:', err);
+    } finally {
+      setLoadingRefs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMembersAndEvents();
+  }, [loadMembersAndEvents]);
+
+  const onEventSelect = (value: string) => {
+    setSelectedEventId(value);
+    if (value === CUSTOM_EVENT) {
+      setEventName('');
+      return;
+    }
+    const ev = events.find((e) => e.id === value);
+    if (ev) {
+      setEventName(ev.title);
+      if (ev.date) {
+        const d = ev.date.includes('T') ? ev.date.slice(0, 10) : ev.date;
+        setDate(d);
+      }
+    }
+  };
+
+  const onMemberSelect = (value: string) => {
+    setSelectedMemberId(value);
+    if (value === GUEST_MEMBER) {
+      setShooterName('');
+      setClub('');
+      return;
+    }
+    const m = members.find((x) => x.id === value);
+    if (m) {
+      setShooterName(`${m.firstName} ${m.lastName}`.trim());
+      setClub(m.club);
+    }
+  };
 
   const positionTotals = useMemo(() => {
     const totals: Partial<Record<Position, number>> = {};
@@ -118,6 +236,7 @@ export default function ManualEntryComponent({
   };
 
   const resetShooter = () => {
+    setSelectedMemberId('');
     setShooterName('');
     setClub('');
     setVeteran(false);
@@ -125,9 +244,11 @@ export default function ManualEntryComponent({
   };
 
   const buildInput = () => ({
+    userId: selectedMemberId && selectedMemberId !== GUEST_MEMBER ? selectedMemberId : null,
     shooterName: shooterName.trim(),
     club: club.trim(),
     category,
+    eventId: selectedEventId && selectedEventId !== CUSTOM_EVENT ? selectedEventId : '',
     eventName: eventName.trim(),
     date,
     discipline,
@@ -145,8 +266,11 @@ export default function ManualEntryComponent({
   });
 
   const validateLocal = (): string | null => {
+    if (!eventName.trim() && selectedEventId !== CUSTOM_EVENT && !selectedEventId) {
+      return 'Select an event or enter a custom event name';
+    }
     if (!eventName.trim()) return 'Event name is required';
-    if (!shooterName.trim()) return 'Shooter name is required';
+    if (!shooterName.trim()) return 'Select a member or enter shooter name (guest)';
     if (!club.trim()) return 'Club is required';
     const anyScore = spec.positions.some((pos) =>
       seriesByPosition[pos].some((s) => (parseFloat(s.decimal) || 0) > 0)
@@ -207,7 +331,13 @@ export default function ManualEntryComponent({
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || data.details || 'Failed to save scores');
+        const detail =
+          typeof data.details === 'string'
+            ? data.details
+            : data.details
+              ? JSON.stringify(data.details)
+              : '';
+        throw new Error([data.error, detail].filter(Boolean).join(' — ') || 'Failed to save scores');
       }
 
       onImportSuccess({
@@ -239,8 +369,28 @@ export default function ManualEntryComponent({
           </Select>
         </FormControl>
         <FormControl>
-          <FormLabel>Event name</FormLabel>
-          <Input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. National Prone League R1" />
+          <FormLabel>Event</FormLabel>
+          <Select
+            placeholder={loadingRefs ? 'Loading events…' : 'Select event'}
+            value={selectedEventId}
+            onChange={(e) => onEventSelect(e.target.value)}
+          >
+            <option value={CUSTOM_EVENT}>— Custom event name —</option>
+            {events.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.title}
+                {e.date ? ` (${String(e.date).slice(0, 10)})` : ''}
+              </option>
+            ))}
+          </Select>
+          {(selectedEventId === CUSTOM_EVENT || !selectedEventId) && (
+            <Input
+              mt={2}
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              placeholder="Custom event name"
+            />
+          )}
         </FormControl>
         <FormControl>
           <FormLabel>Date</FormLabel>
@@ -252,13 +402,43 @@ export default function ManualEntryComponent({
 
       {/* Shooter fields */}
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
+        <FormControl gridColumn={{ md: 'span 2' }}>
+          <FormLabel>Member</FormLabel>
+          <Select
+            placeholder={loadingRefs ? 'Loading members…' : 'Select active member'}
+            value={selectedMemberId}
+            onChange={(e) => onMemberSelect(e.target.value)}
+          >
+            <option value={GUEST_MEMBER}>— Guest / manual name —</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+          <Text fontSize="xs" color="gray.500" mt={1}>
+            Linked members see scores on their dashboard when saved.
+          </Text>
+        </FormControl>
         <FormControl>
           <FormLabel>Shooter name</FormLabel>
-          <Input value={shooterName} onChange={(e) => setShooterName(e.target.value)} placeholder="First Last" />
+          <Input
+            value={shooterName}
+            onChange={(e) => {
+              setShooterName(e.target.value);
+              if (selectedMemberId && selectedMemberId !== GUEST_MEMBER) setSelectedMemberId(GUEST_MEMBER);
+            }}
+            placeholder="First Last"
+            isDisabled={!!selectedMemberId && selectedMemberId !== GUEST_MEMBER}
+          />
         </FormControl>
         <FormControl>
           <FormLabel>Club</FormLabel>
-          <Input value={club} onChange={(e) => setClub(e.target.value)} />
+          <Input
+            value={club}
+            onChange={(e) => setClub(e.target.value)}
+            isDisabled={!!selectedMemberId && selectedMemberId !== GUEST_MEMBER}
+          />
         </FormControl>
         <FormControl>
           <FormLabel>Category</FormLabel>
