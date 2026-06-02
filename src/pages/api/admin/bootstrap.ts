@@ -89,21 +89,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Existing Auth user — enable and promote.
     await adminAuth.updateUser(userRecord.uid, { disabled: false });
 
+    // Always write a complete profile (Firestore rejects undefined fields).
     await adminDb.collection('users').doc(userRecord.uid).set(
       {
         id: userRecord.uid,
+        firstName,
+        lastName,
         email: userRecord.email?.toLowerCase() || email,
+        membershipType: 'senior',
+        club,
         role: 'admin',
         roles: { admin: true },
         status: 'active',
         isActive: true,
+        emailConfirmed: true,
         updatedAt: now,
-        ...(created
-          ? {}
-          : {
-              firstName: firstName !== 'SATRF' ? firstName : undefined,
-              lastName: lastName !== 'Admin' ? lastName : undefined,
-            }),
       },
       { merge: true }
     );
