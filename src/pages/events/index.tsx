@@ -422,11 +422,19 @@ export default function Events() {
                         rounded="md"
                         overflow="hidden"
                         position="relative"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
                       >
                         <img
                           src={event.image}
                           alt={event.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            objectPosition: 'center',
+                          }}
                         />
                       </Box>
                     ) : (
@@ -580,13 +588,25 @@ export default function Events() {
                     h="300px"
                     bg={modalImageBg}
                     rounded="md"
+                    overflow="hidden"
                     display="flex"
                     alignItems="center"
                     justifyContent="center"
                   >
-                    <Text color={modalImageTextColor}>
-                      Event Image
-                    </Text>
+                    {selectedEvent.image ? (
+                      <img
+                        src={selectedEvent.image}
+                        alt={selectedEvent.title}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          objectPosition: 'center',
+                        }}
+                      />
+                    ) : (
+                      <Text color={modalImageTextColor}>Event Image</Text>
+                    )}
                   </Box>
 
                   {/* Status Badges */}

@@ -18,9 +18,10 @@ import {
   Center,
   Text,
 } from '@chakra-ui/react';
-import { FiUpload, FiEdit3 } from 'react-icons/fi';
+import { FiUpload, FiEdit3, FiFileText } from 'react-icons/fi';
 import FileUploadComponent from '@/components/admin/FileUploadComponent';
 import ManualEntryComponent from '@/components/admin/ManualEntryComponent';
+import PdfImportComponent from '@/components/admin/PdfImportComponent';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
@@ -146,6 +147,10 @@ export default function AdminScoreImport() {
               <FiEdit3 style={{ marginRight: '8px' }} />
               Manual Entry
             </Tab>
+            <Tab>
+              <FiFileText style={{ marginRight: '8px' }} />
+              PDF Import (Prone)
+            </Tab>
           </TabList>
 
           <TabPanels>
@@ -159,6 +164,14 @@ export default function AdminScoreImport() {
             </TabPanel>
             <TabPanel>
               <ManualEntryComponent
+                onImportSuccess={handleImportSuccess}
+                onImportError={handleImportError}
+                isLoading={isLoading}
+                setIsLoading={setIsLoading}
+              />
+            </TabPanel>
+            <TabPanel>
+              <PdfImportComponent
                 onImportSuccess={handleImportSuccess}
                 onImportError={handleImportError}
                 isLoading={isLoading}

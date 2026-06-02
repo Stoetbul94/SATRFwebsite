@@ -260,7 +260,9 @@ export default function EventDetail() {
               <Image
                 src={event.image}
                 alt={event.title}
-                objectFit="cover"
+                objectFit="contain"
+                objectPosition="center"
+                bg="gray.100"
                 w="100%"
                 h="100%"
               />
