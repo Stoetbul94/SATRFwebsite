@@ -10,8 +10,19 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website';
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${PROJECT_ID}.firebasestorage.app`;
 
 let app: App | null = null;
+
+function initOptions() {
+  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  const base = { projectId: PROJECT_ID, storageBucket: STORAGE_BUCKET };
+  if (serviceAccountKey) {
+    return { ...base, credential: cert(JSON.parse(serviceAccountKey)) };
+  }
+  return { ...base, credential: applicationDefault() };
+}
 
 export function getAdminApp(): App {
   if (app) return app;
@@ -20,15 +31,10 @@ export function getAdminApp(): App {
     return app;
   }
 
-  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (serviceAccountKey) {
-    app = initializeApp({
-      credential: cert(JSON.parse(serviceAccountKey)),
-      projectId: PROJECT_ID,
-    });
-  } else {
-    // Application default credentials (e.g. GCP). Will throw on write if absent.
-    app = initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID });
+  try {
+    app = initializeApp(initOptions());
+  } catch {
+    app = initializeApp({ projectId: PROJECT_ID, storageBucket: STORAGE_BUCKET });
   }
   return app;
 }

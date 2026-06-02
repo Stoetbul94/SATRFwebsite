@@ -40,8 +40,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { Event } from '@/lib/api';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { auth } from '@/lib/firebase';
 
 export default function AdminEvents() {
   useProtectedRoute();
@@ -294,140 +293,68 @@ export default function AdminEvents() {
     }
   };
 
-  const uploadImage = async (eventId?: string, skipOnTimeout: boolean = true): Promise<string | null> => {
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.includes(',') ? result.split(',')[1] : result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  /** Upload via server Admin SDK — avoids client Storage permission errors. */
+  const uploadImage = async (eventId?: string): Promise<string | null> => {
     if (!imageFile) return formData.imageUrl || null;
+
+    const targetEventId = eventId || (isEditMode && selectedEvent ? selectedEvent.id : null);
+    if (!targetEventId) return null;
 
     try {
       setUploadingImage(true);
-      setUploadProgress(0);
-      
-      // Use provided eventId, or existing eventId if editing, otherwise use timestamp
-      const targetEventId = eventId || (isEditMode && selectedEvent ? selectedEvent.id : null);
-      const sanitizedFileName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fileExtension = sanitizedFileName.split('.').pop() || 'jpg';
-      const fileName = targetEventId 
-        ? `events/${targetEventId}/cover.${fileExtension}`
-        : `events/temp_${Date.now()}_${sanitizedFileName}`;
-      const storageRef = ref(storage, fileName);
-      
-      // Calculate timeout based on file size (minimum 3 minutes, add 2 minutes per MB)
-      // This gives plenty of time for slow connections
-      const fileSizeMB = imageFile.size / (1024 * 1024);
-      const baseTimeout = 180000; // 3 minutes base
-      const sizeTimeout = fileSizeMB * 120000; // 2 minutes per MB
-      const timeoutMs = Math.min(baseTimeout + sizeTimeout, 600000); // Max 10 minutes
-      
-      // Use uploadBytesResumable for progress tracking
-      const uploadTask = uploadBytesResumable(storageRef, imageFile, {
-        contentType: imageFile.type,
-      });
-      
-      let lastProgress = 0;
-      let lastProgressTime = Date.now();
-      
-      // Track upload progress
-      uploadTask.on('state_changed', 
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          const roundedProgress = Math.round(progress);
-          setUploadProgress(roundedProgress);
-          
-          // Track progress timing
-          if (roundedProgress > lastProgress) {
-            lastProgress = roundedProgress;
-            lastProgressTime = Date.now();
-          }
-          
-          console.log(`Upload progress: ${progress.toFixed(1)}%`);
+      setUploadProgress(15);
+
+      const token =
+        (await auth.currentUser?.getIdToken().catch(() => null)) ||
+        (typeof window !== 'undefined' ? localStorage.getItem('access_token') : null);
+      if (!token) throw new Error('Please log in again');
+
+      const imageBase64 = await fileToBase64(imageFile);
+      setUploadProgress(45);
+
+      const response = await fetch(`/api/admin/events/${targetEventId}/image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        (error) => {
-          console.error('Upload error:', error);
-          throw error;
-        }
-      );
-      
-      // Wait for upload to complete with adaptive timeout
-      const uploadPromise = new Promise<void>((resolve, reject) => {
-        uploadTask.then(() => resolve()).catch(reject);
+        body: JSON.stringify({
+          imageBase64,
+          contentType: imageFile.type || 'image/jpeg',
+        }),
       });
-      
-      // Create a timeout promise
-      let timeoutId: NodeJS.Timeout | undefined;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          // Check if upload has made progress recently (within last 60 seconds)
-          const timeSinceProgress = Date.now() - lastProgressTime;
-          if (timeSinceProgress > 60000) {
-            reject(new Error('Upload appears to be stuck. Your connection may be interrupted. You can save the event without an image and try again later.'));
-          } else {
-            reject(new Error('Upload is taking longer than expected due to slow connection. Please wait or save without image.'));
-          }
-        }, timeoutMs);
-      });
-      
-      try {
-        await Promise.race([uploadPromise, timeoutPromise]);
-        if (timeoutId) clearTimeout(timeoutId);
-      } catch (raceError: any) {
-        if (timeoutId) clearTimeout(timeoutId);
-        
-        // Check if upload actually completed despite timeout
-        const taskSnapshot = uploadTask.snapshot;
-        if (taskSnapshot.state === 'success') {
-          // Upload completed successfully, ignore timeout
-          console.log('Upload completed successfully');
-        } else {
-          // Upload didn't complete, throw the error
-          throw raceError;
-        }
+
+      setUploadProgress(85);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to upload image');
       }
-      
-      // Get download URL after successful upload
-      const downloadURL = await getDownloadURL(storageRef);
-      console.log('Image uploaded successfully:', downloadURL);
-      
+
       setUploadProgress(100);
-      return downloadURL;
+      return data.imageUrl as string;
     } catch (error: any) {
       console.error('Error uploading image:', error);
       setUploadProgress(0);
-      
-      // Check if it's a timeout error
-      const isTimeout = error?.code === 'storage/retry-limit-exceeded' || 
-                       error?.message?.includes('timeout') ||
-                       error?.message?.includes('retry') ||
-                       error?.message?.includes('slow');
-      
-      if (isTimeout && skipOnTimeout) {
-        console.log('Image upload timed out - proceeding without image');
-        toast({
-          title: 'Image upload timeout',
-          description: 'Upload is taking longer than expected. You can save the event now and add the image later by editing the event.',
-          status: 'warning',
-          duration: 7000,
-          isClosable: true,
-        });
-        return null;
-      }
-      
-      // Check for specific Firebase Storage errors
-      let errorMessage = 'Failed to upload image';
-      if (error?.code === 'storage/unauthorized') {
-        errorMessage = 'Permission denied. Please check your authentication.';
-      } else if (error?.code === 'storage/canceled') {
-        errorMessage = 'Upload was canceled.';
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      
       toast({
         title: 'Image upload failed',
-        description: `${errorMessage}. You can save the event without an image and add it later by editing the event.`,
+        description:
+          error?.message ||
+          'Failed to upload image. You can save the event without an image and add it later.',
         status: 'warning',
         duration: 7000,
         isClosable: true,
       });
-      
       return null;
     } finally {
       setUploadingImage(false);
@@ -534,7 +461,7 @@ export default function AdminEvents() {
         if (isEditMode && selectedEvent) {
           // Edit mode: upload now with eventId
           try {
-            const uploadedUrl = await uploadImage(selectedEvent.id, true);
+            const uploadedUrl = await uploadImage(selectedEvent.id);
             if (uploadedUrl) {
               imageUrl = uploadedUrl;
             } else {
@@ -614,7 +541,7 @@ export default function AdminEvents() {
         // If creating new event and we have an image, upload it now with the eventId
         if (imageFile && savedEventId && !isEditMode) {
           try {
-            const uploadedUrl = await uploadImage(savedEventId, true);
+            const uploadedUrl = await uploadImage(savedEventId);
             if (uploadedUrl) {
               // Update event with image URL
               await fetch(`/api/admin/events/${savedEventId}`, {
