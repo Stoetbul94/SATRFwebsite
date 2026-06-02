@@ -63,7 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (discipline && discipline !== 'all') query = query.where('discipline', '==', discipline);
 
       const snapshot = await query.limit(1000).get();
-      let scores = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Score);
+      let scores = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }) as Score & { deleted?: boolean })
+        .filter((s) => !s.deleted);
       scores.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
       if (search && typeof search === 'string') {

@@ -13,13 +13,14 @@ import {
   Text
 } from '@chakra-ui/react';
 import { 
-  FiHome, 
   FiTarget, 
   FiCalendar, 
   FiUsers, 
   FiFileText,
   FiUpload,
-  FiLogOut
+  FiLogOut,
+  FiTrendingUp,
+  FiBarChart2
 } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,11 +33,12 @@ interface AdminLayoutProps {
 }
 
 const adminNavItems = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: FiHome },
+  { href: '/admin/dashboard', label: 'Statistics', icon: FiBarChart2 },
+  { href: '/admin/users', label: 'Members', icon: FiUsers },
+  { href: '/admin/events', label: 'Events', icon: FiCalendar },
   { href: '/admin/scores', label: 'Scores', icon: FiTarget },
   { href: '/admin/scores/import', label: 'Import Scores', icon: FiUpload },
-  { href: '/admin/events', label: 'Events', icon: FiCalendar },
-  { href: '/admin/users', label: 'Users', icon: FiUsers },
+  { href: '/admin/rankings', label: 'Rankings', icon: FiTrendingUp },
   { href: '/admin/audit', label: 'Audit Log', icon: FiFileText },
 ];
 

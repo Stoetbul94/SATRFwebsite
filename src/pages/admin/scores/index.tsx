@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import {
@@ -32,15 +32,21 @@ import {
   useDisclosure,
   FormControl,
   FormLabel,
-  NumberInput,
-  NumberInputField,
   VStack,
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiSearch } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
-import { Score } from '@/lib/api';
+import { auth } from '@/lib/firebase';
+import { DISCIPLINES } from '@/lib/issf';
+import type { Score, ScoreStatus } from '@/types/scores';
+
+const getToken = async (): Promise<string | null> => {
+  const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+  if (fresh) return fresh;
+  return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+};
 
 export default function AdminScores() {
   useProtectedRoute();
@@ -52,176 +58,102 @@ export default function AdminScores() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  // All useColorModeValue calls must be at the very top, before any other hooks
+  const [disciplineFilter, setDisciplineFilter] = useState<string>('all');
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
-  
+
   const [selectedScore, setSelectedScore] = useState<Score | null>(null);
-  const [editScore, setEditScore] = useState<Partial<Score>>({});
+  const [editStatus, setEditStatus] = useState<ScoreStatus>('official');
 
   useEffect(() => {
-    if (router.query.status) {
-      setStatusFilter(router.query.status as string);
-    }
+    if (router.query.status) setStatusFilter(router.query.status as string);
   }, [router.query]);
 
-  useEffect(() => {
-    const fetchScores = async () => {
-      if (!isAdmin) return;
-
-      try {
-        setLoading(true);
-        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-        if (!token) return;
-
-        const params = new URLSearchParams();
-        if (statusFilter !== 'all') {
-          params.append('status', statusFilter);
-        }
-        if (searchTerm) {
-          params.append('search', searchTerm);
-        }
-
-        const response = await fetch(`/api/admin/scores?${params.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setScores(data.scores || []);
-        } else {
-          toast({
-            title: 'Error',
-            description: 'Failed to fetch scores',
-            status: 'error',
-            duration: 3000,
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching scores:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch scores',
-          status: 'error',
-          duration: 3000,
-        });
-      } finally {
-        setLoading(false);
+  const fetchScores = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setLoading(true);
+      const token = await getToken();
+      if (!token) return;
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (disciplineFilter !== 'all') params.append('discipline', disciplineFilter);
+      if (searchTerm) params.append('search', searchTerm);
+      const response = await fetch(`/api/admin/scores?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setScores(data.scores || []);
+      } else {
+        toast({ title: 'Error', description: 'Failed to fetch scores', status: 'error', duration: 3000 });
       }
-    };
+    } catch (error) {
+      console.error('Error fetching scores:', error);
+      toast({ title: 'Error', description: 'Failed to fetch scores', status: 'error', duration: 3000 });
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin, statusFilter, disciplineFilter, searchTerm, toast]);
 
+  useEffect(() => {
     fetchScores();
-  }, [isAdmin, statusFilter, searchTerm, toast]);
+  }, [fetchScores]);
 
   const handleEdit = (score: Score) => {
     setSelectedScore(score);
-    setEditScore({
-      score: score.score,
-      xCount: score.xCount,
-      status: score.status,
-      notes: score.notes,
-    });
+    setEditStatus(score.status);
     onOpen();
   };
 
   const handleSave = async () => {
     if (!selectedScore) return;
-
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const token = await getToken();
       if (!token) return;
-
       const response = await fetch(`/api/admin/scores/${selectedScore.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(editScore),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: editStatus }),
       });
-
       if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Score updated successfully',
-          status: 'success',
-          duration: 3000,
-        });
+        toast({ title: 'Success', description: 'Score updated', status: 'success', duration: 3000 });
         onClose();
-        // Refresh scores
-        const refreshResponse = await fetch(`/api/admin/scores?status=${statusFilter}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json();
-          setScores(data.scores || []);
-        }
+        fetchScores();
       } else {
         throw new Error('Failed to update score');
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update score',
-        status: 'error',
-        duration: 3000,
-      });
+      toast({ title: 'Error', description: 'Failed to update score', status: 'error', duration: 3000 });
     }
   };
 
   const handleDelete = async (scoreId: string) => {
-    if (!confirm('Are you sure you want to delete this score? This action cannot be undone.')) {
-      return;
-    }
-
+    if (!confirm('Delete this score? This cannot be undone.')) return;
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const token = await getToken();
       if (!token) return;
-
       const response = await fetch(`/api/admin/scores/${scoreId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Score deleted successfully',
-          status: 'success',
-          duration: 3000,
-        });
-        setScores(scores.filter(s => s.id !== scoreId));
+        toast({ title: 'Success', description: 'Score deleted', status: 'success', duration: 3000 });
+        setScores((prev) => prev.filter((s) => s.id !== scoreId));
       } else {
         throw new Error('Failed to delete score');
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete score',
-        status: 'error',
-        duration: 3000,
-      });
+      toast({ title: 'Error', description: 'Failed to delete score', status: 'error', duration: 3000 });
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const colors = {
-      approved: 'green',
-      pending: 'yellow',
-      rejected: 'red',
-    };
-    return (
-      <Badge colorScheme={colors[status as keyof typeof colors] || 'gray'}>
-        {status}
-      </Badge>
-    );
+    const colors: Record<string, string> = { official: 'green', provisional: 'yellow' };
+    return <Badge colorScheme={colors[status] || 'gray'} textTransform="capitalize">{status}</Badge>;
   };
+
+  const disciplineLabel = (d: string) => DISCIPLINES[d as keyof typeof DISCIPLINES]?.label || d;
 
   if (authLoading || loading) {
     return (
@@ -233,20 +165,10 @@ export default function AdminScores() {
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
-
-  const filteredScores = scores.filter(score => {
-    const matchesSearch = !searchTerm || 
-      score.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      score.club?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      score.discipline?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  if (!isAdmin) return null;
 
   return (
-    <AdminLayout title="Score Management" description="View, edit, and manage all scores">
+    <AdminLayout title="Scores" description="Review, edit, and manage submitted scores">
       <Head>
         <title>Admin Scores - SATRF</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -254,79 +176,76 @@ export default function AdminScores() {
 
       {/* Filters */}
       <Box bg={cardBg} p={4} borderRadius="lg" border="1px" borderColor={borderColor} mb={6}>
-        <HStack spacing={4}>
-          <Box flex="1">
+        <HStack spacing={4} wrap="wrap">
+          <Box flex="1" minW="240px">
             <InputGroup>
               <InputLeftElement pointerEvents="none">
                 <FiSearch />
               </InputLeftElement>
               <Input
-                placeholder="Search by name, club, or discipline..."
+                placeholder="Search by shooter, club, or event..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </InputGroup>
           </Box>
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            w="200px"
-          >
+          <Select value={disciplineFilter} onChange={(e) => setDisciplineFilter(e.target.value)} w="220px">
+            <option value="all">All Disciplines</option>
+            {Object.values(DISCIPLINES).map((d) => (
+              <option key={d.id} value={d.id}>{d.label}</option>
+            ))}
+          </Select>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} w="180px">
             <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
+            <option value="official">Official</option>
+            <option value="provisional">Provisional</option>
           </Select>
         </HStack>
       </Box>
 
-      {/* Scores Table */}
+      {/* Table */}
       <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto">
         <Table variant="simple">
           <Thead>
             <Tr>
-              <Th>User</Th>
+              <Th>Shooter</Th>
               <Th>Club</Th>
               <Th>Discipline</Th>
-              <Th>Score</Th>
-              <Th>X Count</Th>
+              <Th>Category</Th>
+              <Th isNumeric>Total</Th>
+              <Th isNumeric>Inner 10s</Th>
               <Th>Status</Th>
               <Th>Date</Th>
               <Th>Actions</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {filteredScores.length === 0 ? (
+            {scores.length === 0 ? (
               <Tr>
-                <Td colSpan={8} textAlign="center" py={8}>
+                <Td colSpan={9} textAlign="center" py={8}>
                   <Text color="gray.500">No scores found</Text>
                 </Td>
               </Tr>
             ) : (
-              filteredScores.map((score) => (
+              scores.map((score) => (
                 <Tr key={score.id}>
-                  <Td>{score.userName || 'Unknown'}</Td>
+                  <Td fontWeight="medium">
+                    {score.shooterName}
+                    {!score.userId && (
+                      <Badge ml={2} colorScheme="gray" fontSize="0.6em">unlinked</Badge>
+                    )}
+                  </Td>
                   <Td>{score.club || '-'}</Td>
-                  <Td>{score.discipline || '-'}</Td>
-                  <Td fontWeight="semibold">{score.score}</Td>
-                  <Td>{score.xCount || 0}</Td>
+                  <Td>{disciplineLabel(score.discipline)}</Td>
+                  <Td textTransform="capitalize">{score.category}</Td>
+                  <Td isNumeric fontWeight="semibold">{score.decimalTotal?.toFixed(1)}</Td>
+                  <Td isNumeric>{score.innerTens || 0}</Td>
                   <Td>{getStatusBadge(score.status)}</Td>
-                  <Td>{new Date(score.createdAt).toLocaleDateString()}</Td>
+                  <Td>{score.date ? new Date(score.date).toLocaleDateString() : '-'}</Td>
                   <Td>
                     <HStack spacing={2}>
-                      <IconButton
-                        aria-label="Edit score"
-                        icon={<FiEdit />}
-                        size="sm"
-                        onClick={() => handleEdit(score)}
-                      />
-                      <IconButton
-                        aria-label="Delete score"
-                        icon={<FiTrash2 />}
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => handleDelete(score.id)}
-                      />
+                      <IconButton aria-label="Edit score" icon={<FiEdit />} size="sm" onClick={() => handleEdit(score)} />
+                      <IconButton aria-label="Delete score" icon={<FiTrash2 />} size="sm" colorScheme="red" onClick={() => handleDelete(score.id)} />
                     </HStack>
                   </Td>
                 </Tr>
@@ -343,52 +262,26 @@ export default function AdminScores() {
           <ModalHeader>Edit Score</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>Score</FormLabel>
-                <NumberInput
-                  value={editScore.score}
-                  onChange={(_, value) => setEditScore({ ...editScore, score: value })}
-                  min={0}
-                  max={109}
-                >
-                  <NumberInputField />
-                </NumberInput>
-              </FormControl>
-              <FormControl>
-                <FormLabel>X Count</FormLabel>
-                <NumberInput
-                  value={editScore.xCount || 0}
-                  onChange={(_, value) => setEditScore({ ...editScore, xCount: value })}
-                  min={0}
-                >
-                  <NumberInputField />
-                </NumberInput>
-              </FormControl>
+            <VStack spacing={4} align="stretch">
+              <Text>
+                {selectedScore?.shooterName} — {selectedScore && disciplineLabel(selectedScore.discipline)} —{' '}
+                <strong>{selectedScore?.decimalTotal?.toFixed(1)}</strong>
+              </Text>
               <FormControl>
                 <FormLabel>Status</FormLabel>
-                <Select
-                  value={editScore.status}
-                  onChange={(e) => setEditScore({ ...editScore, status: e.target.value as any })}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
+                <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value as ScoreStatus)}>
+                  <option value="official">Official</option>
+                  <option value="provisional">Provisional</option>
                 </Select>
               </FormControl>
             </VStack>
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button colorScheme="blue" onClick={handleSave}>
-              Save
-            </Button>
+            <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
+            <Button colorScheme="blue" onClick={handleSave}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
     </AdminLayout>
   );
 }
-

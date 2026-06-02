@@ -56,18 +56,20 @@ export default async function handler(
     const db = getFirestore();
 
     // Fetch stats from Firestore
-    const [usersSnapshot, scoresSnapshot, eventsSnapshot, pendingScoresSnapshot] = await Promise.all([
+    const [usersSnapshot, scoresSnapshot, eventsSnapshot, pendingMembersSnapshot] = await Promise.all([
       db.collection('users').get(),
       db.collection('scores').get(),
       db.collection('events').get(),
-      db.collection('scores').where('status', '==', 'pending').get(),
+      db.collection('users').where('status', '==', 'pending').get(),
     ]);
+
+    const liveScores = scoresSnapshot.docs.filter((d) => !d.data().deleted).length;
 
     const stats = {
       totalUsers: usersSnapshot.size,
-      totalScores: scoresSnapshot.size,
+      totalScores: liveScores,
       totalEvents: eventsSnapshot.size,
-      pendingScores: pendingScoresSnapshot.size,
+      pendingMembers: pendingMembersSnapshot.size,
       recentActivity: 0, // Can be enhanced later
     };
 

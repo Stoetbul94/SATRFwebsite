@@ -18,18 +18,25 @@ import {
   Spinner,
   Center
 } from '@chakra-ui/react';
-import { FiTarget, FiCalendar, FiUsers, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
+import { FiTarget, FiCalendar, FiUsers, FiUserCheck, FiArrowRight } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
+import { auth } from '@/lib/firebase';
 
 interface DashboardStats {
   totalUsers: number;
   totalScores: number;
   totalEvents: number;
-  pendingScores: number;
+  pendingMembers: number;
   recentActivity: number;
 }
+
+const getToken = async (): Promise<string | null> => {
+  const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+  if (fresh) return fresh;
+  return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+};
 
 export default function AdminDashboard() {
   useProtectedRoute();
@@ -44,7 +51,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const token = await getToken();
         if (!token) return;
 
         // Fetch stats from API
@@ -63,7 +70,7 @@ export default function AdminDashboard() {
             totalUsers: 0,
             totalScores: 0,
             totalEvents: 0,
-            pendingScores: 0,
+            pendingMembers: 0,
             recentActivity: 0,
           });
         }
@@ -74,7 +81,7 @@ export default function AdminDashboard() {
           totalUsers: 0,
           totalScores: 0,
           totalEvents: 0,
-          pendingScores: 0,
+          pendingMembers: 0,
           recentActivity: 0,
         });
       } finally {
@@ -103,7 +110,14 @@ export default function AdminDashboard() {
 
   const statCards = [
     {
-      label: 'Total Users',
+      label: 'Pending Members',
+      value: stats?.pendingMembers || 0,
+      icon: FiUserCheck,
+      color: 'orange',
+      href: '/admin/users',
+    },
+    {
+      label: 'Total Members',
       value: stats?.totalUsers || 0,
       icon: FiUsers,
       color: 'blue',
@@ -123,20 +137,13 @@ export default function AdminDashboard() {
       color: 'purple',
       href: '/admin/events',
     },
-    {
-      label: 'Pending Scores',
-      value: stats?.pendingScores || 0,
-      icon: FiTrendingUp,
-      color: 'orange',
-      href: '/admin/scores?status=pending',
-    },
   ];
 
   const quickActions = [
+    { label: 'Approve Members', href: '/admin/users', color: 'orange' },
     { label: 'Import Scores', href: '/admin/scores/import', color: 'blue' },
-    { label: 'Create Event', href: '/admin/events?action=create', color: 'green' },
-    { label: 'Manage Users', href: '/admin/users', color: 'purple' },
-    { label: 'View Audit Log', href: '/admin/audit', color: 'gray' },
+    { label: 'Add Score', href: '/admin/scores/import', color: 'green' },
+    { label: 'Create Event', href: '/admin/events?action=create', color: 'purple' },
   ];
 
   return (

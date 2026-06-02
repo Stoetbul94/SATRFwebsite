@@ -31,7 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const snapshot = await query.get();
     const scores = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }) as Score)
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as Score & { deleted?: boolean })
+      .filter((s) => !s.deleted)
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     return res.status(200).json({ data: scores, total: scores.length });

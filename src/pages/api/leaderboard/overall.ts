@@ -46,7 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const snapshot = await query.get();
-    const scores = snapshot.docs.map((d) => d.data() as Score);
+    const scores = snapshot.docs
+      .map((d) => d.data() as Score & { deleted?: boolean })
+      .filter((s) => !s.deleted);
 
     // Group by member (userId when present, else name|club).
     const groups = new Map<string, Score[]>();
