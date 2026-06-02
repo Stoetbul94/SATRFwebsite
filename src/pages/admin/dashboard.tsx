@@ -147,21 +147,11 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <AdminLayout title="Admin Dashboard" description="Overview of system statistics and quick actions">
+    <AdminLayout title="Statistics" description="Overview of members, scores, and events">
       <Head>
-        <title>Admin Dashboard - SATRF</title>
+        <title>Statistics - SATRF Admin</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-
-      {/* Welcome Section */}
-      <Box mb={8}>
-        <Text fontSize="2xl" fontWeight="bold" color="gray.800" mb={2}>
-          Welcome to the Admin Dashboard
-        </Text>
-        <Text fontSize="md" color="gray.600">
-          Manage users, scores, events, and system administration
-        </Text>
-      </Box>
 
       {/* Stats Grid */}
       <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={6} mb={8}>

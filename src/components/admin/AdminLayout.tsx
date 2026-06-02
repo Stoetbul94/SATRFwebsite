@@ -1,30 +1,32 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { 
-  Box, 
-  Container, 
-  Flex, 
-  Heading, 
-  VStack, 
+import Head from 'next/head';
+import {
+  Box,
+  Flex,
+  Heading,
+  VStack,
   HStack,
   Button,
+  Badge,
   useColorModeValue,
-  Text
+  Text,
 } from '@chakra-ui/react';
-import { 
-  FiTarget, 
-  FiCalendar, 
-  FiUsers, 
+import {
+  FiTarget,
+  FiCalendar,
+  FiUsers,
   FiFileText,
   FiUpload,
   FiLogOut,
   FiTrendingUp,
-  FiBarChart2
+  FiBarChart2,
+  FiExternalLink,
 } from 'react-icons/fi';
-import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
+import { auth } from '@/lib/firebase';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -42,33 +44,56 @@ const adminNavItems = [
   { href: '/admin/audit', label: 'Audit Log', icon: FiFileText },
 ];
 
+const getToken = async (): Promise<string | null> => {
+  const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+  if (fresh) return fresh;
+  return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+};
+
 export default function AdminLayout({ children, title, description }: AdminLayoutProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isAdmin, isLoading } = useAdminRoute();
-  
-  // CRITICAL: All hooks must be called before any conditional returns
-  // These hooks are called unconditionally at the top level
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const activeBg = useColorModeValue('blue.50', 'blue.900');
-  const activeColor = useColorModeValue('blue.600', 'blue.300');
-  const pageBg = useColorModeValue('gray.50', 'gray.900');
+  const [pendingMembers, setPendingMembers] = useState(0);
 
-  // Early returns after all hooks
+  const sidebarBg = useColorModeValue('gray.900', 'gray.900');
+  const sidebarText = useColorModeValue('gray.300', 'gray.300');
+  const activeBg = useColorModeValue('blue.600', 'blue.600');
+  const hoverBg = useColorModeValue('gray.800', 'gray.800');
+  const pageBg = useColorModeValue('gray.50', 'gray.900');
+  const headerBg = useColorModeValue('white', 'gray.800');
+  const headerBorder = useColorModeValue('gray.200', 'gray.700');
+
+  // Pull the pending-approval count so the Members tab shows a live badge.
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await fetch('/api/admin/stats', { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setPendingMembers(data.pendingMembers || 0);
+      } catch {
+        /* badge is best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, router.pathname]);
+
   if (isLoading) {
     return (
-      <Layout>
-        <Container maxW="full" py={8}>
-          <Text>Loading...</Text>
-        </Container>
-      </Layout>
+      <Flex minH="100vh" align="center" justify="center" bg={pageBg}>
+        <Text>Loading…</Text>
+      </Flex>
     );
   }
 
-  if (!isAdmin) {
-    return null; // Will redirect via useAdminRoute
-  }
+  if (!isAdmin) return null; // useAdminRoute handles redirect
 
   const handleLogout = async () => {
     await logout();
@@ -76,100 +101,127 @@ export default function AdminLayout({ children, title, description }: AdminLayou
   };
 
   return (
-    <Layout>
-      <Box bg={pageBg} minH="100vh">
-        <Container maxW="full" px={0}>
-          {/* Admin Header */}
-          <Box bg={bgColor} borderBottom="1px" borderColor={borderColor} px={6} py={4}>
-            <Flex justify="space-between" align="center">
-              <VStack align="start" spacing={0}>
-                <Heading size="lg" color="blue.600">
-                  Admin Dashboard
-                </Heading>
-                {user && (
-                  <Text fontSize="sm" color="gray.600">
-                    Logged in as {user.firstName} {user.lastName} ({user.email})
-                  </Text>
-                )}
-              </VStack>
-              <HStack spacing={4}>
-                {/* CRITICAL: Admins must NEVER see User Dashboard - removed link */}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  leftIcon={<FiLogOut />}
-                  onClick={handleLogout}
-                >
-                  Logout
-                </Button>
-              </HStack>
-            </Flex>
+    <>
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
+      <Flex minH="100vh" bg={pageBg}>
+        {/* Dedicated admin sidebar */}
+        <Box
+          as="nav"
+          w={{ base: '64px', md: '250px' }}
+          bg={sidebarBg}
+          color={sidebarText}
+          minH="100vh"
+          position="sticky"
+          top={0}
+          py={6}
+          px={{ base: 2, md: 4 }}
+          flexShrink={0}
+        >
+          <Box px={2} mb={8} display={{ base: 'none', md: 'block' }}>
+            <Heading size="md" color="white" letterSpacing="wide">
+              SATRF
+            </Heading>
+            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="widest">
+              Admin Panel
+            </Text>
           </Box>
 
-          <Flex>
-            {/* Sidebar Navigation */}
-            <Box
-              w="250px"
-              bg={bgColor}
-              borderRight="1px"
-              borderColor={borderColor}
-              minH="calc(100vh - 100px)"
-              p={4}
-            >
-              <VStack align="stretch" spacing={2}>
-                {adminNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = router.pathname === item.href || 
-                    (item.href !== '/admin/dashboard' && router.pathname.startsWith(item.href));
-                  
-                  return (
-                    <Link key={item.href} href={item.href}>
-                      <Box
-                        px={4}
-                        py={3}
-                        borderRadius="md"
-                        bg={isActive ? activeBg : 'transparent'}
-                        color={isActive ? activeColor : 'inherit'}
-                        _hover={{ bg: isActive ? activeBg : 'gray.100' }}
-                        cursor="pointer"
-                        transition="all 0.2s"
-                      >
-                        <HStack spacing={3}>
-                          <Icon />
-                          <Text fontWeight={isActive ? 'semibold' : 'normal'}>
-                            {item.label}
-                          </Text>
-                        </HStack>
-                      </Box>
-                    </Link>
-                  );
-                })}
-              </VStack>
-            </Box>
+          <VStack align="stretch" spacing={1}>
+            {adminNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                router.pathname === item.href ||
+                (item.href !== '/admin/dashboard' && router.pathname.startsWith(item.href));
+              const showBadge = item.href === '/admin/users' && pendingMembers > 0;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Flex
+                    align="center"
+                    justify={{ base: 'center', md: 'space-between' }}
+                    px={3}
+                    py={3}
+                    borderRadius="md"
+                    bg={isActive ? activeBg : 'transparent'}
+                    color={isActive ? 'white' : sidebarText}
+                    _hover={{ bg: isActive ? activeBg : hoverBg, color: 'white' }}
+                    cursor="pointer"
+                    transition="all 0.15s"
+                  >
+                    <HStack spacing={3}>
+                      <Icon size={18} />
+                      <Text display={{ base: 'none', md: 'block' }} fontWeight={isActive ? 'semibold' : 'normal'}>
+                        {item.label}
+                      </Text>
+                    </HStack>
+                    {showBadge && (
+                      <Badge colorScheme="red" borderRadius="full" px={2}>
+                        {pendingMembers}
+                      </Badge>
+                    )}
+                  </Flex>
+                </Link>
+              );
+            })}
+          </VStack>
+        </Box>
 
-            {/* Main Content */}
-            <Box flex="1" p={8}>
-              {(title || description) && (
-                <Box mb={6}>
-                  {title && (
-                    <Heading size="xl" mb={2}>
-                      {title}
-                    </Heading>
-                  )}
-                  {description && (
-                    <Text color="gray.600" fontSize="lg">
-                      {description}
-                    </Text>
-                  )}
-                </Box>
+        {/* Main column */}
+        <Flex direction="column" flex="1" minW={0}>
+          {/* Top bar */}
+          <Flex
+            as="header"
+            bg={headerBg}
+            borderBottom="1px"
+            borderColor={headerBorder}
+            px={6}
+            py={3}
+            align="center"
+            justify="space-between"
+          >
+            <Box>
+              <Heading size="md" color="blue.600">
+                Admin Dashboard
+              </Heading>
+              {user && (
+                <Text fontSize="xs" color="gray.500">
+                  {user.firstName} {user.lastName} · {user.email}
+                </Text>
               )}
-              {children}
             </Box>
+            <HStack spacing={2}>
+              <Link href="/" target="_blank">
+                <Button variant="ghost" size="sm" leftIcon={<FiExternalLink />}>
+                  View Site
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" leftIcon={<FiLogOut />} onClick={handleLogout}>
+                Logout
+              </Button>
+            </HStack>
           </Flex>
-        </Container>
-      </Box>
-    </Layout>
+
+          {/* Page content */}
+          <Box flex="1" p={{ base: 4, md: 8 }} overflowX="auto">
+            {(title || description) && (
+              <Box mb={6}>
+                {title && (
+                  <Heading size="lg" mb={1}>
+                    {title}
+                  </Heading>
+                )}
+                {description && (
+                  <Text color="gray.600" fontSize="md">
+                    {description}
+                  </Text>
+                )}
+              </Box>
+            )}
+            {children}
+          </Box>
+        </Flex>
+      </Flex>
+    </>
   );
 }
-
-
