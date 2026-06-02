@@ -192,13 +192,17 @@ export function buildScore(
   const now = meta.now ?? new Date().toISOString();
 
   const positions: PositionBlock[] = input.positions.map((block) => {
-    const series: ShotSeries[] = block.series.map((s, i) => ({
-      seriesNumber: s.seriesNumber ?? i + 1,
-      shots: s.shots,
-      decimal: round1(s.decimal ?? 0),
-      integer: Math.round(s.integer ?? 0),
-      innerTens: s.innerTens,
-    }));
+    const series: ShotSeries[] = block.series.map((s, i) => {
+      const row: ShotSeries = {
+        seriesNumber: s.seriesNumber ?? i + 1,
+        decimal: round1(s.decimal ?? 0),
+        integer: Math.round(s.integer ?? 0),
+      };
+      // Firestore rejects undefined — only include optional fields when set.
+      if (s.shots != null && s.shots.length > 0) row.shots = s.shots;
+      if (s.innerTens != null) row.innerTens = s.innerTens;
+      return row;
+    });
 
     const decimalTotal = round1(series.reduce((sum, s) => sum + s.decimal, 0));
     const integerTotal = series.reduce((sum, s) => sum + s.integer, 0);

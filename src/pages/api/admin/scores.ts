@@ -14,6 +14,20 @@ import type { ScoreInput, Score } from '@/types/scores';
  * name + club when possible.
  */
 
+/** Remove undefined values so Firestore accepts nested score documents. */
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === undefined) return value;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForFirestore(item)) as T;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (val !== undefined) out[key] = sanitizeForFirestore(val);
+  }
+  return out as T;
+}
+
 async function findMemberUid(
   db: FirebaseFirestore.Firestore,
   shooterName: string,
@@ -125,7 +139,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         const score = buildScore({ ...input, userId }, { createdBy: adminUid || 'admin' });
         const ref = db.collection('scores').doc();
-        batch.set(ref, score);
+        batch.set(ref, sanitizeForFirestore(score));
         created.push(ref.id);
       }
 
