@@ -32,7 +32,7 @@ export function parseTargetReportText(text: string): ParsePronePdfResult {
     });
   }
 
-  const series = [...byNumber.values()].sort((a, b) => a.seriesNumber - b.seriesNumber);
+  const series = Array.from(byNumber.values()).sort((a, b) => a.seriesNumber - b.seriesNumber);
 
   if (series.length === 0) {
     warnings.push('No series totals found. Expected "SERIES 1" … "TOTAL : 100.7 (95)".');

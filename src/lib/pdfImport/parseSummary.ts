@@ -38,7 +38,7 @@ export function parseSummaryReportText(text: string): ParsePronePdfResult {
     byNumber.set(seriesNumber, { seriesNumber, decimal, integer, innerTens });
   }
 
-  const series = [...byNumber.values()].sort((a, b) => a.seriesNumber - b.seriesNumber);
+  const series = Array.from(byNumber.values()).sort((a, b) => a.seriesNumber - b.seriesNumber);
 
   if (series.length === 0) {
     warnings.push('No S1–S6 series lines found. Expected lines like "S1 100.7".');
