@@ -26,6 +26,7 @@ export function parsedPdfToScoreInput(
     scoringType: 'decimal',
     status: 'official',
     source: 'pdf',
+    stage: 'qualification',
     positions: [
       {
         position: 'prone',

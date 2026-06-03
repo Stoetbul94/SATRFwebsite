@@ -1,18 +1,14 @@
 /**
  * Canonical ISSF score model for SATRF.
- *
- * Launch disciplines:
- *  - 50m Rifle Prone        (60 shots, 6 series of 10, single position)
- *  - 50m Rifle 3 Positions  (120 shots, 3 positions x 40, 4 series of 10 each)
- *
- * Scoring is decimal-first (e.g. 10.9 max per shot) with the integer
- * ring-count kept alongside, matching official electronic-target sheets
- * (e.g. "361.5 (345)", series "88.7 (85)").
  */
 
-export type Discipline = 'prone_50m' | 'three_position_50m';
+export type Discipline =
+  | 'prone_50m'
+  | 'three_position_50m'
+  | 'fclass_open'
+  | 'fclass_tr';
 
-export type Position = 'kneeling' | 'prone' | 'standing';
+export type Position = 'kneeling' | 'prone' | 'standing' | 'fclass';
 
 export type Category = 'open' | 'junior' | 'veteran' | 'ladies';
 
@@ -22,30 +18,29 @@ export type ScoreStatus = 'official' | 'provisional';
 
 export type ScoreSource = 'manual' | 'excel' | 'pdf';
 
+export type ScoreStage = 'qualification' | 'prone_final' | '3p_final';
+
 /** A single 10-shot series. */
 export interface ShotSeries {
   seriesNumber: number;
-  /** Optional per-shot decimal values (length up to 10), captured from imports. */
   shots?: number[];
-  /** Series decimal total, e.g. 88.7 */
   decimal: number;
-  /** Series integer ring total, e.g. 85 */
   integer: number;
   innerTens?: number;
 }
 
-/** One position block. Prone discipline has a single block; 3P has three. */
+/** One position block. Prone / F-Class have one; 3P has three. */
 export interface PositionBlock {
   position: Position;
   series: ShotSeries[];
   decimalTotal: number;
   integerTotal: number;
   innerTens?: number;
+  aggregate?: boolean;
 }
 
 export interface Score {
   id: string;
-  /** Linked SATRF member UID, or null if the shooter is not a member. */
   userId: string | null;
   shooterName: string;
   club: string;
@@ -53,13 +48,17 @@ export interface Score {
 
   eventId: string;
   eventName: string;
-  /** ISO date string of the match. */
   date: string;
 
   discipline: Discipline;
   scoringType: ScoringType;
+  stage: ScoreStage;
 
   positions: PositionBlock[];
+
+  finalShots?: number[];
+  finalRank?: number;
+  eliminatedAtShot?: number | null;
 
   decimalTotal: number;
   integerTotal: number;
@@ -69,7 +68,6 @@ export interface Score {
   status: ScoreStatus;
   source: ScoreSource;
 
-  /** Diagnostics from electronic targets (optional, not used for ranking). */
   groupMm?: number;
   mpi?: { x: number; y: number };
 
@@ -78,7 +76,18 @@ export interface Score {
   updatedAt: string;
 }
 
-/** Payload accepted by manual entry / import before computed totals are derived. */
+export interface ScoreInputPosition {
+  position: Position;
+  series: {
+    seriesNumber?: number;
+    shots?: number[];
+    decimal: number;
+    integer: number;
+    innerTens?: number;
+  }[];
+  aggregate?: boolean;
+}
+
 export interface ScoreInput {
   userId?: string | null;
   shooterName: string;
@@ -91,8 +100,9 @@ export interface ScoreInput {
   scoringType?: ScoringType;
   status?: ScoreStatus;
   source?: ScoreSource;
-  positions: {
-    position: Position;
-    series: { seriesNumber?: number; shots?: number[]; decimal: number; integer: number; innerTens?: number }[];
-  }[];
+  stage?: ScoreStage;
+  positions: ScoreInputPosition[];
+  finalShots?: number[];
+  eliminatedAtShot?: number | null;
+  finalRank?: number;
 }

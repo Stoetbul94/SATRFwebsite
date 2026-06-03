@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   VStack,
   HStack,
   Text,
   Button,
+  FormControl,
+  FormLabel,
+  Select,
+  Input,
   useColorModeValue,
   Alert,
   AlertIcon,
@@ -26,21 +30,24 @@ import {
   ModalBody,
   ModalCloseButton,
   useDisclosure,
+  Spinner,
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiEye, FiAlertCircle } from 'react-icons/fi';
-import * as XLSX from 'xlsx';
-import {
-  type ExcelScoreRow,
-  excelRowToScoreInput,
-  mapRawRowToExcelRow,
-  rowArraysToRecord,
-} from '@/lib/excelImport';
+import { auth } from '@/lib/firebase';
+import { parseMatchWorkbook, type ParsedImportRow } from '@/lib/excelImport';
+import type { ScoreInput } from '@/types/scores';
 
 interface FileUploadComponentProps {
   onImportSuccess: (result: unknown) => void;
   onImportError: (error: string) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+}
+
+interface EventOption {
+  id: string;
+  title: string;
+  date?: string;
 }
 
 export default function FileUploadComponent({
@@ -50,104 +57,101 @@ export default function FileUploadComponent({
   setIsLoading,
 }: FileUploadComponentProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<ExcelScoreRow[]>([]);
+  const [parsedData, setParsedData] = useState<ParsedImportRow[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [matchDate, setMatchDate] = useState(() => new Date().toISOString().slice(0, 10));
+
   const borderColor = useColorModeValue('gray.300', 'gray.600');
   const bgColor = useColorModeValue('gray.50', 'gray.700');
   const [isDragOver, setIsDragOver] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
+        const res = await fetch('/api/admin/events', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = (data.events || []) as { id: string; title?: string; name?: string; date?: string }[];
+          setEvents(
+            list.map((e) => ({
+              id: e.id,
+              title: e.title || e.name || 'Untitled',
+              date: e.date,
+            }))
+          );
+        }
+      } finally {
+        setLoadingEvents(false);
+      }
+    })();
+  }, []);
+
+  const onEventSelect = (id: string) => {
+    setSelectedEventId(id);
+    const ev = events.find((e) => e.id === id);
+    if (ev?.date) {
+      const d = ev.date.includes('T') ? ev.date.slice(0, 10) : ev.date;
+      setMatchDate(d);
+    }
+  };
+
   const parseFile = useCallback(
     (file: File) => {
+      if (!selectedEventId) {
+        onImportError('Select an event before uploading the workbook');
+        return;
+      }
+      const ev = events.find((e) => e.id === selectedEventId);
+      if (!ev) return;
+
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName =
-            workbook.SheetNames.find((n) => n.toLowerCase().includes('prone')) ??
-            workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-          if (jsonData.length < 2) {
-            onImportError('File must contain a header row and at least one data row');
-            return;
-          }
-
-          const headers = (jsonData[0] as string[]).map((h) => String(h ?? ''));
-          const rows = jsonData.slice(1) as unknown[][];
-
-          const parsedRows: ExcelScoreRow[] = [];
-          const allErrors: string[] = [];
-
-          rows.forEach((row, index) => {
-            if (!row || row.every((c) => c == null || String(c).trim() === '')) return;
-
-            const rowData = rowArraysToRecord(headers, row);
-            const excelRow = mapRawRowToExcelRow(rowData, index);
-            if (excelRow.errors?.length) {
-              allErrors.push(...excelRow.errors);
-            }
-            parsedRows.push(excelRow);
+          const buffer = e.target?.result as ArrayBuffer;
+          const rows = parseMatchWorkbook(buffer, {
+            eventId: ev.id,
+            eventName: ev.title,
+            date: matchDate,
           });
 
-          if (parsedRows.length === 0) {
-            onImportError('No data rows found on the Prone Scores sheet');
+          if (rows.length === 0) {
+            onImportError('No score rows found. Fill a score sheet (Prone 50m, F-Class, etc.).');
             return;
           }
 
-          setParsedData(parsedRows);
+          const allErrors = rows.flatMap((r) => r.errors ?? []);
+          setParsedData(rows);
           setValidationErrors(allErrors);
           setUploadedFile(file);
         } catch {
-          onImportError("Failed to parse file. Use the SATRF prone template (.xlsx).");
+          onImportError('Failed to parse workbook. Use SATRF_Match_Template.xlsx from the template link.');
         }
       };
       reader.readAsArrayBuffer(file);
     },
-    [onImportError]
+    [selectedEventId, events, matchDate, onImportError]
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) {
-        const file = files[0];
-        if (
-          file.type.includes('spreadsheet') ||
-          file.name.endsWith('.csv') ||
-          file.name.endsWith('.xlsx') ||
-          file.name.endsWith('.xls')
-        ) {
-          parseFile(file);
-        } else {
-          onImportError('Please upload an Excel (.xlsx, .xls) or CSV file');
-        }
-      }
+      const file = e.dataTransfer.files[0];
+      if (file) parseFile(file);
     },
-    [parseFile, onImportError]
+    [parseFile]
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) parseFile(file);
-  };
-
   const handleImport = async () => {
-    const validRows = parsedData.filter((row) => !row.errors?.length);
+    const validRows = parsedData.filter((r) => r.input && !r.errors?.length);
     if (validRows.length === 0) {
       onImportError('No valid rows to import');
       return;
@@ -155,8 +159,8 @@ export default function FileUploadComponent({
 
     setIsLoading(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      if (!token) throw new Error('Authentication required. Please log in again.');
+      const token = await auth.currentUser?.getIdToken() ?? localStorage.getItem('access_token');
+      if (!token) throw new Error('Please log in again');
 
       const response = await fetch('/api/admin/scores/import', {
         method: 'POST',
@@ -165,25 +169,29 @@ export default function FileUploadComponent({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          scores: validRows.map((row) => excelRowToScoreInput(row)),
+          scores: validRows.map((r) => r.input as ScoreInput),
         }),
       });
 
+      const errorData = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to import scores' }));
-        throw new Error(errorData.error || errorData.details || 'Failed to import scores');
+        const detail =
+          typeof errorData.details === 'object'
+            ? JSON.stringify(errorData.details).slice(0, 500)
+            : errorData.details;
+        throw new Error([errorData.error, detail].filter(Boolean).join(' — ') || 'Import failed');
       }
 
       const result = await response.json();
-      const errorRows = parsedData.filter((row) => row.errors?.length);
+      const errorRows = parsedData.filter((r) => r.errors?.length);
 
       onImportSuccess({
         success: errorRows.length === 0,
-        message: `Imported ${validRows.length} score(s)`,
+        message: `Imported ${validRows.length} score(s) from ${uploadedFile?.name ?? 'workbook'}`,
         details: {
           imported: validRows.length,
           errors: errorRows.length,
-          errorDetails: errorRows.flatMap((row) => row.errors ?? []),
+          errorDetails: errorRows.flatMap((r) => r.errors ?? []),
         },
         ...result,
       });
@@ -198,18 +206,44 @@ export default function FileUploadComponent({
     }
   };
 
-  const clearFile = () => {
-    setUploadedFile(null);
-    setParsedData([]);
-    setValidationErrors([]);
-  };
+  const validCount = parsedData.filter((r) => r.input && !r.errors?.length).length;
 
-  const validCount = parsedData.filter((row) => !row.errors?.length).length;
-  const seriesTotal = (row: ExcelScoreRow) =>
-    row.series.reduce((sum, s) => sum + s.decimal, 0).toFixed(1);
+  if (loadingEvents) {
+    return (
+      <Box py={6} textAlign="center">
+        <Spinner />
+      </Box>
+    );
+  }
 
   return (
     <VStack spacing={6} align="stretch">
+      <Alert status="info" borderRadius="md">
+        <AlertIcon />
+        <Text fontSize="sm">
+          Select the match event first, then upload{' '}
+          <strong>SATRF_Match_Template.xlsx</strong>. All sheets in the file are imported (Prone, F-Class,
+          3P, Finals).
+        </Text>
+      </Alert>
+
+      <Box display="grid" gridTemplateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4}>
+        <FormControl isRequired>
+          <FormLabel>Event (links all rows)</FormLabel>
+          <Select placeholder="Select event" value={selectedEventId} onChange={(e) => onEventSelect(e.target.value)}>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.title}
+              </option>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl isRequired>
+          <FormLabel>Default match date</FormLabel>
+          <Input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)} />
+        </FormControl>
+      </Box>
+
       <Box
         data-testid="file-drop-zone"
         border="2px dashed"
@@ -218,26 +252,24 @@ export default function FileUploadComponent({
         p={8}
         textAlign="center"
         bg={isDragOver ? 'blue.50' : bgColor}
-        transition="all 0.2s"
-        cursor="pointer"
-        onClick={() => document.getElementById('file-input')?.click()}
+        cursor={selectedEventId ? 'pointer' : 'not-allowed'}
+        opacity={selectedEventId ? 1 : 0.6}
+        onClick={() => selectedEventId && document.getElementById('file-input')?.click()}
         onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
       >
         <VStack spacing={4}>
-          <FiUpload size={48} color={isDragOver ? '#3182ce' : '#718096'} />
-          <Text fontSize="lg" fontWeight="medium">
-            {uploadedFile ? uploadedFile.name : 'Drag & drop prone score Excel here'}
-          </Text>
-          <Text color="gray.500">
-            Use the template from Admin → Scores → Import (Prone Scores sheet)
-          </Text>
+          <FiUpload size={48} />
+          <Text fontWeight="medium">{uploadedFile ? uploadedFile.name : 'Drop match workbook here'}</Text>
           <input
             id="file-input"
             type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={handleFileSelect}
+            accept=".xlsx,.xls"
+            onChange={(e) => e.target.files?.[0] && parseFile(e.target.files[0])}
             style={{ display: 'none' }}
           />
         </VStack>
@@ -249,10 +281,12 @@ export default function FileUploadComponent({
             {parsedData.length} rows · {validCount} valid
           </Text>
           <HStack>
-            <Tooltip label="Preview Data">
-              <IconButton aria-label="Preview data" icon={<FiEye />} size="sm" onClick={onOpen} />
-            </Tooltip>
-            <Button leftIcon={<FiX />} variant="outline" size="sm" onClick={clearFile}>
+            <IconButton aria-label="Preview" icon={<FiEye />} size="sm" onClick={onOpen} />
+            <Button size="sm" variant="outline" leftIcon={<FiX />} onClick={() => {
+              setUploadedFile(null);
+              setParsedData([]);
+              setValidationErrors([]);
+            }}>
               Clear
             </Button>
           </HStack>
@@ -262,38 +296,27 @@ export default function FileUploadComponent({
       {validationErrors.length > 0 && (
         <Alert status="warning" borderRadius="md">
           <AlertIcon />
-          <Box>
-            <Text fontWeight="semibold">Found {validationErrors.length} validation issue(s):</Text>
-            <Box maxH="200px" overflowY="auto" mt={2}>
-              {validationErrors.slice(0, 10).map((error, index) => (
-                <Text key={index} fontSize="sm" color="orange.600">
-                  • {error}
-                </Text>
-              ))}
-              {validationErrors.length > 10 && (
-                <Text fontSize="sm" color="orange.600">
-                  ... and {validationErrors.length - 10} more
-                </Text>
-              )}
-            </Box>
+          <Box maxH="160px" overflowY="auto">
+            {validationErrors.slice(0, 8).map((err, i) => (
+              <Text key={i} fontSize="sm">
+                • {err}
+              </Text>
+            ))}
           </Box>
         </Alert>
       )}
 
       {parsedData.length > 0 && (
-        <Box>
-          <Button
-            colorScheme="blue"
-            size="lg"
-            onClick={handleImport}
-            isLoading={isLoading}
-            loadingText="Importing..."
-            isDisabled={validCount === 0}
-            w="full"
-          >
-            Import {validCount} score{validCount === 1 ? '' : 's'}
-          </Button>
-        </Box>
+        <Button
+          colorScheme="blue"
+          size="lg"
+          w="full"
+          isLoading={isLoading}
+          isDisabled={validCount === 0}
+          onClick={handleImport}
+        >
+          Import {validCount} score{validCount === 1 ? '' : 's'}
+        </Button>
       )}
 
       <Modal isOpen={isOpen} onClose={onClose} size="6xl">
@@ -302,47 +325,36 @@ export default function FileUploadComponent({
           <ModalHeader>Import preview</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
-            <Box overflowX="auto">
-              <Table variant="simple" size="sm">
-                <Thead>
-                  <Tr>
-                    <Th>#</Th>
-                    <Th>Date</Th>
-                    <Th>Event</Th>
-                    <Th>Shooter</Th>
-                    <Th>Club</Th>
-                    <Th>Cat.</Th>
-                    <Th>S1–S6</Th>
-                    <Th>Total</Th>
-                    <Th>Status</Th>
+            <Table size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Sheet</Th>
+                  <Th>Shooter</Th>
+                  <Th>Discipline</Th>
+                  <Th>Stage</Th>
+                  <Th>Scores</Th>
+                  <Th>Status</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {parsedData.map((row, i) => (
+                  <Tr key={i} bg={row.errors?.length ? 'red.50' : undefined}>
+                    <Td>{row.sheet}</Td>
+                    <Td>{row.preview.shooterName}</Td>
+                    <Td>{row.preview.discipline}</Td>
+                    <Td>{row.preview.stage}</Td>
+                    <Td>{row.preview.summary}</Td>
+                    <Td>
+                      {row.errors?.length ? (
+                        <Badge colorScheme="red">Errors</Badge>
+                      ) : (
+                        <Badge colorScheme="green">OK</Badge>
+                      )}
+                    </Td>
                   </Tr>
-                </Thead>
-                <Tbody>
-                  {parsedData.map((row, index) => (
-                    <Tr key={index} bg={row.errors?.length ? 'red.50' : 'white'}>
-                      <Td>{index + 1}</Td>
-                      <Td>{row.date}</Td>
-                      <Td>{row.eventName}</Td>
-                      <Td>{row.shooterName}</Td>
-                      <Td>{row.club}</Td>
-                      <Td>{row.category}</Td>
-                      <Td>{row.series.map((s) => s.decimal).join(' / ')}</Td>
-                      <Td>{seriesTotal(row)}</Td>
-                      <Td>
-                        {row.errors?.length ? (
-                          <Badge colorScheme="red">
-                            <FiAlertCircle style={{ marginRight: '4px' }} />
-                            Errors
-                          </Badge>
-                        ) : (
-                          <Badge colorScheme="green">Valid</Badge>
-                        )}
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Box>
+                ))}
+              </Tbody>
+            </Table>
           </ModalBody>
         </ModalContent>
       </Modal>

@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { buildScore, validateScoreInput } from '@/lib/issf';
-import type { ScoreInput } from '@/types/scores';
+import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
+import type { Score, ScoreInput } from '@/types/scores';
 
 function sanitizeForFirestore<T>(value: T): T {
   if (value === undefined) return value;
@@ -29,7 +29,7 @@ async function findMemberUid(
   try {
     const parts = shooterName.trim().split(/\s+/);
     let uid: string | null = null;
-    if (parts.length >= 2) {
+    if (parts.length >= 2 && club.trim()) {
       const firstName = parts[0];
       const lastName = parts.slice(1).join(' ');
       const snap = await db
@@ -50,11 +50,115 @@ async function findMemberUid(
   }
 }
 
-/**
- * POST /api/admin/scores/import
- * Body: { scores: ScoreInput[] }
- * Same validation + Firestore write as POST /api/admin/scores.
- */
+async function findMemberByName(
+  db: FirebaseFirestore.Firestore,
+  shooterName: string,
+  cache: Map<string, { uid: string | null; club: string; category: string } | null>
+): Promise<{ uid: string | null; club: string; category: string } | null> {
+  const key = shooterName.toLowerCase();
+  if (cache.has(key)) return cache.get(key)!;
+
+  try {
+    const parts = shooterName.trim().split(/\s+/);
+    if (parts.length < 2) {
+      cache.set(key, null);
+      return null;
+    }
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ');
+    const snap = await db
+      .collection('users')
+      .where('firstName', '==', firstName)
+      .where('lastName', '==', lastName)
+      .limit(3)
+      .get();
+    if (snap.empty) {
+      cache.set(key, null);
+      return null;
+    }
+    const doc = snap.docs[0];
+    const d = doc.data();
+    const result = {
+      uid: doc.id,
+      club: (d.club as string) || '',
+      category: (d.category as string) || 'open',
+    };
+    cache.set(key, result);
+    return result;
+  } catch {
+    cache.set(key, null);
+    return null;
+  }
+}
+
+async function enrichInput(
+  db: FirebaseFirestore.Firestore,
+  input: ScoreInput,
+  cache: Map<string, string | null>,
+  nameCache: Map<string, { uid: string | null; club: string; category: string } | null>
+): Promise<ScoreInput> {
+  const stage = input.stage ?? 'qualification';
+  let userId = input.userId?.trim() ? input.userId : null;
+  let club = input.club?.trim() ?? '';
+  let category = input.category;
+
+  if (!userId && club) {
+    userId = await findMemberUid(db, input.shooterName, club, cache);
+  }
+
+  if (stage === 'prone_final' || stage === '3p_final') {
+    const member = await findMemberByName(db, input.shooterName, nameCache);
+    if (member) {
+      userId = member.uid;
+      if (!club) club = member.club;
+      if (!category || category === 'open') category = member.category as ScoreInput['category'];
+    }
+  }
+
+  return { ...input, userId, club, category };
+}
+
+async function assignFinalRanks(
+  db: FirebaseFirestore.Firestore,
+  created: { id: string; score: Omit<Score, 'id'> }[]
+) {
+  const byGroup = new Map<string, { id: string; score: Omit<Score, 'id'> }[]>();
+  for (const item of created) {
+    if (item.score.stage !== 'prone_final' && item.score.stage !== '3p_final') continue;
+    const key = `${item.score.eventId}|${item.score.discipline}|${item.score.stage}`;
+    const list = byGroup.get(key) ?? [];
+    list.push(item);
+    byGroup.set(key, list);
+  }
+
+  for (const group of Array.from(byGroup.values())) {
+    const stage = group[0].score.stage;
+    let rankMap: Map<string, number>;
+    if (stage === '3p_final') {
+      rankMap = rank3pFinalists(
+        group.map((g) => ({
+          id: g.id,
+          eliminatedAtShot: g.score.eliminatedAtShot,
+          decimalTotal: g.score.decimalTotal,
+        }))
+      );
+    } else {
+      rankMap = rankProneFinalists(
+        group.map((g) => ({ id: g.id, decimalTotal: g.score.decimalTotal }))
+      );
+    }
+
+    const batch = db.batch();
+    for (const g of group) {
+      const rank = rankMap.get(g.id);
+      if (rank != null) {
+        batch.update(db.collection('scores').doc(g.id), { finalRank: rank, updatedAt: new Date().toISOString() });
+      }
+    }
+    await batch.commit();
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -79,11 +183,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Maximum 1000 scores per import' });
     }
 
+    const db = getAdminDb();
+    const cache = new Map<string, string | null>();
+    const nameCache = new Map<string, { uid: string | null; club: string; category: string } | null>();
+
+    const enriched: ScoreInput[] = [];
+    for (const raw of scores) {
+      enriched.push(await enrichInput(db, { ...raw, source: raw.source ?? 'excel' }, cache, nameCache));
+    }
+
     const errors: { index: number; issues: unknown[] }[] = [];
-    scores.forEach((input, i) => {
-      const withSource = { ...input, source: input.source ?? 'excel' };
-      const strict = (withSource.status ?? 'official') === 'official';
-      const result = validateScoreInput(withSource, { strict });
+    enriched.forEach((input, i) => {
+      const strict = (input.status ?? 'official') === 'official';
+      const result = validateScoreInput(input, { strict });
       if (!result.valid) errors.push({ index: i, issues: result.errors });
     });
 
@@ -95,32 +207,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const db = getAdminDb();
-    const cache = new Map<string, string | null>();
     const batch = db.batch();
-    const created: string[] = [];
+    const created: { id: string; score: Omit<Score, 'id'> }[] = [];
 
-    for (const input of scores) {
-      let userId = input.userId?.trim() ? input.userId : null;
-      if (!userId && input.shooterName?.trim()) {
-        userId = await findMemberUid(db, input.shooterName, input.club, cache);
-      }
-      const score = buildScore(
-        { ...input, userId, source: input.source ?? 'excel' },
-        { createdBy: adminUid || 'admin' }
-      );
+    for (const input of enriched) {
+      const score = buildScore(input, { createdBy: adminUid || 'admin' });
       const ref = db.collection('scores').doc();
       batch.set(ref, sanitizeForFirestore(score));
-      created.push(ref.id);
+      created.push({ id: ref.id, score });
     }
 
     await batch.commit();
+    await assignFinalRanks(db, created);
 
     return res.status(200).json({
       success: true,
       message: `Successfully imported ${created.length} score(s)`,
       imported: created.length,
-      ids: created,
+      ids: created.map((c) => c.id),
       summary: { total: scores.length, valid: created.length, invalid: 0 },
     });
   } catch (error) {

@@ -1,10 +1,40 @@
-import type { Category, Discipline, ScoreInput } from '@/types/scores';
-import { DISCIPLINES, CATEGORIES } from '@/lib/issf';
+import type { Category, Discipline, ScoreInput, ScoreStage } from '@/types/scores';
+import { CATEGORIES, DISCIPLINES } from '@/lib/issf';
+import * as XLSX from 'xlsx';
 
 const CATEGORY_IDS = new Set(CATEGORIES.map((c) => c.id));
 const DISCIPLINE_IDS = new Set(Object.keys(DISCIPLINES) as Discipline[]);
 
-/** Normalize Excel header to a lookup key. */
+const SCORE_SHEETS = [
+  'Prone 50m',
+  'F-Class',
+  '3-Position 50m',
+  'Prone Final',
+  '3P Final',
+] as const;
+
+export type ScoreSheetName = (typeof SCORE_SHEETS)[number];
+
+export interface ExcelImportContext {
+  eventId: string;
+  eventName: string;
+  date: string;
+}
+
+export interface ParsedImportRow {
+  sheet: string;
+  rowIndex: number;
+  input?: ScoreInput;
+  preview: {
+    shooterName: string;
+    club: string;
+    discipline: string;
+    stage: string;
+    summary: string;
+  };
+  errors?: string[];
+}
+
 export function normalizeHeader(header: string): string {
   return header
     .trim()
@@ -13,8 +43,7 @@ export function normalizeHeader(header: string): string {
     .replace(/[()]/g, '');
 }
 
-/** Map normalized headers to internal field keys. */
-export const EXCEL_HEADER_MAP: Record<string, string> = {
+const QUAL_HEADER_MAP: Record<string, string> = {
   date: 'date',
   'date yyyy-mm-dd': 'date',
   'event name': 'eventName',
@@ -22,54 +51,71 @@ export const EXCEL_HEADER_MAP: Record<string, string> = {
   discipline: 'discipline',
   'shooter name': 'shooterName',
   shootername: 'shooterName',
+  shooter: 'shooterName',
   club: 'club',
   category: 'category',
+  's1 dec': 'series1',
+  's2 dec': 'series2',
+  's3 dec': 'series3',
+  's4 dec': 'series4',
+  's5 dec': 'series5',
+  's6 dec': 'series6',
+  's1 int': 'series1Int',
+  's2 int': 'series2Int',
+  's3 int': 'series3Int',
+  's4 int': 'series4Int',
+  's5 int': 'series5Int',
+  's6 int': 'series6Int',
   'series 1': 'series1',
-  series1: 'series1',
-  's1 decimal': 'series1',
   'series 2': 'series2',
-  series2: 'series2',
-  's2 decimal': 'series2',
   'series 3': 'series3',
-  series3: 'series3',
-  's3 decimal': 'series3',
   'series 4': 'series4',
-  series4: 'series4',
-  's4 decimal': 'series4',
   'series 5': 'series5',
-  series5: 'series5',
-  's5 decimal': 'series5',
   'series 6': 'series6',
-  series6: 'series6',
-  's6 decimal': 'series6',
-  's1 integer': 'series1Int',
-  's2 integer': 'series2Int',
-  's3 integer': 'series3Int',
-  's4 integer': 'series4Int',
-  's5 integer': 'series5Int',
-  's6 integer': 'series6Int',
-  notes: 'notes',
+  'kneeling dec': 'kneelingDec',
+  'prone dec': 'proneDec',
+  'standing dec': 'standingDec',
+  'kneeling int': 'kneelingInt',
+  'prone int': 'proneInt',
+  'standing int': 'standingInt',
   status: 'status',
 };
 
-export interface ExcelScoreRow {
-  date: string;
-  eventName: string;
-  discipline: Discipline;
-  shooterName: string;
-  club: string;
-  category: Category;
-  series: { decimal: number; integer?: number }[];
-  notes?: string;
-  status?: 'official' | 'provisional';
-  errors?: string[];
+const PRONE_FINAL_MAP: Record<string, string> = {
+  'event name': 'eventName',
+  shooter: 'shooterName',
+  s1: 'series1',
+  s2: 'series2',
+  s3: 'series3',
+  s4: 'series4',
+  s5: 'series5',
+  s6: 'series6',
+  status: 'status',
+};
+
+function buildFinalShotMap(headers: string[]): Record<string, string> {
+  const map: Record<string, string> = {
+    'event name': 'eventName',
+    shooter: 'shooterName',
+    'elim@shot': 'eliminatedAtShot',
+    status: 'status',
+  };
+  headers.forEach((h) => {
+    const n = normalizeHeader(h);
+    if (/^k\d+$/.test(n.replace(/\s/g, ''))) map[n] = n.replace(/\s/g, '');
+    if (/^p\d+$/.test(n.replace(/\s/g, ''))) map[n] = n.replace(/\s/g, '');
+    if (/^s\d+$/.test(n.replace(/\s/g, '')) && !n.includes('status')) map[n] = n.replace(/\s/g, '');
+    if (/^x3[1-5]$/.test(n.replace(/\s/g, ''))) map[n] = n.replace(/\s/g, '');
+  });
+  return map;
 }
 
 function parseDateCell(value: unknown): string | null {
   if (value == null || value === '') return null;
   if (typeof value === 'number') {
-    const parsed = XLSXDateToISO(value);
-    return parsed;
+    const utc = new Date(Math.round((value - 25569) * 86400 * 1000));
+    if (Number.isNaN(utc.getTime())) return null;
+    return utc.toISOString().slice(0, 10);
   }
   const s = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -79,18 +125,8 @@ function parseDateCell(value: unknown): string | null {
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   const parsed = new Date(s);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString().slice(0, 10);
-  }
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
   return null;
-}
-
-/** Excel serial date → YYYY-MM-DD (UTC). */
-function XLSXDateToISO(serial: number): string | null {
-  if (!Number.isFinite(serial)) return null;
-  const utc = new Date(Math.round((serial - 25569) * 86400 * 1000));
-  if (Number.isNaN(utc.getTime())) return null;
-  return utc.toISOString().slice(0, 10);
 }
 
 function parseDecimal(value: unknown): number | null {
@@ -107,79 +143,334 @@ function parseInteger(value: unknown): number | undefined {
   return n;
 }
 
-export function mapRawRowToExcelRow(rowData: Record<string, unknown>, rowIndex: number): ExcelScoreRow {
-  const errors: string[] = [];
-  const push = (msg: string) => errors.push(`Row ${rowIndex + 1}: ${msg}`);
-
-  const date = parseDateCell(rowData.date);
-  if (!date) push('Invalid or missing date (use YYYY-MM-DD)');
-
-  const eventName = String(rowData.eventName ?? '').trim();
-  if (!eventName) push('Event name is required');
-
-  const disciplineRaw = String(rowData.discipline ?? 'prone_50m')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_');
-  const discipline = (disciplineRaw === 'prone' ? 'prone_50m' : disciplineRaw) as Discipline;
-  if (!DISCIPLINE_IDS.has(discipline)) {
-    push(`Discipline must be prone_50m or three_position_50m (got "${rowData.discipline}")`);
-  }
-
-  const shooterName = String(rowData.shooterName ?? '').trim();
-  if (!shooterName) push('Shooter name is required');
-
-  const club = String(rowData.club ?? '').trim();
-  if (!club) push('Club is required');
-
-  const categoryRaw = String(rowData.category ?? 'open')
-    .trim()
-    .toLowerCase();
-  const category = categoryRaw as Category;
-  if (!CATEGORY_IDS.has(category)) {
-    push(`Category must be: ${CATEGORIES.map((c) => c.id).join(', ')}`);
-  }
-
-  const seriesKeys = ['series1', 'series2', 'series3', 'series4', 'series5', 'series6'] as const;
-  const intKeys = ['series1Int', 'series2Int', 'series3Int', 'series4Int', 'series5Int', 'series6Int'] as const;
-  const series: { decimal: number; integer?: number }[] = [];
-
-  seriesKeys.forEach((key, i) => {
-    const dec = parseDecimal(rowData[key]);
-    if (dec == null) {
-      push(`Series ${i + 1} decimal is required`);
-      series.push({ decimal: 0 });
-    } else if (dec < 0 || dec > 109) {
-      push(`Series ${i + 1} must be between 0 and 109.0`);
-      series.push({ decimal: dec });
-    } else {
-      const integer = parseInteger(rowData[intKeys[i]]);
-      series.push(integer != null ? { decimal: dec, integer } : { decimal: dec });
-    }
+function rowToRecord(headers: string[], row: unknown[], headerMap: Record<string, string>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  headers.forEach((header, i) => {
+    const key = headerMap[normalizeHeader(header)];
+    if (key) out[key] = row[i];
   });
-
-  const statusRaw = String(rowData.status ?? 'official').trim().toLowerCase();
-  const status = statusRaw === 'provisional' ? 'provisional' : 'official';
-
-  const result: ExcelScoreRow = {
-    date: date ?? '',
-    eventName,
-    discipline: DISCIPLINE_IDS.has(discipline) ? discipline : 'prone_50m',
-    shooterName,
-    club,
-    category: CATEGORY_IDS.has(category) ? category : 'open',
-    series,
-    notes: rowData.notes ? String(rowData.notes) : undefined,
-    status,
-  };
-  if (errors.length > 0) result.errors = errors;
-  return result;
+  return out;
 }
 
-export function excelRowToScoreInput(row: ExcelScoreRow): ScoreInput {
+function isEmptyRow(row: unknown[]): boolean {
+  return !row || row.every((c) => c == null || String(c).trim() === '');
+}
+
+function parseStatus(raw: unknown): 'official' | 'provisional' {
+  const s = String(raw ?? 'official').trim().toLowerCase();
+  return s === 'provisional' ? 'provisional' : 'official';
+}
+
+function parseCategory(raw: unknown): Category {
+  const c = String(raw ?? 'open').trim().toLowerCase() as Category;
+  return CATEGORY_IDS.has(c) ? c : 'open';
+}
+
+function sixSeriesInput(
+  data: Record<string, unknown>,
+  discipline: Discipline,
+  position: 'prone' | 'fclass',
+  stage: ScoreStage,
+  ctx: ExcelImportContext
+): ScoreInput {
+  const series = [1, 2, 3, 4, 5, 6].map((n) => {
+    const dec = parseDecimal(data[`series${n}`]) ?? 0;
+    const int = parseInteger(data[`series${n}Int`]) ?? 0;
+    return { seriesNumber: n, decimal: dec, integer: int };
+  });
+  return {
+    shooterName: String(data.shooterName ?? '').trim(),
+    club: String(data.club ?? '').trim(),
+    category: parseCategory(data.category),
+    eventId: ctx.eventId,
+    eventName: ctx.eventName || String(data.eventName ?? '').trim(),
+    date: parseDateCell(data.date) ?? ctx.date,
+    discipline,
+    stage,
+    status: parseStatus(data.status),
+    source: 'excel',
+    positions: [{ position, series }],
+  };
+}
+
+function parseQualSheet(
+  sheetName: string,
+  rows: unknown[][],
+  headerRowIndex: number,
+  ctx: ExcelImportContext
+): ParsedImportRow[] {
+  const headers = (rows[headerRowIndex] as string[]).map((h) => String(h ?? ''));
+  const headerMap = QUAL_HEADER_MAP;
+  const out: ParsedImportRow[] = [];
+
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    const row = rows[i] as unknown[];
+    if (isEmptyRow(row)) continue;
+
+    const data = rowToRecord(headers, row, headerMap);
+    const errors: string[] = [];
+    const shooterName = String(data.shooterName ?? '').trim();
+    if (!shooterName) continue;
+
+    let input: ScoreInput | undefined;
+
+    if (sheetName === 'Prone 50m') {
+      const discipline = 'prone_50m' as Discipline;
+      if (String(data.discipline ?? '').trim() && String(data.discipline) !== 'prone_50m') {
+        errors.push('Discipline must be prone_50m on Prone 50m sheet');
+      }
+      if (!parseDateCell(data.date) && !ctx.date) errors.push('Date required');
+      if (!String(data.club ?? '').trim()) errors.push('Club required');
+      if (!errors.length) input = sixSeriesInput(data, discipline, 'prone', 'qualification', ctx);
+    } else if (sheetName === 'F-Class') {
+      const discRaw = String(data.discipline ?? '').trim().toLowerCase() as Discipline;
+      if (!DISCIPLINE_IDS.has(discRaw) || (discRaw !== 'fclass_open' && discRaw !== 'fclass_tr')) {
+        errors.push('Discipline must be fclass_open or fclass_tr');
+      } else {
+        if (!parseDateCell(data.date) && !ctx.date) errors.push('Date required');
+        if (!String(data.club ?? '').trim()) errors.push('Club required');
+        if (!errors.length) input = sixSeriesInput(data, discRaw, 'fclass', 'qualification', ctx);
+      }
+    } else if (sheetName === '3-Position 50m') {
+      const kneelingDec = parseDecimal(data.kneelingDec);
+      const proneDec = parseDecimal(data.proneDec);
+      const standingDec = parseDecimal(data.standingDec);
+      if (kneelingDec == null || proneDec == null || standingDec == null) {
+        errors.push('Kneeling, Prone, and Standing decimal totals required');
+      } else {
+        input = {
+          shooterName,
+          club: String(data.club ?? '').trim(),
+          category: parseCategory(data.category),
+          eventId: ctx.eventId,
+          eventName: ctx.eventName || String(data.eventName ?? '').trim(),
+          date: parseDateCell(data.date) ?? ctx.date,
+          discipline: 'three_position_50m',
+          stage: 'qualification',
+          status: parseStatus(data.status),
+          source: 'excel',
+          positions: [
+            {
+              position: 'kneeling',
+              aggregate: true,
+              series: [
+                {
+                  seriesNumber: 1,
+                  decimal: kneelingDec,
+                  integer: parseInteger(data.kneelingInt) ?? 0,
+                },
+              ],
+            },
+            {
+              position: 'prone',
+              aggregate: true,
+              series: [
+                {
+                  seriesNumber: 1,
+                  decimal: proneDec,
+                  integer: parseInteger(data.proneInt) ?? 0,
+                },
+              ],
+            },
+            {
+              position: 'standing',
+              aggregate: true,
+              series: [
+                {
+                  seriesNumber: 1,
+                  decimal: standingDec,
+                  integer: parseInteger(data.standingInt) ?? 0,
+                },
+              ],
+            },
+          ],
+        };
+        if (!String(data.club ?? '').trim()) errors.push('Club required');
+      }
+    }
+
+    const summary =
+      sheetName === '3-Position 50m'
+        ? `${parseDecimal(data.kneelingDec) ?? '—'} / ${parseDecimal(data.proneDec) ?? '—'} / ${parseDecimal(data.standingDec) ?? '—'}`
+        : [1, 2, 3, 4, 5, 6]
+            .map((n) => parseDecimal(data[`series${n}`]) ?? '—')
+            .join(' / ');
+
+    out.push({
+      sheet: sheetName,
+      rowIndex: i + 1,
+      input,
+      preview: {
+        shooterName,
+        club: String(data.club ?? '').trim(),
+        discipline: input?.discipline ?? String(data.discipline ?? sheetName),
+        stage: input?.stage ?? 'qualification',
+        summary,
+      },
+      errors: errors.length ? errors.map((e) => `Row ${i + 1}: ${e}`) : undefined,
+    });
+  }
+  return out;
+}
+
+function parseProneFinalSheet(rows: unknown[][], ctx: ExcelImportContext): ParsedImportRow[] {
+  const headerRowIndex = 2;
+  const headers = (rows[headerRowIndex] as string[]).map((h) => String(h ?? ''));
+  const out: ParsedImportRow[] = [];
+
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    const row = rows[i] as unknown[];
+    if (isEmptyRow(row)) continue;
+    const data = rowToRecord(headers, row, PRONE_FINAL_MAP);
+    const shooterName = String(data.shooterName ?? '').trim();
+    if (!shooterName) continue;
+
+    const errors: string[] = [];
+    const series = [1, 2, 3, 4, 5, 6].map((n) => ({
+      seriesNumber: n,
+      decimal: parseDecimal(data[`series${n}`]) ?? 0,
+      integer: 0,
+    }));
+    if (series.every((s) => s.decimal <= 0)) errors.push('At least one series score required');
+
+    const input: ScoreInput = {
+      shooterName,
+      club: '',
+      category: 'open',
+      eventId: ctx.eventId,
+      eventName: ctx.eventName || String(data.eventName ?? '').trim(),
+      date: ctx.date,
+      discipline: 'prone_50m',
+      stage: 'prone_final',
+      status: parseStatus(data.status),
+      source: 'excel',
+      positions: [{ position: 'prone', series }],
+    };
+
+    out.push({
+      sheet: 'Prone Final',
+      rowIndex: i + 1,
+      input: errors.length ? undefined : input,
+      preview: {
+        shooterName,
+        club: '—',
+        discipline: 'prone_50m',
+        stage: 'prone_final',
+        summary: series.map((s) => s.decimal).join(' / '),
+      },
+      errors: errors.length ? errors.map((e) => `Row ${i + 1}: ${e}`) : undefined,
+    });
+  }
+  return out;
+}
+
+function parse3pFinalSheet(rows: unknown[][], ctx: ExcelImportContext): ParsedImportRow[] {
+  const headerRowIndex = 2;
+  const headers = (rows[headerRowIndex] as string[]).map((h) => String(h ?? ''));
+  const shotMap = buildFinalShotMap(headers);
+  const out: ParsedImportRow[] = [];
+
+  const shotOrder = [
+    ...Array.from({ length: 10 }, (_, i) => `k${i + 1}`),
+    ...Array.from({ length: 10 }, (_, i) => `p${i + 1}`),
+    ...Array.from({ length: 10 }, (_, i) => `s${i + 1}`),
+    'x31',
+    'x32',
+    'x33',
+    'x34',
+    'x35',
+  ];
+
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    const row = rows[i] as unknown[];
+    if (isEmptyRow(row)) continue;
+    const data = rowToRecord(headers, row, shotMap);
+    const shooterName = String(data.shooterName ?? '').trim();
+    if (!shooterName) continue;
+
+    const errors: string[] = [];
+    const finalShots: number[] = [];
+    shotOrder.forEach((key) => {
+      const v = parseDecimal(data[key]);
+      if (v != null) finalShots.push(v);
+    });
+
+    if (finalShots.length < 30) errors.push('Need at least 30 shots for official 3P final');
+
+    let eliminatedAtShot: number | null = null;
+    const elimRaw = data.eliminatedAtShot;
+    if (elimRaw != null && String(elimRaw).trim() !== '') {
+      const e = parseInt(String(elimRaw), 10);
+      if (Number.isFinite(e)) eliminatedAtShot = e;
+    }
+
+    const input: ScoreInput = {
+      shooterName,
+      club: '',
+      category: 'open',
+      eventId: ctx.eventId,
+      eventName: ctx.eventName || String(data.eventName ?? '').trim(),
+      date: ctx.date,
+      discipline: 'three_position_50m',
+      stage: '3p_final',
+      status: parseStatus(data.status),
+      source: 'excel',
+      positions: [],
+      finalShots,
+      eliminatedAtShot,
+    };
+
+    out.push({
+      sheet: '3P Final',
+      rowIndex: i + 1,
+      input: errors.length ? undefined : input,
+      preview: {
+        shooterName,
+        club: '—',
+        discipline: 'three_position_50m',
+        stage: '3p_final',
+        summary: `${finalShots.length} shots, total ${finalShots.reduce((a, b) => a + b, 0).toFixed(1)}`,
+      },
+      errors: errors.length ? errors.map((e) => `Row ${i + 1}: ${e}`) : undefined,
+    });
+  }
+  return out;
+}
+
+export function parseMatchWorkbook(buffer: ArrayBuffer, ctx: ExcelImportContext): ParsedImportRow[] {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  const all: ParsedImportRow[] = [];
+
+  for (const sheetName of SCORE_SHEETS) {
+    if (!workbook.SheetNames.includes(sheetName)) continue;
+    const ws = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
+
+    if (sheetName === 'Prone Final') {
+      all.push(...parseProneFinalSheet(rows, ctx));
+    } else if (sheetName === '3P Final') {
+      all.push(...parse3pFinalSheet(rows, ctx));
+    } else {
+      all.push(...parseQualSheet(sheetName, rows, 0, ctx));
+    }
+  }
+
+  return all;
+}
+
+/** @deprecated Use parseMatchWorkbook — kept for tests */
+export function excelRowToScoreInput(row: {
+  shooterName: string;
+  club: string;
+  category: Category;
+  eventName: string;
+  date: string;
+  discipline: Discipline;
+  series: { decimal: number; integer?: number }[];
+  status?: 'official' | 'provisional';
+}): ScoreInput {
   const spec = DISCIPLINES[row.discipline];
   const position = spec.positions[0];
-
   return {
     shooterName: row.shooterName,
     club: row.club,
@@ -190,6 +481,7 @@ export function excelRowToScoreInput(row: ExcelScoreRow): ScoreInput {
     scoringType: 'decimal',
     status: row.status ?? 'official',
     source: 'excel',
+    stage: 'qualification',
     positions: [
       {
         position,
@@ -201,14 +493,4 @@ export function excelRowToScoreInput(row: ExcelScoreRow): ScoreInput {
       },
     ],
   };
-}
-
-/** Build row object from header row + data row arrays. */
-export function rowArraysToRecord(headers: string[], row: unknown[]): Record<string, unknown> {
-  const rowData: Record<string, unknown> = {};
-  headers.forEach((header, colIndex) => {
-    const key = EXCEL_HEADER_MAP[normalizeHeader(header)];
-    if (key) rowData[key] = row[colIndex];
-  });
-  return rowData;
 }
