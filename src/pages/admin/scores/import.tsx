@@ -61,12 +61,13 @@ export default function AdminScoreImport() {
     return null;
   }
 
-  const handleImportSuccess = (result: ImportResult) => {
-    setImportResult(result);
+  const handleImportSuccess = (result: unknown) => {
+    const r = result as ImportResult;
+    setImportResult(r);
     toast({
-      title: result.success ? 'Import Successful' : 'Import Completed with Errors',
-      description: result.message,
-      status: result.success ? 'success' : 'warning',
+      title: r.success ? 'Import Successful' : 'Import Completed with Errors',
+      description: r.message,
+      status: r.success ? 'success' : 'warning',
       duration: 5000,
       isClosable: true,
     });
