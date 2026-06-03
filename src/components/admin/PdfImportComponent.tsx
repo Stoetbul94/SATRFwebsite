@@ -182,7 +182,17 @@ function PdfUploadPanel({
 
       {parsed && (
         <Box>
-          {parsed.warnings.length > 0 && (
+          {parsed.warnings.length > 0 && parsed.series.length >= 6 && (
+            <Alert status="info" borderRadius="md" mb={3}>
+              <AlertIcon />
+              <Box fontSize="sm">
+                {parsed.warnings.map((w, i) => (
+                  <Text key={i}>• {w}</Text>
+                ))}
+              </Box>
+            </Alert>
+          )}
+          {parsed.warnings.length > 0 && parsed.series.length < 6 && (
             <Alert status="warning" borderRadius="md" mb={3}>
               <AlertIcon />
               <Box fontSize="sm">

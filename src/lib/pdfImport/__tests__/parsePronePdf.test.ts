@@ -18,6 +18,24 @@ SERIES WISE SCORES (7-12)
 S7 100.7
 `;
 
+/** pdf-parse v1 compact layout (no spaces) */
+const SUMMARY_V1_SNIPPET = `
+S1100.7
+495
+S2101.6
+495
+S397.4
+393
+S4100.5
+597
+S599.3
+295
+S693.4
+289
+SERIES WISE SCORES (7-12)
+S7100.7
+`;
+
 const TARGET_SNIPPET = `
 SERIES 1
 TOTAL : 100.7 (95) INNER 10 : 4
@@ -43,6 +61,14 @@ describe('parseSummaryReportText', () => {
     expect(r.series[5]).toMatchObject({ seriesNumber: 6, decimal: 93.4, integer: 89 });
     expect(r.decimalTotal).toBe(593.9);
     expect(r.warnings.some((w) => w.includes('series 7'))).toBe(true);
+  });
+
+  it('parses pdf-parse v1 compact summary lines', () => {
+    const r = parseSummaryReportText(SUMMARY_V1_SNIPPET);
+    expect(r.series).toHaveLength(6);
+    expect(r.series[0]).toMatchObject({ seriesNumber: 1, decimal: 100.7, integer: 95, innerTens: 4 });
+    expect(r.series[5]).toMatchObject({ seriesNumber: 6, decimal: 93.4, integer: 89 });
+    expect(r.decimalTotal).toBe(593.9);
   });
 });
 
