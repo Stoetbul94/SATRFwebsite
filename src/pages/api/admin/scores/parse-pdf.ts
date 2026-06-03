@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
-import { parsePronePdfBuffer } from '@/lib/pdfImport/extractText';
+import { isPdfBuffer, parsePronePdfBuffer } from '@/lib/pdfImport/extractText';
 import type { PdfReportType } from '@/lib/pdfImport/types';
 
 export const config = {
@@ -45,6 +45,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (buffer.length < 100) {
       return res.status(400).json({ error: 'Invalid PDF data' });
+    }
+    if (!isPdfBuffer(buffer)) {
+      return res.status(400).json({
+        error: 'Not a valid PDF file',
+        details:
+          'The upload must be a real PDF from your electronic target (starts with %PDF). Check the file is not renamed or corrupted.',
+      });
     }
 
     const parsed = await parsePronePdfBuffer(buffer, reportType);

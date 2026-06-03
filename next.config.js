@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ['pdf-parse'],
   images: {
     // Migrate from deprecated images.domains to images.remotePatterns
     remotePatterns: [

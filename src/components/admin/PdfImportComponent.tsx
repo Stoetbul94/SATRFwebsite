@@ -130,7 +130,11 @@ function PdfUploadPanel({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || data.details || 'Failed to parse PDF');
+        const parts = [data.error, data.details].filter(Boolean);
+        if (Array.isArray(data.warnings) && data.warnings.length) {
+          parts.push(data.warnings.join(' '));
+        }
+        throw new Error(parts.join(' — ') || 'Failed to parse PDF');
       }
       onParsed(data as ParsePronePdfResult);
     } catch (err) {
