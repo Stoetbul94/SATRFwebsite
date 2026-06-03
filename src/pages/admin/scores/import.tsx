@@ -150,7 +150,7 @@ export default function AdminScoreImport() {
             </Tab>
             <Tab>
               <FiFileText style={{ marginRight: '8px' }} />
-              PDF Import (Prone)
+              PDF Import
             </Tab>
           </TabList>
 
