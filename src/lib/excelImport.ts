@@ -137,7 +137,7 @@ export function mapRawRowToExcelRow(rowData: Record<string, unknown>, rowIndex: 
     .toLowerCase();
   const category = categoryRaw as Category;
   if (!CATEGORY_IDS.has(category)) {
-    push(`Category must be: ${[...CATEGORY_IDS].join(', ')}`);
+    push(`Category must be: ${CATEGORIES.map((c) => c.id).join(', ')}`);
   }
 
   const seriesKeys = ['series1', 'series2', 'series3', 'series4', 'series5', 'series6'] as const;
