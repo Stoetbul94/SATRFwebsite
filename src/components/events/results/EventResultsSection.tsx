@@ -24,7 +24,7 @@ export default function EventResultsSection({ eventId, eventTitle }: EventResult
       return;
     }
     auth.currentUser?.getIdToken().then(setAuthToken).catch(() => setAuthToken(null));
-  }, [isAdmin, user?.uid]);
+  }, [isAdmin, user?.id]);
 
   return (
     <Box id="results" scrollMarginTop="24" w="100%">
