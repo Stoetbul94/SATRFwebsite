@@ -195,7 +195,19 @@ ScoreInput[]  →  POST /api/admin/scores  (or /api/admin/scores/import for Exce
 - Returns documents where `userId` = logged-in member, not deleted, newest first.
 - Used by member dashboard / profile flows that call this API.
 
-### 5.2 Rankings / leaderboard
+### 5.2 Event results (public)
+
+Per-match results are shown on **`/events/[id]#results`** (not mixed into the season-average leaderboard).
+
+**Public API:** `GET /api/events/[id]/results?discipline=prone_50m&category=open`
+
+- Loads official scores for that `eventId` and discipline from Firestore.
+- Response includes `availableDisciplines`, `defaultDiscipline`, `qualification[]`, and optional `final[]`.
+- Ranking logic: `buildEventResultBoard()` in `src/lib/issf.ts` — qualification ordered by `decimalTotal`; finals ordered by `finalRank` (prone/F-Class) or elimination ladder (`3p_final`). The UI shows a **Final** block when final-stage docs exist; the podium uses final placings when present.
+- Provisional scores are excluded for the public; admins may pass `includeProvisional=true` with a valid admin token.
+- Season leaderboard (`GET /api/leaderboard/overall`) still uses **qualification-only** averages and ignores `prone_final` / `3p_final` stages.
+
+### 5.3 Rankings / leaderboard
 
 **Public API:** `GET /api/leaderboard/overall`
 

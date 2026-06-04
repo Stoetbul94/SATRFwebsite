@@ -415,3 +415,200 @@ export function averageDecimalTotal(scores: Pick<Score, 'decimalTotal'>[]): numb
   const sum = scores.reduce((acc, s) => acc + s.decimalTotal, 0);
   return round1(sum / scores.length);
 }
+
+/** Preferred order when picking default discipline for an event. */
+export const EVENT_DISCIPLINE_ORDER: Discipline[] = [
+  'prone_50m',
+  'fclass_open',
+  'fclass_tr',
+  'three_position_50m',
+];
+
+export interface EventResultSeries {
+  seriesNumber: number;
+  decimal: number;
+  integer?: number;
+}
+
+export interface EventResultPosition {
+  position: string;
+  decimalTotal: number;
+  integerTotal?: number;
+}
+
+export interface EventResultRow {
+  scoreId?: string;
+  place: number;
+  shooterName: string;
+  club: string;
+  category: Category;
+  stage: ScoreStage;
+  decimalTotal: number;
+  integerTotal?: number;
+  isProvisional?: boolean;
+  series?: EventResultSeries[];
+  positions?: EventResultPosition[];
+  finalShots?: number[];
+  eliminatedAtShot?: number | null;
+  finalRank?: number;
+}
+
+export interface EventResultBoard {
+  discipline: Discipline;
+  hasFinal: boolean;
+  qualification: EventResultRow[];
+  final?: EventResultRow[];
+}
+
+export interface BuildEventResultBoardOptions {
+  includeProvisional?: boolean;
+  category?: Category | 'all';
+}
+
+type ScoreDoc = Score & { deleted?: boolean };
+
+function expectedFinalStage(discipline: Discipline): ScoreStage {
+  return discipline === 'three_position_50m' ? '3p_final' : 'prone_final';
+}
+
+/** Map a stored score doc to a display row (series / positions / final shots). */
+export function scoreToEventResultRow(score: ScoreDoc, place: number): EventResultRow {
+  const stage: ScoreStage = score.stage ?? 'qualification';
+  const row: EventResultRow = {
+    scoreId: score.id,
+    place,
+    shooterName: score.shooterName,
+    club: score.club,
+    category: score.category,
+    stage,
+    decimalTotal: score.decimalTotal,
+    integerTotal: score.integerTotal,
+    isProvisional: score.status === 'provisional',
+  };
+
+  if (stage === '3p_final') {
+    row.finalShots = score.finalShots;
+    row.eliminatedAtShot = score.eliminatedAtShot ?? null;
+    row.finalRank = score.finalRank;
+    return row;
+  }
+
+  if (score.discipline === 'three_position_50m' && stage === 'qualification') {
+    row.positions = (score.positions ?? []).map((p) => ({
+      position: p.position,
+      decimalTotal: p.decimalTotal,
+      integerTotal: p.integerTotal,
+    }));
+    return row;
+  }
+
+  const block = score.positions?.[0];
+  if (block?.series?.length) {
+    row.series = block.series
+      .slice()
+      .sort((a, b) => a.seriesNumber - b.seriesNumber)
+      .map((s) => ({
+        seriesNumber: s.seriesNumber,
+        decimal: s.decimal,
+        integer: s.integer,
+      }));
+  }
+
+  if (stage === 'prone_final') {
+    row.finalRank = score.finalRank;
+  }
+
+  return row;
+}
+
+function applyFinalRanks(docs: ScoreDoc[], discipline: Discipline): ScoreDoc[] {
+  if (docs.length === 0) return docs;
+  const needsRank = docs.some((d) => d.finalRank == null);
+  if (!needsRank) {
+    return [...docs].sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
+  }
+
+  if (discipline === 'three_position_50m') {
+    const rankMap = rank3pFinalists(
+      docs.map((d) => ({
+        id: d.id,
+        eliminatedAtShot: d.eliminatedAtShot,
+        decimalTotal: d.decimalTotal,
+      }))
+    );
+    return [...docs]
+      .map((d) => ({ ...d, finalRank: rankMap.get(d.id) ?? d.finalRank }))
+      .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
+  }
+
+  const rankMap = rankProneFinalists(docs.map((d) => ({ id: d.id, decimalTotal: d.decimalTotal })));
+  return [...docs]
+    .map((d) => ({ ...d, finalRank: rankMap.get(d.id) ?? d.finalRank }))
+    .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
+}
+
+/**
+ * Build qualification + final result boards for one event and discipline.
+ * Firestore-free — pass pre-fetched score docs.
+ */
+export function buildEventResultBoard(
+  docs: ScoreDoc[],
+  discipline: Discipline,
+  options: BuildEventResultBoardOptions = {}
+): EventResultBoard {
+  const { includeProvisional = false, category = 'all' } = options;
+  const expectedFinal = expectedFinalStage(discipline);
+
+  let filtered = docs.filter((d) => d.discipline === discipline && !d.deleted);
+  if (!includeProvisional) {
+    filtered = filtered.filter((d) => d.status === 'official');
+  }
+  if (category !== 'all') {
+    filtered = filtered.filter((d) => d.category === category);
+  }
+
+  const qualDocs = filtered.filter((d) => (d.stage ?? 'qualification') === 'qualification');
+  const finalDocs = filtered.filter((d) => (d.stage ?? 'qualification') === expectedFinal);
+
+  const qualSorted = [...qualDocs].sort((a, b) => b.decimalTotal - a.decimalTotal);
+  const qualification = qualSorted.map((doc, i) => scoreToEventResultRow(doc, i + 1));
+
+  let finalRows: EventResultRow[] | undefined;
+  if (finalDocs.length > 0) {
+    const finalSorted = applyFinalRanks(finalDocs, discipline);
+    finalRows = finalSorted.map((doc, i) => {
+      const row = scoreToEventResultRow(doc, doc.finalRank ?? i + 1);
+      row.place = doc.finalRank ?? i + 1;
+      return row;
+    });
+  }
+
+  return {
+    discipline,
+    hasFinal: (finalRows?.length ?? 0) > 0,
+    qualification,
+    final: finalRows,
+  };
+}
+
+/** Disciplines with at least one official score in the given docs. */
+export function availableDisciplinesFromScores(
+  docs: ScoreDoc[],
+  options: { includeProvisional?: boolean } = {}
+): Discipline[] {
+  const { includeProvisional = false } = options;
+  const set = new Set<Discipline>();
+  for (const d of docs) {
+    if (d.deleted) continue;
+    if (!includeProvisional && d.status !== 'official') continue;
+    if (d.discipline && DISCIPLINES[d.discipline]) set.add(d.discipline);
+  }
+  return EVENT_DISCIPLINE_ORDER.filter((id) => set.has(id));
+}
+
+export function defaultDisciplineFromAvailable(available: Discipline[]): Discipline {
+  for (const id of EVENT_DISCIPLINE_ORDER) {
+    if (available.includes(id)) return id;
+  }
+  return 'prone_50m';
+}

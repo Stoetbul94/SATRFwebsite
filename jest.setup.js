@@ -199,19 +199,6 @@ jest.mock('framer-motion', () => {
     useMotionValue: (initial) => ({ get: () => initial, set: jest.fn() }),
     useTransform: (value, input, output) => ({ get: () => output }),
     useIsPresent: () => true,
+    useReducedMotion: () => false,
   };
 });
-
-// Mock Chakra UI toast to prevent test failures
-jest.mock('@chakra-ui/toast', () => {
-  const React = require('react');
-  return {
-    useToast: () => ({
-      toast: jest.fn(),
-      close: jest.fn(),
-      closeAll: jest.fn(),
-      isActive: jest.fn(),
-      update: jest.fn(),
-    }),
-  };
-}); 

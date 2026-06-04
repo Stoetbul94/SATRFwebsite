@@ -21,6 +21,7 @@ import {
 } from '@chakra-ui/react';
 import { FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
+import EventResultsSection from '@/components/events/results/EventResultsSection';
 import { useAuth } from '@/contexts/AuthContext';
 import { eventsAPI } from '@/lib/api';
 
@@ -399,6 +400,12 @@ export default function EventDetail() {
                 </Text>
               </VStack>
             </Box>
+          )}
+
+          <Divider />
+
+          {id && typeof id === 'string' && (
+            <EventResultsSection eventId={id} eventTitle={event.title} />
           )}
 
           <Divider />
