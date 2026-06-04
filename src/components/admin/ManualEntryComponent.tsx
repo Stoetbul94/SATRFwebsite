@@ -41,6 +41,13 @@ interface SeriesEntry {
   integer: string;
 }
 
+/** Accepts "70.9" or "70,9" (common on ZA keyboards). */
+function parseDecimalValue(raw: string): number {
+  const normalized = raw.trim().replace(',', '.');
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
 interface StagedScore {
   id: string;
   shooterName: string;
@@ -211,7 +218,7 @@ export default function ManualEntryComponent({
     const totals: Partial<Record<Position, number>> = {};
     spec.positions.forEach((pos) => {
       totals[pos] = round1(
-        (seriesByPosition[pos] ?? []).reduce((sum, s) => sum + (parseFloat(s.decimal) || 0), 0)
+        (seriesByPosition[pos] ?? []).reduce((sum, s) => sum + parseDecimalValue(s.decimal), 0)
       );
     });
     return totals;
@@ -259,7 +266,7 @@ export default function ManualEntryComponent({
       position: pos,
       series: seriesByPosition[pos].map((s, i) => ({
         seriesNumber: i + 1,
-        decimal: parseFloat(s.decimal) || 0,
+        decimal: parseDecimalValue(s.decimal),
         integer: parseInt(s.integer, 10) || 0,
       })),
     })),
@@ -273,7 +280,7 @@ export default function ManualEntryComponent({
     if (!shooterName.trim()) return 'Select a member or enter shooter name (guest)';
     if (!club.trim()) return 'Club is required';
     const anyScore = spec.positions.some((pos) =>
-      seriesByPosition[pos].some((s) => (parseFloat(s.decimal) || 0) > 0)
+      seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0)
     );
     if (!anyScore) return 'Enter at least one series score';
     return null;
@@ -310,11 +317,20 @@ export default function ManualEntryComponent({
   const handleSave = async () => {
     // Include the current (un-staged) shooter if filled in.
     const inputs = [...stagedInputs];
-    if (shooterName.trim() && !validateLocal()) {
+    const localErr = validateLocal();
+    if (shooterName.trim()) {
+      if (localErr) {
+        onImportError(localErr);
+        return;
+      }
       inputs.push(buildInput());
     }
     if (inputs.length === 0) {
-      onImportError('No scores to save');
+      onImportError(
+        stagedInputs.length > 0
+          ? 'No scores to save'
+          : localErr || 'Enter shooter details and scores, or add rows with "+ Add another shooter" first'
+      );
       return;
     }
 
@@ -368,7 +384,7 @@ export default function ManualEntryComponent({
             ))}
           </Select>
         </FormControl>
-        <FormControl>
+        <FormControl isRequired>
           <FormLabel>Event</FormLabel>
           <Select
             placeholder={loadingRefs ? 'Loading events…' : 'Select event'}
@@ -388,8 +404,14 @@ export default function ManualEntryComponent({
               mt={2}
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
-              placeholder="Custom event name"
+              placeholder="Event name (required if not selected above)"
+              isRequired
             />
+          )}
+          {!selectedEventId && (
+            <Text fontSize="xs" color="orange.400" mt={1}>
+              Pick an event from the list, or choose &quot;Custom event name&quot; and type the match name.
+            </Text>
           )}
         </FormControl>
         <FormControl>

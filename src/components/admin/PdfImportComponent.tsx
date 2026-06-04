@@ -364,12 +364,10 @@ export default function PdfImportComponent({
         body: JSON.stringify({ scores: [input] }),
       });
 
+      const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to save score');
+        throw new Error(result.error || 'Failed to save score');
       }
-
-      const result = await res.json();
       onImportSuccess({
         success: true,
         message: `Saved prone score (${activeParsed.decimalTotal}) for ${shooterName}`,

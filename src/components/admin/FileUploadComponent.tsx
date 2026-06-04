@@ -173,16 +173,16 @@ export default function FileUploadComponent({
         }),
       });
 
-      const errorData = await response.json().catch(() => ({}));
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         const detail =
-          typeof errorData.details === 'object'
-            ? JSON.stringify(errorData.details).slice(0, 500)
-            : errorData.details;
-        throw new Error([errorData.error, detail].filter(Boolean).join(' — ') || 'Import failed');
+          typeof data.details === 'object'
+            ? JSON.stringify(data.details).slice(0, 500)
+            : data.details;
+        throw new Error([data.error, detail].filter(Boolean).join(' — ') || 'Import failed');
       }
 
-      const result = await response.json();
+      const result = data;
       const errorRows = parsedData.filter((r) => r.errors?.length);
 
       onImportSuccess({
