@@ -22,6 +22,10 @@ import {
 import { FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
 import EventResultsSection from '@/components/events/results/EventResultsSection';
+import EventDisciplinePills from '@/components/events/EventDisciplinePills';
+import EventImageFallback from '@/components/events/EventImageFallback';
+import { formatEntryFee, parseEventDisciplines } from '@/lib/eventDisciplines';
+import type { Discipline } from '@/types/scores';
 import { useAuth } from '@/contexts/AuthContext';
 import { eventsAPI } from '@/lib/api';
 
@@ -33,8 +37,7 @@ interface Event {
   startDate: Date;
   endDate: Date;
   location: string;
-  category: string;
-  discipline: string;
+  disciplines: Discipline[];
   price: number;
   maxSpots: number;
   currentSpots: number;
@@ -93,9 +96,10 @@ export default function EventDetail() {
         startDate: new Date(eventData.startDate || eventData.date),
         endDate: new Date(eventData.endDate || eventData.date),
         location: eventData.location || '',
-        category: eventData.category || eventData.type || 'All Categories',
-        discipline: eventData.discipline || eventData.type || 'Target Rifle',
-        price: eventData.price || 0,
+        disciplines: Array.isArray(eventData.disciplines)
+          ? eventData.disciplines
+          : parseEventDisciplines(eventData),
+        price: eventData.price ?? null,
         maxSpots: eventData.maxParticipants || eventData.maxSpots || 0,
         currentSpots: eventData.currentParticipants || eventData.currentSpots || 0,
         status: eventData.status || 'upcoming',
@@ -250,25 +254,21 @@ export default function EventDetail() {
           </Button>
 
           {/* Event Image */}
-          {event.image && (
-            <Box
-              w="100%"
-              h="400px"
-              borderRadius="lg"
-              overflow="hidden"
-              position="relative"
-            >
+          <Box w="100%" h="400px" borderRadius="lg" overflow="hidden" position="relative">
+            {event.image ? (
               <Image
                 src={event.image}
                 alt={event.title}
-                objectFit="contain"
+                objectFit="cover"
                 objectPosition="center"
                 bg="gray.100"
                 w="100%"
                 h="100%"
               />
-            </Box>
-          )}
+            ) : (
+              <EventImageFallback height="400px" title={event.title} />
+            )}
+          </Box>
 
           {/* Event Header */}
           <Box>
@@ -276,12 +276,7 @@ export default function EventDetail() {
               <Badge colorScheme={getStatusBadgeColor(event.status)} fontSize="md" px={3} py={1}>
                 {event.status}
               </Badge>
-              <Badge colorScheme="blue" fontSize="md" px={3} py={1}>
-                {event.category}
-              </Badge>
-              <Badge colorScheme="purple" fontSize="md" px={3} py={1}>
-                {event.discipline}
-              </Badge>
+              <EventDisciplinePills disciplines={event.disciplines} size="md" />
             </HStack>
             <Heading size="2xl" mb={4} color="satrf.navy">
               {event.title}
@@ -329,7 +324,7 @@ export default function EventDetail() {
               </HStack>
               
               <Text fontSize="sm">
-                <strong>Entry Fee:</strong> R{event.price}
+                <strong>{formatEntryFee(event.price)}</strong>
               </Text>
 
               {/* Google Map if coordinates available */}
@@ -413,11 +408,12 @@ export default function EventDetail() {
           {/* Registration Action */}
           <VStack spacing={4} w="100%">
             <Text fontSize="lg" fontWeight="bold" color="satrf.navy">
-              Entry Fee: R{event.price}
+              {formatEntryFee(event.price)}
             </Text>
             
             <Button
-              colorScheme={registrationStatus === 'open' ? 'blue' : 'gray'}
+              variant={registrationStatus === 'open' ? 'satrf' : 'solid'}
+              colorScheme={registrationStatus === 'open' ? undefined : 'gray'}
               size="lg"
               w="100%"
               onClick={handleRegister}

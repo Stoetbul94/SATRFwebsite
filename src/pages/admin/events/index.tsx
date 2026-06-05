@@ -34,7 +34,18 @@ import {
   FormErrorMessage,
   FormHelperText,
   Progress,
+  Checkbox,
+  CheckboxGroup,
+  Stack,
+  Wrap,
+  WrapItem,
 } from '@chakra-ui/react';
+import {
+  EVENT_DISCIPLINE_OPTIONS,
+  disciplinesToLegacyType,
+  parseEventDisciplines,
+} from '@/lib/eventDisciplines';
+import type { Discipline } from '@/types/scores';
 import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
@@ -55,7 +66,7 @@ export default function AdminEvents() {
     title: '',
     date: '',
     location: '',
-    type: '',
+    disciplines: [] as Discipline[],
     description: '',
     status: 'open' as 'open' | 'full' | 'closed',
     maxParticipants: '',
@@ -125,7 +136,7 @@ export default function AdminEvents() {
       title: '',
       date: '',
       location: '',
-      type: '',
+      disciplines: [] as Discipline[],
       description: '',
       status: 'open',
       maxParticipants: '',
@@ -191,7 +202,7 @@ export default function AdminEvents() {
       title: event.title || '',
       date: normalizeDateForInput(event.date),
       location: event.location || '',
-      type: event.type || '',
+      disciplines: parseEventDisciplines(event as unknown as Record<string, unknown>),
       description: event.description || '',
       status: (event.status || 'open') as 'open' | 'full' | 'closed',
       maxParticipants: event.maxParticipants?.toString() || '',
@@ -249,6 +260,7 @@ export default function AdminEvents() {
 
     // Set file and create preview
     setImageFile(file);
+    if (formErrors.image) setFormErrors({ ...formErrors, image: '' });
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
@@ -387,8 +399,19 @@ export default function AdminEvents() {
       errors.location = 'Location is required';
     }
     
-    if (!formData.type?.trim()) {
-      errors.type = 'Type is required';
+    if (!formData.disciplines?.length) {
+      errors.disciplines = 'Select at least one discipline';
+    }
+
+    if (formData.price === '' || formData.price == null) {
+      errors.price = 'Entry fee is required';
+    } else if (parseFloat(formData.price) < 0 || Number.isNaN(parseFloat(formData.price))) {
+      errors.price = 'Entry fee must be 0 or greater';
+    }
+
+    const hasImage = Boolean(imageFile || formData.imageUrl?.trim());
+    if (!hasImage) {
+      errors.image = 'Event photo is required';
     }
     
     if (formData.maxParticipants && parseInt(formData.maxParticipants) < 1) {
@@ -402,7 +425,7 @@ export default function AdminEvents() {
         title: formData.title,
         date: formData.date,
         location: formData.location,
-        type: formData.type,
+        disciplines: formData.disciplines,
         maxParticipants: formData.maxParticipants,
       });
     }
@@ -481,14 +504,30 @@ export default function AdminEvents() {
         // For create mode, we'll upload after event creation (see below)
       }
 
-      const eventData = {
-        ...formData,
+      let imageBase64: string | undefined;
+      if (imageFile && !isEditMode) {
+        imageBase64 = await fileToBase64(imageFile);
+      }
+
+      const eventData: Record<string, unknown> = {
+        title: formData.title,
+        date: formData.date,
+        location: formData.location,
+        description: formData.description,
+        status: formData.status,
+        disciplines: formData.disciplines,
+        type: disciplinesToLegacyType(formData.disciplines),
         imageUrl: imageUrl || undefined,
         payfastUrl: formData.payfastUrl || undefined,
         eftInstructions: formData.eftInstructions || undefined,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
-        price: formData.price ? parseFloat(formData.price) : 0,
+        price: parseFloat(formData.price),
       };
+
+      if (imageBase64) {
+        eventData.imageBase64 = imageBase64;
+        eventData.contentType = imageFile?.type || 'image/jpeg';
+      }
 
       const url = isEditMode && selectedEvent
         ? `/api/admin/events/${selectedEvent.id}`
@@ -538,31 +577,6 @@ export default function AdminEvents() {
         const savedEvent = responseData.event || responseData;
         const savedEventId = savedEvent?.id || (isEditMode && selectedEvent ? selectedEvent.id : null);
         
-        // If creating new event and we have an image, upload it now with the eventId
-        if (imageFile && savedEventId && !isEditMode) {
-          try {
-            const uploadedUrl = await uploadImage(savedEventId);
-            if (uploadedUrl) {
-              // Update event with image URL
-              await fetch(`/api/admin/events/${savedEventId}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ imageUrl: uploadedUrl }),
-              });
-            }
-          } catch (reuploadError: any) {
-            console.error('Failed to upload image after event creation:', reuploadError);
-            toast({
-              title: 'Image upload failed',
-              description: 'Event was created but image upload failed. You can add the image later by editing the event.',
-              status: 'warning',
-              duration: 5000,
-            });
-          }
-        }
         
         toast({
           title: 'Success',
@@ -577,7 +591,7 @@ export default function AdminEvents() {
           title: '',
           date: '',
           location: '',
-          type: '',
+          disciplines: [] as Discipline[],
           description: '',
           status: 'open',
           maxParticipants: '',
@@ -721,7 +735,7 @@ export default function AdminEvents() {
               <Th>Title</Th>
               <Th>Date</Th>
               <Th>Location</Th>
-              <Th>Type</Th>
+              <Th>Disciplines</Th>
               <Th>Status</Th>
               <Th>Participants</Th>
               <Th>Actions</Th>
@@ -755,7 +769,11 @@ export default function AdminEvents() {
                   </Td>
                   <Td>{new Date(event.date).toLocaleDateString()}</Td>
                   <Td>{event.location}</Td>
-                  <Td>{event.type}</Td>
+                  <Td>
+                    {parseEventDisciplines(event as unknown as Record<string, unknown>)
+                      .map((id) => EVENT_DISCIPLINE_OPTIONS.find((o) => o.id === id)?.shortLabel ?? id)
+                      .join(', ') || (event as { type?: string }).type || '—'}
+                  </Td>
                   <Td>{getStatusBadge(event.status)}</Td>
                   <Td>
                     {event.currentParticipants || 0}
@@ -858,21 +876,31 @@ export default function AdminEvents() {
                 </FormControl>
               </HStack>
 
-              {/* Type and Status Row */}
-              <HStack spacing={4}>
-                <FormControl isRequired isInvalid={!!formErrors.type} flex={2}>
-                  <FormLabel fontWeight="semibold" mb={2}>Event Type</FormLabel>
-                  <Input
-                    value={formData.type}
-                    onChange={(e) => {
-                      setFormData({ ...formData, type: e.target.value });
-                      if (formErrors.type) setFormErrors({ ...formErrors, type: '' });
+              {/* Disciplines and Status Row */}
+              <HStack spacing={4} align="flex-start">
+                <FormControl isRequired isInvalid={!!formErrors.disciplines} flex={2}>
+                  <FormLabel fontWeight="semibold" mb={2}>Disciplines</FormLabel>
+                  <CheckboxGroup
+                    value={formData.disciplines}
+                    onChange={(values) => {
+                      setFormData({ ...formData, disciplines: values as Discipline[] });
+                      if (formErrors.disciplines) setFormErrors({ ...formErrors, disciplines: '' });
                     }}
-                    placeholder="e.g., Prone Match, 3P, F-Class"
-                    size="lg"
-                    isDisabled={isSaving || uploadingImage}
-                  />
-                  <FormErrorMessage>{formErrors.type}</FormErrorMessage>
+                  >
+                    <Stack spacing={2} direction={{ base: 'column', sm: 'row' }} flexWrap="wrap">
+                      {EVENT_DISCIPLINE_OPTIONS.map((opt) => (
+                        <Checkbox
+                          key={opt.id}
+                          value={opt.id}
+                          isDisabled={isSaving || uploadingImage}
+                          colorScheme="green"
+                        >
+                          {opt.label}
+                        </Checkbox>
+                      ))}
+                    </Stack>
+                  </CheckboxGroup>
+                  <FormErrorMessage>{formErrors.disciplines}</FormErrorMessage>
                 </FormControl>
                 <FormControl flex={1}>
                   <FormLabel fontWeight="semibold" mb={2}>Status</FormLabel>
@@ -920,32 +948,33 @@ export default function AdminEvents() {
                   />
                   <FormErrorMessage>{formErrors.maxParticipants}</FormErrorMessage>
                 </FormControl>
-                <FormControl flex={1}>
+                <FormControl isRequired isInvalid={!!formErrors.price} flex={1}>
                   <FormLabel fontWeight="semibold" mb={2}>Entry Fee (R)</FormLabel>
                   <Input
                     type="number"
                     value={formData.price}
                     onChange={(e) => {
                       setFormData({ ...formData, price: e.target.value });
+                      if (formErrors.price) setFormErrors({ ...formErrors, price: '' });
                     }}
-                    placeholder="0.00"
+                    placeholder="e.g. 300"
                     size="lg"
                     min="0"
-                    step="0.01"
+                    step="1"
                     isDisabled={isSaving || uploadingImage}
                   />
-                  <FormHelperText>Entry fee amount in South African Rand</FormHelperText>
+                  <FormHelperText>Required. Use 0 only for genuinely free events.</FormHelperText>
+                  <FormErrorMessage>{formErrors.price}</FormErrorMessage>
                 </FormControl>
               </HStack>
 
               {/* Event Photo */}
-              <FormControl>
-                  <FormLabel fontWeight="semibold" mb={2}>
-                    Event Photo <Text as="span" fontWeight="normal" color="gray.500" fontSize="sm">(Optional)</Text>
-                  </FormLabel>
+              <FormControl isRequired isInvalid={!!formErrors.image}>
+                  <FormLabel fontWeight="semibold" mb={2}>Event Photo</FormLabel>
                   <FormHelperText mb={2} fontSize="xs" color="gray.500">
-                    You can add an image now or skip and add it later by editing the event
+                    Required. JPG, PNG, or GIF, max 5MB.
                   </FormHelperText>
+                  <FormErrorMessage mb={2}>{formErrors.image}</FormErrorMessage>
                   {/* Always render the file input so ref is always available */}
                   <input
                     ref={fileInputRef}
@@ -1004,7 +1033,7 @@ export default function AdminEvents() {
                             Click to upload image
                           </Text>
                           <Text fontSize="xs" color="gray.500">
-                            Max 5MB (JPG, PNG, GIF) - Optional
+                            Max 5MB (JPG, PNG, GIF) — required
                           </Text>
                         </VStack>
                       </Box>

@@ -1,83 +1,25 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { serializeEventDoc } from '@/lib/firestoreEvents';
 
 /**
  * Public, read-only events feed from Firestore (no auth required).
- * Shows all events (including seeded test events).
- * Returns plain array of events with ISO date strings.
  */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { initializeApp, getApps, cert, applicationDefault } = await import('firebase-admin/app');
-    const { getFirestore } = await import('firebase-admin/firestore');
+    const db = getAdminDb();
+    const snapshot = await db.collection('events').orderBy('date', 'desc').limit(500).get();
 
-    if (!getApps().length) {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-        : null;
-
-      if (serviceAccount) {
-        initializeApp({
-          credential: cert(serviceAccount),
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
-        });
-      } else {
-        initializeApp({
-          credential: applicationDefault(),
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
-        });
-      }
-    }
-
-    const db = getFirestore();
-
-    const snapshot = await db
-      .collection('events')
-      .orderBy('date', 'desc')
-      .limit(500)
-      .get();
-
-    const events = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      const toIso = (d: any) => {
-        if (!d) return null;
-        if (d.toDate) return d.toDate().toISOString();
-        if (typeof d === 'string') return d;
-        return null;
-      };
-
-      return {
-        id: doc.id,
-        title: data.title || '',
-        description: data.description || '',
-        date: toIso(data.date),
-        location: data.location || '',
-        type: data.type || data.category || 'Target Rifle',
-        status: data.status || 'upcoming',
-        maxParticipants: data.maxParticipants || 0,
-        currentParticipants: data.currentParticipants || 0,
-        imageUrl: data.imageUrl || data.imageURL || data.image || null,
-        payfastUrl: data.payfastUrl || null,
-        eftInstructions: data.eftInstructions || null,
-        isTestEvent: data.isTestEvent || false,
-        createdAt: toIso(data.createdAt),
-        updatedAt: toIso(data.updatedAt),
-      };
-    });
+    const events = snapshot.docs.map((doc) => serializeEventDoc(doc.id, doc.data() as Record<string, unknown>));
 
     return res.status(200).json(events);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Events API route error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
+    return res.status(500).json({ error: 'Internal server error', details: message });
   }
 }
-

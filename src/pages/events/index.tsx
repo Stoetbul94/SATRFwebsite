@@ -43,6 +43,10 @@ import { GetServerSideProps } from 'next';
 import { useAuth } from '@/contexts/AuthContext';
 import { eventsAPI } from '@/lib/api';
 import Head from 'next/head';
+import EventDisciplinePills from '@/components/events/EventDisciplinePills';
+import EventImageFallback from '@/components/events/EventImageFallback';
+import { formatEntryFee, parseEventDisciplines } from '@/lib/eventDisciplines';
+import type { Discipline } from '@/types/scores';
 
 interface Event {
   id: string;
@@ -52,8 +56,7 @@ interface Event {
   startDate: Date;
   endDate: Date;
   location: string;
-  category: string;
-  discipline: string;
+  disciplines: Discipline[];
   price: number;
   maxSpots: number;
   currentSpots: number;
@@ -144,9 +147,10 @@ export default function Events() {
               startDate: start || new Date(),
               endDate: end || start || new Date(),
               location: e.location || '',
-              category: e.category || e.type || 'All Categories',
-              discipline: e.discipline || e.type || 'Target Rifle',
-              price: e.price || 0,
+              disciplines: Array.isArray(e.disciplines)
+                ? e.disciplines
+                : parseEventDisciplines(e),
+              price: e.price ?? null,
               maxSpots: e.maxParticipants ?? e.maxSpots ?? 0,
               currentSpots: e.currentParticipants ?? e.currentSpots ?? 0,
               status: e.status || 'upcoming',
@@ -180,7 +184,9 @@ export default function Events() {
                            event.description.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
-      const matchesCategory = categoryFilter === 'all' || event.category === categoryFilter;
+      const matchesCategory =
+        categoryFilter === 'all' ||
+        event.disciplines.some((d) => d === categoryFilter);
       
       return matchesSearch && matchesStatus && matchesCategory;
     });
@@ -254,21 +260,33 @@ export default function Events() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'upcoming': return 'blue';
-      case 'ongoing': return 'green';
-      case 'completed': return 'gray';
-      case 'cancelled': return 'red';
-      default: return 'gray';
+      case 'upcoming':
+      case 'open':
+        return 'green';
+      case 'ongoing':
+        return 'yellow';
+      case 'completed':
+      case 'closed':
+        return 'gray';
+      case 'cancelled':
+        return 'red';
+      case 'full':
+        return 'orange';
+      default:
+        return 'gray';
     }
   };
 
-  const getRegistrationBadgeColor = (status: string) => {
+  const getRegistrationButtonProps = (status: string) => {
     switch (status) {
-      case 'registered': return 'green';
-      case 'full': return 'red';
-      case 'closed': return 'gray';
-      case 'open': return 'blue';
-      default: return 'gray';
+      case 'open':
+        return { variant: 'satrf' as const, colorScheme: undefined };
+      case 'full':
+        return { colorScheme: 'orange' as const, variant: 'solid' as const };
+      case 'closed':
+        return { colorScheme: 'gray' as const, variant: 'solid' as const };
+      default:
+        return { colorScheme: 'gray' as const, variant: 'solid' as const };
     }
   };
 
@@ -283,12 +301,14 @@ export default function Events() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-ZA', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
+
+  const formatEventDate = (event: Event) => formatDate(event.startDate);
 
   return (
     <Layout>
@@ -376,10 +396,10 @@ export default function Events() {
                   placeholder="Filter by category"
                 >
                   <option value="all">All Categories</option>
-                  <option value="Senior">Senior</option>
-                  <option value="Junior">Junior</option>
-                  <option value="Women">Women</option>
-                  <option value="All Categories">All Categories</option>
+                  <option value="prone_50m">Prone</option>
+                  <option value="fclass_open">F-Class Open</option>
+                  <option value="fclass_tr">F-Class TR</option>
+                  <option value="three_position_50m">3-Position</option>
                 </Select>
               </GridItem>
             </Grid>
@@ -422,9 +442,6 @@ export default function Events() {
                         rounded="md"
                         overflow="hidden"
                         position="relative"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
                       >
                         <img
                           src={event.image}
@@ -432,25 +449,13 @@ export default function Events() {
                           style={{
                             width: '100%',
                             height: '100%',
-                            objectFit: 'contain',
+                            objectFit: 'cover',
                             objectPosition: 'center',
                           }}
                         />
                       </Box>
                     ) : (
-                      <Box
-                        w="100%"
-                        h="200px"
-                        bg={imageBg}
-                        rounded="md"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        <Text color={imageTextColor}>
-                          Event Image
-                        </Text>
-                      </Box>
+                      <EventImageFallback height="200px" title={event.title} />
                     )}
 
                     {/* Event Title and Badges */}
@@ -458,12 +463,11 @@ export default function Events() {
                       <Heading size="md" color="satrf.navy">
                         {event.title}
                       </Heading>
-                      <HStack spacing={2} flexWrap="wrap">
-                        <Badge colorScheme={getStatusBadgeColor(event.status)}>
+                      <HStack spacing={2} flexWrap="wrap" align="center">
+                        <Badge colorScheme={getStatusBadgeColor(event.status)} textTransform="capitalize">
                           {event.status}
                         </Badge>
-                        <Badge colorScheme="blue">{event.category}</Badge>
-                        <Badge colorScheme="purple">{event.discipline}</Badge>
+                        <EventDisciplinePills disciplines={event.disciplines} />
                       </HStack>
                     </VStack>
 
@@ -472,7 +476,7 @@ export default function Events() {
                       <HStack spacing={2}>
                         <FaRegCalendarAlt color="#4a5568" />
                         <Text color={textColorSecondary} fontSize="sm">
-                          {event.date}
+                          {formatEventDate(event)}
                         </Text>
                       </HStack>
                       
@@ -505,7 +509,7 @@ export default function Events() {
                         fontWeight="bold"
                         fontSize="lg"
                       >
-                        Entry Fee: R{event.price}
+                        {formatEntryFee(event.price)}
                       </Text>
 
                       {/* Payment options */}
@@ -540,8 +544,8 @@ export default function Events() {
                       )}
                       
                       <Button
-                        colorScheme={registrationStatus === 'open' ? 'blue' : 'gray'}
                         w="100%"
+                        {...getRegistrationButtonProps(registrationStatus)}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (registrationStatus === 'open') {
@@ -605,17 +609,16 @@ export default function Events() {
                         }}
                       />
                     ) : (
-                      <Text color={modalImageTextColor}>Event Image</Text>
+                      <EventImageFallback height="300px" title={selectedEvent.title} />
                     )}
                   </Box>
 
                   {/* Status Badges */}
-                  <HStack spacing={2}>
-                    <Badge colorScheme={getStatusBadgeColor(selectedEvent.status)}>
+                  <HStack spacing={2} flexWrap="wrap">
+                    <Badge colorScheme={getStatusBadgeColor(selectedEvent.status)} textTransform="capitalize">
                       {selectedEvent.status}
                     </Badge>
-                    <Badge colorScheme="blue">{selectedEvent.category}</Badge>
-                    <Badge colorScheme="purple">{selectedEvent.discipline}</Badge>
+                    <EventDisciplinePills disciplines={selectedEvent.disciplines} size="md" />
                   </HStack>
 
                   {/* Description */}
@@ -638,7 +641,7 @@ export default function Events() {
                       <HStack spacing={2}>
                         <FaRegCalendarAlt color="#4a5568" />
                         <Text fontSize="sm">
-                          <strong>Date:</strong> {selectedEvent.date}
+                          <strong>Date:</strong> {formatEventDate(selectedEvent)}
                         </Text>
                       </HStack>
                       
@@ -664,7 +667,7 @@ export default function Events() {
                       </HStack>
                       
                       <Text fontSize="sm">
-                        <strong>Entry Fee:</strong> R{selectedEvent.price}
+                        <strong>{formatEntryFee(selectedEvent.price)}</strong>
                       </Text>
                     </VStack>
 
@@ -723,13 +726,13 @@ export default function Events() {
                   {/* Registration Action */}
                   <VStack spacing={4} w="100%">
                     <Text fontSize="lg" fontWeight="bold" color="satrf.navy">
-                      Entry Fee: R{selectedEvent.price}
+                      {formatEntryFee(selectedEvent.price)}
                     </Text>
                     
                     <Button
-                      colorScheme={getRegistrationStatus(selectedEvent) === 'open' ? 'blue' : 'gray'}
                       size="lg"
                       w="100%"
+                      {...getRegistrationButtonProps(getRegistrationStatus(selectedEvent))}
                       onClick={() => handleRegister(selectedEvent)}
                       disabled={getRegistrationStatus(selectedEvent) !== 'open'}
                       isLoading={isRegistering === selectedEvent.id}

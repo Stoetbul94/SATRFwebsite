@@ -11,7 +11,14 @@ import { getAuth, type Auth } from 'firebase-admin/auth';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website';
 const STORAGE_BUCKET =
-  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${PROJECT_ID}.firebasestorage.app`;
+  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+  process.env.FIREBASE_STORAGE_BUCKET ||
+  `${PROJECT_ID}.firebasestorage.app`;
+
+/** Explicit storage bucket name — required for Admin SDK uploads when app was init'd without bucket. */
+export function getStorageBucket(): string {
+  return STORAGE_BUCKET;
+}
 
 let app: App | null = null;
 

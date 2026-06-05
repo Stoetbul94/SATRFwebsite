@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getStorage } from 'firebase-admin/storage';
 import { verifyAdminFromToken } from '@/lib/admin';
-import { getAdminApp, getAdminDb } from '@/lib/firebaseAdmin';
+import { uploadEventCoverImage } from '@/lib/eventImageUpload';
 
 export const config = {
   api: {
@@ -38,43 +37,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const buffer = Buffer.from(imageBase64, 'base64');
-    if (buffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Image must be smaller than 5MB' });
-    }
-
-    const type = typeof contentType === 'string' ? contentType : 'image/jpeg';
-    const ext = type.includes('png') ? 'png' : type.includes('gif') ? 'gif' : 'jpg';
-    const objectPath = `events/${id}/cover.${ext}`;
-
-    const bucket = getStorage(getAdminApp()).bucket();
-    const file = bucket.file(objectPath);
-
-    await file.save(buffer, {
-      metadata: {
-        contentType: type,
-        cacheControl: 'public, max-age=31536000',
-      },
-      resumable: false,
-    });
-
-    // Long-lived read URL for the event card.
-    const [imageUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
-    });
-
-    await getAdminDb().collection('events').doc(id).set(
-      { imageUrl, updatedAt: new Date().toISOString() },
-      { merge: true }
-    );
-
+    const imageUrl = await uploadEventCoverImage(id, imageBase64, contentType);
     return res.status(200).json({ success: true, imageUrl });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Event image upload error:', error);
     return res.status(500).json({
       error: 'Failed to upload image',
-      details: error.message || 'Unknown error',
+      details: message,
     });
   }
 }
