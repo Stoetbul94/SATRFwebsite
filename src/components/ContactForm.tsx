@@ -15,7 +15,6 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
-  Container,
   Heading,
   Badge,
 } from '@chakra-ui/react';
@@ -151,15 +150,17 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
     }
   };
 
+  const inputFocus = { bg: 'bg.surface', borderColor: 'brand' };
+
   return (
-    <Container maxW="container.md" py={8}>
+    <Box maxW="container.md" mx="auto">
       {showTitle && (
         <Box textAlign="center" mb={8}>
           <Heading size="lg" mb={2}>
             Contact Support
           </Heading>
-          <Text color="gray.600">
-            We're here to help! Send us a message and we'll respond as soon as possible.
+          <Text color="text.muted">
+            We&apos;re here to help! Send us a message and we&apos;ll respond as soon as possible.
           </Text>
         </Box>
       )}
@@ -167,10 +168,12 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
       <Box
         as="form"
         onSubmit={handleSubmit(onSubmit)}
-        bg="white"
-        p={6}
+        bg="bg.surface"
+        p={{ base: 5, md: 8 }}
         borderRadius="lg"
-        boxShadow="md"
+        borderWidth="1px"
+        borderColor="border.default"
+        boxShadow="sm"
       >
         {submitError && (
           <Alert status="error" mb={4}>
@@ -193,8 +196,8 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
                   <Input
                     {...field}
                     placeholder="Your full name"
-                    bg="gray.50"
-                    _focus={{ bg: 'white', borderColor: 'brand.500' }}
+                    bg="bg.canvas"
+                    _focus={inputFocus}
                   />
                 )}
               />
@@ -215,8 +218,8 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
                     {...field}
                     type="email"
                     placeholder="your.email@example.com"
-                    bg="gray.50"
-                    _focus={{ bg: 'white', borderColor: 'brand.500' }}
+                    bg="bg.canvas"
+                    _focus={inputFocus}
                   />
                 )}
               />
@@ -237,8 +240,8 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
                 <Input
                   {...field}
                   placeholder="Brief description of your issue or question"
-                  bg="gray.50"
-                  _focus={{ bg: 'white', borderColor: 'brand.500' }}
+                  bg="bg.canvas"
+                  _focus={inputFocus}
                 />
               )}
             />
@@ -258,8 +261,8 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
                 render={({ field }) => (
                   <Select
                     {...field}
-                    bg="gray.50"
-                    _focus={{ bg: 'white', borderColor: 'brand.500' }}
+                    bg="bg.canvas"
+                    _focus={inputFocus}
                   >
                     <option value="general">General Inquiry</option>
                     <option value="technical">Technical Support</option>
@@ -280,8 +283,8 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
                 render={({ field }) => (
                   <Select
                     {...field}
-                    bg="gray.50"
-                    _focus={{ bg: 'white', borderColor: 'brand.500' }}
+                    bg="bg.canvas"
+                    _focus={inputFocus}
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -303,8 +306,8 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
                   {...field}
                   placeholder="Please provide detailed information about your issue or question..."
                   rows={6}
-                  bg="gray.50"
-                  _focus={{ bg: 'white', borderColor: 'brand.500' }}
+                  bg="bg.canvas"
+                  _focus={inputFocus}
                   resize="vertical"
                 />
               )}
@@ -317,11 +320,11 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
           </FormControl>
 
           <Box>
-            <Text fontSize="sm" color="gray.600" mb={2}>
+            <Text fontSize="sm" color="text.muted" mb={2}>
               Help us help you faster:
             </Text>
             <HStack spacing={2} flexWrap="wrap">
-              <Badge colorScheme="blue" variant="subtle">
+              <Badge colorScheme="green" variant="subtle">
                 Include screenshots if relevant
               </Badge>
               <Badge colorScheme="green" variant="subtle">
@@ -335,7 +338,7 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
 
           <Button
             type="submit"
-            colorScheme="brand"
+            variant="satrf"
             size="lg"
             isLoading={isSubmitting}
             loadingText="Sending..."
@@ -344,13 +347,13 @@ const ContactForm: React.FC<ContactFormProps> = ({ onSuccess, showTitle = true }
             Send Message
           </Button>
 
-          <Text fontSize="xs" color="gray.500" textAlign="center">
+          <Text fontSize="xs" color="text.muted" textAlign="center">
             By submitting this form, you agree to our privacy policy. 
             We typically respond within 24-48 hours during business days.
           </Text>
         </VStack>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

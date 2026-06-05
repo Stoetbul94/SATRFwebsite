@@ -1,7 +1,5 @@
 import {
   Box,
-  Container,
-  Heading,
   Table,
   Thead,
   Tbody,
@@ -18,10 +16,14 @@ import {
   Alert,
   AlertIcon,
   Badge,
+  Card,
+  CardBody,
 } from '@chakra-ui/react';
 import { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
 import Layout from '@/components/layout/Layout';
+import PublicPageShell from '@/components/layout/PublicPageShell';
+import PublicPageHeader from '@/components/layout/PublicPageHeader';
 import { DISCIPLINES, CATEGORIES } from '@/lib/issf';
 import type { Discipline } from '@/types/scores';
 
@@ -56,8 +58,8 @@ export default function Scores() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load rankings');
         setRows(data.data || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load rankings');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load rankings');
         setRows([]);
       } finally {
         setLoading(false);
@@ -82,16 +84,13 @@ export default function Scores() {
           content="SATRF national rankings for ISSF 50m Rifle Prone and 50m Rifle 3 Positions, ranked by average score."
         />
       </Head>
-      <Container maxW="container.xl" py={8}>
+      <PublicPageShell>
         <Stack spacing={8}>
-          <Box>
-            <Heading size="xl" mb={2}>
-              Rankings &amp; Scores
-            </Heading>
-            <Text color="gray.600">
-              National rankings by average decimal total. Public — open to everyone.
-            </Text>
-          </Box>
+          <PublicPageHeader
+            eyebrow="Season rankings"
+            title="Rankings & Scores"
+            subtitle="National rankings by average decimal total. Public — open to everyone."
+          />
 
           {error && (
             <Alert status="error" borderRadius="lg">
@@ -100,88 +99,113 @@ export default function Scores() {
             </Alert>
           )}
 
-          <HStack spacing={4} wrap="wrap">
-            {Object.values(DISCIPLINES).map((d) => (
-              <Button
-                key={d.id}
-                colorScheme={discipline === d.id ? 'blue' : 'gray'}
-                onClick={() => setDiscipline(d.id)}
-              >
-                {d.label}
-              </Button>
-            ))}
+          <Card>
+            <CardBody>
+              <HStack spacing={3} wrap="wrap" mb={loading || filtered.length === 0 ? 0 : 4}>
+                {Object.values(DISCIPLINES).map((d) => (
+                  <Button
+                    key={d.id}
+                    size="sm"
+                    variant={discipline === d.id ? 'satrf' : 'satrfOutline'}
+                    onClick={() => setDiscipline(d.id)}
+                  >
+                    {d.label.replace('50m Rifle ', '').replace('F-Class ', 'F-')}
+                  </Button>
+                ))}
+                <Select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  maxW="200px"
+                  size="sm"
+                  bg="bg.surface"
+                >
+                  <option value="all">All Categories</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  placeholder="Search by name or club"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  maxW="300px"
+                  size="sm"
+                  bg="bg.surface"
+                />
+              </HStack>
 
-            <Select value={category} onChange={(e) => setCategory(e.target.value)} maxW="200px">
-              <option value="all">All Categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-
-            <Input
-              placeholder="Search by name or club"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              maxW="300px"
-            />
-          </HStack>
-
-          {loading ? (
-            <Box textAlign="center" py={8}>
-              <Spinner size="xl" color="blue.500" />
-            </Box>
-          ) : (
-            <Box overflowX="auto" bg="white" rounded="lg" shadow="md">
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>Rank</Th>
-                    <Th>Shooter</Th>
-                    <Th>Club</Th>
-                    <Th>Category</Th>
-                    <Th isNumeric>Average</Th>
-                    <Th isNumeric>Best</Th>
-                    <Th isNumeric>Events</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {filtered.length === 0 ? (
-                    <Tr>
-                      <Td colSpan={7} textAlign="center" py={8}>
-                        <Text color="gray.500">No ranked scores yet for this discipline.</Text>
-                      </Td>
-                    </Tr>
-                  ) : (
-                    filtered.map((r) => (
-                      <Tr key={`${r.userId ?? r.shooterName}-${r.club}`}>
-                        <Td>
-                          {r.rank <= 3 ? (
-                            <Badge colorScheme={['yellow', 'gray', 'orange'][r.rank - 1]}>
-                              {r.rank}
-                            </Badge>
-                          ) : (
-                            r.rank
-                          )}
-                        </Td>
-                        <Td fontWeight="medium">{r.shooterName}</Td>
-                        <Td>{r.club}</Td>
-                        <Td textTransform="capitalize">{r.category}</Td>
-                        <Td isNumeric fontWeight="semibold">
-                          {r.average.toFixed(1)}
-                        </Td>
-                        <Td isNumeric>{r.best.toFixed(1)}</Td>
-                        <Td isNumeric>{r.eventCount}</Td>
+              {loading ? (
+                <Box textAlign="center" py={12}>
+                  <Spinner size="xl" color="brand" />
+                </Box>
+              ) : (
+                <Box overflowX="auto">
+                  <Table variant="simple" size="sm">
+                    <Thead bg="brand">
+                      <Tr>
+                        <Th color="white">Rank</Th>
+                        <Th color="white">Shooter</Th>
+                        <Th color="white">Club</Th>
+                        <Th color="white">Category</Th>
+                        <Th color="white" isNumeric>
+                          Average
+                        </Th>
+                        <Th color="white" isNumeric>
+                          Best
+                        </Th>
+                        <Th color="white" isNumeric>
+                          Events
+                        </Th>
                       </Tr>
-                    ))
-                  )}
-                </Tbody>
-              </Table>
-            </Box>
-          )}
+                    </Thead>
+                    <Tbody>
+                      {filtered.length === 0 ? (
+                        <Tr>
+                          <Td colSpan={7} textAlign="center" py={10}>
+                            <Text color="text.muted">No ranked scores yet for this discipline.</Text>
+                          </Td>
+                        </Tr>
+                      ) : (
+                        filtered.map((r) => (
+                          <Tr key={`${r.userId ?? r.shooterName}-${r.club}`} _hover={{ bg: 'satrf.green.50' }}>
+                            <Td>
+                              {r.rank <= 3 ? (
+                                <Badge
+                                  colorScheme={r.rank === 1 ? 'yellow' : r.rank === 2 ? 'gray' : 'orange'}
+                                >
+                                  {r.rank}
+                                </Badge>
+                              ) : (
+                                r.rank
+                              )}
+                            </Td>
+                            <Td fontWeight="medium" color="text.primary">
+                              {r.shooterName}
+                            </Td>
+                            <Td color="text.muted">{r.club}</Td>
+                            <Td textTransform="capitalize">{r.category}</Td>
+                            <Td isNumeric fontWeight="semibold" color="accent">
+                              {r.average.toFixed(1)}
+                            </Td>
+                            <Td isNumeric color="text.muted">
+                              {r.best.toFixed(1)}
+                            </Td>
+                            <Td isNumeric color="text.muted">
+                              {r.eventCount}
+                            </Td>
+                          </Tr>
+                        ))
+                      )}
+                    </Tbody>
+                  </Table>
+                </Box>
+              )}
+            </CardBody>
+          </Card>
         </Stack>
-      </Container>
+      </PublicPageShell>
     </Layout>
   );
 }
