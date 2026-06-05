@@ -58,29 +58,29 @@ function PodiumCard({
           boxShadow="lg"
           display="flex"
           flexDirection="column"
-          justifyContent="flex-end"
+          justifyContent="space-between"
           p={4}
-          position="relative"
           mt={medal.place === 1 ? { base: 0, md: -4 } : 0}
         >
           <Badge
-            position="absolute"
-            top={3}
-            left={3}
+            alignSelf="flex-start"
             colorScheme={medal.place === 1 ? 'yellow' : medal.place === 2 ? 'gray' : 'orange'}
             fontSize="sm"
+            textTransform="uppercase"
           >
             {medal.label}
           </Badge>
-          <Text fontWeight="bold" fontSize="lg" color="satrf.navy" noOfLines={2}>
-            {row.shooterName}
-          </Text>
-          <Text fontSize="sm" color="gray.500" noOfLines={1}>
-            {row.club}
-          </Text>
-          <Text fontSize="2xl" fontWeight="extrabold" color="satrf.lightBlue" mt={2}>
-            {row.decimalTotal.toFixed(1)}
-          </Text>
+          <VStack align="stretch" spacing={1} w="100%" pt={2}>
+            <Text fontWeight="bold" fontSize="lg" color="satrf.navy" noOfLines={2}>
+              {row.shooterName}
+            </Text>
+            <Text fontSize="sm" color="gray.500" noOfLines={1}>
+              {row.club}
+            </Text>
+            <Text fontSize="2xl" fontWeight="extrabold" color="satrf.lightBlue">
+              {row.decimalTotal.toFixed(1)}
+            </Text>
+          </VStack>
         </Box>
       </VStack>
     </MotionBox>

@@ -348,8 +348,11 @@ export default function EventResultsTable({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const pillBg = useColorModeValue('gray.100', 'gray.700');
+  const pillInactiveBg = useColorModeValue('white', 'gray.700');
+  const pillInactiveBorder = useColorModeValue('gray.300', 'gray.500');
+  const pillInactiveColor = useColorModeValue('satrf.grayBlue', 'gray.100');
   const pillActiveBg = useColorModeValue('satrf.navy', 'satrf.lightBlue');
+  const pillActiveColor = 'white';
 
   const fetchResults = useCallback(async () => {
     if (!eventId) return;
@@ -415,20 +418,30 @@ export default function EventResultsTable({
     <VStack align="stretch" spacing={6} w="100%">
       <Flex wrap="wrap" gap={2} align="center" justify="space-between">
         <HStack spacing={2} flexWrap="wrap">
-          {pills.map((d) => (
+          {pills.map((d) => {
+            const isActive = activeDiscipline === d;
+            return (
             <Button
               key={d}
               size="sm"
               borderRadius="full"
-              bg={activeDiscipline === d ? pillActiveBg : pillBg}
-              color={activeDiscipline === d ? 'white' : undefined}
+              variant="outline"
+              bg={isActive ? pillActiveBg : pillInactiveBg}
+              color={isActive ? pillActiveColor : pillInactiveColor}
+              borderColor={isActive ? pillActiveBg : pillInactiveBorder}
+              borderWidth="1.5px"
               onClick={() => setDisciplineOverride(d)}
-              fontWeight={activeDiscipline === d ? 'bold' : 'normal'}
-              _hover={{ opacity: 0.9 }}
+              fontWeight={isActive ? 'bold' : 'medium'}
+              _hover={{
+                bg: isActive ? pillActiveBg : pillInactiveBg,
+                borderColor: isActive ? pillActiveBg : 'satrf.lightBlue',
+                color: isActive ? pillActiveColor : 'satrf.navy',
+              }}
             >
               {DISCIPLINES[d].label.replace('50m Rifle ', '').replace('F-Class ', 'F-')}
             </Button>
-          ))}
+            );
+          })}
         </HStack>
         <Select
           size="sm"
