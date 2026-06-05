@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Box,
   Flex,
@@ -18,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { isEmailAdmin } from '@/lib/adminClient';
 import { isUserAdmin } from '@/lib/userRole';
 import FlagStripe from '@/components/brand/FlagStripe';
+import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -67,26 +67,7 @@ export default function Navbar() {
         <Flex justify="space-between" align="center" h={{ base: '14', md: '16' }}>
           <Box flexShrink={0} py={1}>
             <Link href="/">
-              <Flex align="center" gap={2}>
-                <Image
-                  src="/brand/satrf-emblem-dark.png"
-                  alt="SATRF emblem"
-                  width={44}
-                  height={44}
-                  style={{ height: '40px', width: '40px', objectFit: 'contain' }}
-                  priority
-                />
-                <Box display={{ base: 'none', sm: 'block' }}>
-                  <Image
-                    src="/brand/satrf-logo-horizontal.png"
-                    alt="South African Target Rifle Federation"
-                    width={200}
-                    height={40}
-                    style={{ height: '36px', width: 'auto', maxWidth: '200px', objectFit: 'contain' }}
-                    priority
-                  />
-                </Box>
-              </Flex>
+              <SatrfHorizontalLogo variant="nav" />
             </Link>
           </Box>
 

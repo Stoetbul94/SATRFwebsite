@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Box,
   Container,
@@ -11,6 +10,7 @@ import {
   Flex,
 } from '@chakra-ui/react';
 import FlagStripe from '@/components/brand/FlagStripe';
+import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 
 export default function Footer() {
   const linkColor = 'whiteAlpha.700';
@@ -22,22 +22,9 @@ export default function Footer() {
       <Container maxW="7xl" px={{ base: 4, sm: 6, lg: 8 }} py={12} pt={14}>
         <Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={8}>
           <GridItem colSpan={{ base: 1, md: 2 }}>
-            <Flex align="center" gap={3} mb={4}>
-              <Image
-                src="/brand/satrf-emblem-dark.png"
-                alt="SATRF emblem"
-                width={48}
-                height={48}
-                style={{ height: '44px', width: '44px', objectFit: 'contain' }}
-              />
-              <Image
-                src="/brand/satrf-logo-horizontal.png"
-                alt="SATRF"
-                width={180}
-                height={36}
-                style={{ height: '32px', width: 'auto', maxWidth: '180px', objectFit: 'contain' }}
-              />
-            </Flex>
+            <Box mb={4}>
+              <SatrfHorizontalLogo variant="footer" />
+            </Box>
             <Text textStyle="eyebrow" mb={2} color="satrf.gold.400">
               Precision · Focus · Excellence
             </Text>
