@@ -176,42 +176,108 @@ if (typeof global.structuredClone === 'undefined') {
   global.structuredClone = (obj) => JSON.parse(JSON.stringify(obj))
 }
 
+// Firebase ESM packages — avoid loading real SDK in Jest
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({})),
+  getApps: jest.fn(() => []),
+}))
+
+jest.mock('firebase/firestore', () => ({
+  getFirestore: jest.fn(() => ({})),
+  Timestamp: {
+    now: jest.fn(() => ({ seconds: 0, nanoseconds: 0, toDate: () => new Date() })),
+    fromDate: jest.fn((date) => ({
+      seconds: Math.floor(date.getTime() / 1000),
+      nanoseconds: 0,
+      toDate: () => date,
+    })),
+  },
+}))
+
+jest.mock('firebase/storage', () => ({
+  getStorage: jest.fn(() => ({})),
+}))
+
+jest.mock('firebase/database', () => ({
+  getDatabase: jest.fn(() => ({})),
+}))
+
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(() => ({})),
+  onAuthStateChanged: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+}))
+
+jest.mock('firebase/analytics', () => ({
+  getAnalytics: jest.fn(() => ({})),
+}))
+
+// Login redirects via window.location.assign (not Next router)
+if (typeof window !== 'undefined') {
+  delete window.location
+  window.location = {
+    assign: jest.fn(),
+    protocol: 'http:',
+    href: 'http://localhost/',
+  }
+}
+
 // Global test cleanup and memory management
+beforeEach(() => {
+  if (typeof window !== 'undefined') {
+    if (!window.location || !jest.isMockFunction(window.location.assign)) {
+      window.location = {
+        assign: jest.fn(),
+        protocol: 'http:',
+        href: 'http://localhost/',
+      }
+    } else {
+      window.location.assign.mockClear()
+    }
+  }
+})
+
 afterEach(() => {
-  // Clear all mocks
-  jest.clearAllMocks();
-});
+  jest.clearAllMocks()
+})
 
 // Increase memory limits for tests
 process.setMaxListeners(0);
 
-// Mock framer-motion to prevent test failures
+// Mock framer-motion — Chakra modal/transition uses motion.section etc.; missing keys break @emotion/styled
 jest.mock('framer-motion', () => {
   const React = require('react');
-  return {
-    motion: {
-      div: React.forwardRef(({ children, ...props }, ref) => React.createElement('div', { ...props, ref }, children)),
-      span: React.forwardRef(({ children, ...props }, ref) => React.createElement('span', { ...props, ref }, children)),
-      button: React.forwardRef(({ children, ...props }, ref) => React.createElement('button', { ...props, ref }, children)),
+  const motionCache = {};
+
+  const createMotionComponent = (tag) => {
+    const Comp = React.forwardRef(({ children, ...props }, ref) =>
+      React.createElement(tag, { ...props, ref }, children),
+    );
+    Comp.displayName = `motion.${tag}`;
+    return Comp;
+  };
+
+  const motion = new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (typeof prop !== 'string') return undefined;
+        if (!motionCache[prop]) {
+          motionCache[prop] = createMotionComponent(prop);
+        }
+        return motionCache[prop];
+      },
     },
+  );
+
+  return {
+    motion,
     AnimatePresence: ({ children }) => children,
     useAnimation: () => ({ start: jest.fn(), stop: jest.fn() }),
     useMotionValue: (initial) => ({ get: () => initial, set: jest.fn() }),
     useTransform: (value, input, output) => ({ get: () => output }),
     useIsPresent: () => true,
+    useReducedMotion: () => false,
+    usePresence: () => [true, jest.fn()],
   };
 });
-
-// Mock Chakra UI toast to prevent test failures
-jest.mock('@chakra-ui/toast', () => {
-  const React = require('react');
-  return {
-    useToast: () => ({
-      toast: jest.fn(),
-      close: jest.fn(),
-      closeAll: jest.fn(),
-      isActive: jest.fn(),
-      update: jest.fn(),
-    }),
-  };
-}); 

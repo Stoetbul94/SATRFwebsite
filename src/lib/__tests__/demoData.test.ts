@@ -16,15 +16,11 @@ const originalEnv = process.env;
 
 describe('Demo Data System', () => {
   beforeEach(() => {
-    // Reset environment
     process.env = { ...originalEnv };
-    // Mock window for client-side tests
-    (global as any).window = undefined;
   });
 
   afterEach(() => {
     process.env = originalEnv;
-    delete (global as any).window;
   });
 
   describe('isDemoModeEnabled', () => {

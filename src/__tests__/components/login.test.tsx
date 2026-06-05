@@ -31,7 +31,7 @@ const mockUseAuth = {
 describe('LoginPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock auth state between tests to avoid bleed-over
+    mockRouter.query = {};
     mockUseAuth.isLoading = false;
     mockUseAuth.error = null;
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
@@ -48,12 +48,11 @@ describe('LoginPage', () => {
     expect(screen.getByText(/Don't have an account/i)).toBeInTheDocument();
   });
 
-  it('displays demo account information', () => {
+  it('renders sign-in form fields', () => {
     render(<LoginPage />);
     
-    expect(screen.getByText(/Demo Account/i)).toBeInTheDocument();
-    expect(screen.getByText(/demo@satrf.org.za/i)).toBeInTheDocument();
-    expect(screen.getByText(/DemoPass123/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email Address/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign In/i })).toBeInTheDocument();
   });
 
   it('shows navigation back to home', () => {
@@ -139,7 +138,7 @@ describe('LoginPage', () => {
     });
     
     await waitFor(() => {
-      expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard');
+      expect(window.location.assign).toHaveBeenCalledWith('/dashboard');
     });
   });
 
@@ -163,7 +162,7 @@ describe('LoginPage', () => {
     });
     
     await waitFor(() => {
-      expect(mockRouter.replace).toHaveBeenCalledWith('/profile');
+      expect(window.location.assign).toHaveBeenCalledWith('/profile');
     });
   });
 
@@ -187,7 +186,7 @@ describe('LoginPage', () => {
     });
     
     // Should not redirect on failure
-    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(window.location.assign).not.toHaveBeenCalled();
   });
 
   it('displays error messages from auth context', () => {
@@ -247,9 +246,8 @@ describe('LoginPage', () => {
     expect(mockUseAuth.clearError).toHaveBeenCalled();
   });
 
-  it('handles router errors gracefully', async () => {
-    mockUseAuth.login.mockResolvedValue(true);
-    mockRouter.replace.mockRejectedValue(new Error('Navigation error'));
+  it('redirects via window.location on successful login', async () => {
+    mockUseAuth.login.mockResolvedValue({ id: '1', email: 'demo@satrf.org.za', role: 'member' });
     
     render(<LoginPage />);
     
@@ -266,9 +264,8 @@ describe('LoginPage', () => {
       expect(mockUseAuth.login).toHaveBeenCalled();
     });
     
-    // Should handle router error gracefully
     await waitFor(() => {
-      expect(mockRouter.replace).toHaveBeenCalled();
+      expect(window.location.assign).toHaveBeenCalledWith('/dashboard');
     });
   });
 

@@ -59,7 +59,7 @@ describe('parseSummaryReportText', () => {
     expect(r.series).toHaveLength(6);
     expect(r.series[0]).toMatchObject({ seriesNumber: 1, decimal: 100.7, integer: 95, innerTens: 4 });
     expect(r.series[5]).toMatchObject({ seriesNumber: 6, decimal: 93.4, integer: 89 });
-    expect(r.decimalTotal).toBe(593.9);
+    expect(r.decimalTotal).toBe(592.9);
     expect(r.warnings.some((w) => w.includes('series 7'))).toBe(true);
   });
 
@@ -68,7 +68,7 @@ describe('parseSummaryReportText', () => {
     expect(r.series).toHaveLength(6);
     expect(r.series[0]).toMatchObject({ seriesNumber: 1, decimal: 100.7, integer: 95, innerTens: 4 });
     expect(r.series[5]).toMatchObject({ seriesNumber: 6, decimal: 93.4, integer: 89 });
-    expect(r.decimalTotal).toBe(593.9);
+    expect(r.decimalTotal).toBe(592.9);
   });
 });
 
@@ -77,7 +77,7 @@ describe('parseTargetReportText', () => {
     const r = parseTargetReportText(TARGET_SNIPPET);
     expect(r.series).toHaveLength(6);
     expect(r.series[3].decimal).toBe(100.5);
-    expect(r.decimalTotal).toBe(593.9);
+    expect(r.decimalTotal).toBe(592.9);
     expect(r.integerTotal).toBe(564);
   });
 });

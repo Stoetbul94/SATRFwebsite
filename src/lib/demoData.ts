@@ -250,7 +250,7 @@ export function generateDemoScores(
  * @param str - String to hash
  * @returns Hash value (0-999)
  */
-function simpleHash(str: string): number {
+export function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);

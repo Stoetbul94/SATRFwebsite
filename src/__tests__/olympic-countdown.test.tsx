@@ -55,10 +55,10 @@ describe('OlympicCountdown', () => {
     expect(screen.queryByText('Logo')).not.toBeInTheDocument();
   });
 
-  it('displays target shooting events information', () => {
+  it('displays South African athlete support message', () => {
     render(<OlympicCountdown />);
     
-    expect(screen.getByText(/Target Shooting Events: July 27 - August 5, 2028/)).toBeInTheDocument();
+    expect(screen.getByText(/South African target shooting athletes/i)).toBeInTheDocument();
   });
 
   it('has proper accessibility attributes', () => {

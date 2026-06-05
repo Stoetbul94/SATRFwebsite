@@ -313,7 +313,8 @@ describe('EventsCalendar', () => {
       fireEvent.click(eventElement);
 
       await waitFor(() => {
-        expect(screen.getByText('SATRF National Championship 2024')).toBeInTheDocument();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByRole('dialog')).toHaveTextContent('SATRF National Championship 2024');
       });
     });
 
