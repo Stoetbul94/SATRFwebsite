@@ -20,7 +20,7 @@ No **critical** advisories remain. 16 moderate/high remain, almost all transitiv
 
 ## Test coverage notes
 
-CI **Build, Test & Lint** runs Jest only (`npm test`). Playwright score-import specs exist in `tests/e2e/` but run in a **separate** workflow (`.github/workflows/e2e-tests.yml`), not the main CI job.
+CI **Build, Test & Lint** runs Jest (`npm test`) plus **score import e2e** (`npm run test:import-e2e` → `tests/e2e/score-import-ci.spec.ts`): Excel parse/preview/import API and manual entry validation/grand-total/save API against the current UI. Additional Playwright suites live under `tests/e2e/` and run in `.github/workflows/e2e-tests.yml`.
 
 ### Jest suites ignored during CI repair (`jest.config.js` → `testPathIgnorePatterns`)
 
@@ -30,7 +30,7 @@ CI **Build, Test & Lint** runs Jest only (`npm test`). Playwright score-import s
 | `src/__tests__/auth/LoginPage.test.tsx` | **Stale duplicate** | `src/__tests__/components/login.test.tsx` (18 tests) | None — same `/login` page; duplicate had overlapping assertions and `AuthProvider` mock issues. |
 | `src/__tests__/components/login-flow.test.tsx` | **Overlapping duplicate** | `src/__tests__/components/login.test.tsx` | Low — extended login-flow scenarios; redirect behaviour is covered in `login.test.tsx` via `window.location.assign`. |
 | `src/__tests__/analytics/AnalyticsDashboard.test.tsx` | **Live feature, stale suite** | `src/__tests__/analytics/basic.test.tsx`, `simple.test.tsx` | **Partial loss** — the 34-test dashboard integration suite (charts, filters, export, error states) is not run. Lighter analytics tests still pass. Re-enable in a follow-up PR. |
-| `src/__tests__/admin-score-import.test.tsx` | **Live feature, stale suite** | Playwright: `tests/e2e/score-import-flow.spec.ts`, `score-import-fixed.spec.ts` (not in main CI) | **Real loss in `npm test`** — previously covered import page tabs, Excel upload UI, manual entry rows/validation/total calc, and `POST /api/admin/scores/import`. UI was redesigned (Firestore event picker, member select, new placeholders); suite was never updated. **Recommend a follow-up PR** to rewrite this suite or rely on e2e smoke in main CI. |
+| `src/__tests__/admin-score-import.test.tsx` | **Live feature, stale Jest suite** | **Main CI:** `tests/e2e/score-import-ci.spec.ts` | Jest suite still ignored (pre-redesign UI). Import path covered in main CI via Playwright e2e instead. |
 
 ### Provisional scores on public event results
 

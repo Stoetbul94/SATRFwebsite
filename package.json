@@ -12,6 +12,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "vercel-build": "next build",
     "test": "jest",
+    "test:import-e2e": "playwright test --config playwright.ci.config.ts",
     "test:watch": "jest --watch",
     "test:memory": "node scripts/run-tests-with-memory-limit.js",
     "test:coverage": "jest --coverage",

@@ -92,8 +92,17 @@ jobs:
           NODE_ENV: test
           # Add any test-specific environment variables
           # CI: true
+
+      # Step 10: Score import e2e (gates merges — Excel + manual entry against live UI)
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run score import e2e
+        run: npm run test:import-e2e
+        env:
+          CI: true
       
-      # Step 10: Run test coverage (optional - uncomment if needed)
+      # Step 11: Run test coverage (optional - uncomment if needed)
       # - name: Run test coverage
       #   run: npm run test:coverage
       #   env:
