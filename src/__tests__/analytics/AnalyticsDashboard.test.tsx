@@ -229,7 +229,13 @@ const setupBrowserMocks = () => {
   
   global.URL.createObjectURL = mockCreateObjectURL;
   global.URL.revokeObjectURL = mockRevokeObjectURL;
-  global.document.createElement = jest.fn().mockReturnValue(mockLink);
+  const originalCreateElement = document.createElement.bind(document);
+  global.document.createElement = jest.fn((tagName: string, ...args: unknown[]) => {
+    if (tagName === 'a') {
+      return mockLink;
+    }
+    return originalCreateElement(tagName, ...args);
+  });
   
   return { mockCreateObjectURL, mockRevokeObjectURL, mockLink };
 };

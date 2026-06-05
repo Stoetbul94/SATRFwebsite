@@ -13,6 +13,7 @@ import {
 } from '../lib/auth';
 import { isUserAdmin } from '@/lib/userRole';
 import { isEmailAdmin } from '@/lib/adminClient';
+import { isE2eAdminBypassActive } from '@/lib/e2eBypass';
 
 // Auth state interface
 interface AuthState {
@@ -162,6 +163,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     let unsubscribe: () => void = () => {};
+
+    // Playwright CI only (NEXT_PUBLIC_ALLOW_E2E_BYPASS=1 at CI build time)
+    if (isE2eAdminBypassActive()) {
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) {
+          const stored = JSON.parse(raw) as Record<string, unknown>;
+          const profile: UserProfile = {
+            id: String(stored.id ?? 'e2e-admin'),
+            firstName: String(stored.firstName ?? 'Admin'),
+            lastName: String(stored.lastName ?? 'User'),
+            email: String(stored.email ?? 'admin@satrf.com'),
+            membershipType: 'senior',
+            club: String(stored.club ?? 'SATRF'),
+            role: 'admin',
+            status: 'active',
+            isActive: true,
+            emailConfirmed: true,
+            createdAt: new Date().toISOString(),
+            loginCount: 1,
+          };
+          tokenManager.setTokens('mock-admin-token', 'mock-admin-token', profile.id);
+          dispatch({ type: 'AUTH_SUCCESS', payload: profile });
+          dispatch({ type: 'SET_INITIALIZED', payload: true });
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return;
+        }
+      } catch {
+        /* fall through to Firebase */
+      }
+    }
 
     (async () => {
       try {

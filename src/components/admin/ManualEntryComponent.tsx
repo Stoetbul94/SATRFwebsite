@@ -26,6 +26,7 @@ import {
 } from '@chakra-ui/react';
 import { FiPlus, FiTrash2, FiSave } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
+import { isE2eAdminBypassActive } from '@/lib/e2eBypass';
 import { DISCIPLINES, CATEGORIES, POSITION_LABELS, SHOTS_PER_SERIES } from '@/lib/issf';
 import type { Category, Discipline, Position } from '@/types/scores';
 
@@ -77,6 +78,9 @@ const GUEST_MEMBER = '__guest__';
 const CUSTOM_EVENT = '__custom__';
 
 const getToken = async (): Promise<string | null> => {
+  if (isE2eAdminBypassActive()) {
+    return localStorage.getItem('access_token');
+  }
   const fresh = await auth.currentUser?.getIdToken().catch(() => null);
   if (fresh) return fresh;
   return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -336,7 +340,7 @@ export default function ManualEntryComponent({
 
     setIsLoading(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getToken();
       if (!token) throw new Error('Authentication required. Please log in again.');
 
       const response = await fetch('/api/admin/scores', {

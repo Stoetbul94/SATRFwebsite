@@ -21,6 +21,7 @@ jest.mock('../../contexts/AuthContext', () => ({
     clearError: mockClearError,
   }),
   useRedirectIfAuthenticated: jest.fn(),
+  AuthProvider: ({ children }) => children,
 }));
 
 describe('LoginPage', () => {
@@ -123,7 +124,7 @@ describe('LoginPage', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith('/dashboard');
+      expect(window.location.assign).toHaveBeenCalledWith('/dashboard');
     });
   });
 
@@ -146,7 +147,7 @@ describe('LoginPage', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith('/profile');
+      expect(window.location.assign).toHaveBeenCalledWith('/profile');
     });
   });
 
@@ -168,7 +169,7 @@ describe('LoginPage', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockRouter.push).not.toHaveBeenCalled();
+      expect(window.location.assign).not.toHaveBeenCalled();
     });
   });
 

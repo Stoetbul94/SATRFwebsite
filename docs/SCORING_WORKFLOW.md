@@ -57,9 +57,10 @@ positions: [
 | Discipline | Positions | Series per position | Shots | Max decimal / series | Max match decimal |
 |------------|-----------|---------------------|-------|----------------------|-------------------|
 | `prone_50m` | prone only | 6 | 60 | 109.0 | 654.0 |
-| `three_position_50m` | kneeling → prone → standing | 4 each | 120 | 109.0 | 1308.0 |
+| `three_position_50m` | kneeling → prone → standing | 2 each | 60 | 109.0 | 654.0 |
 
 - Decimal scoring: up to **10.9** per shot; series cap **109.0**.
+- **3P qualification:** 3 positions × 2 series × 10 shots = **60 shots** (not the old 4×40 / 120-shot model). Max decimal per position **218.0** (`maxDecimalPerPosition` in `issf.ts`).
 - **Official** saves require the full series count per position (`strict` validation).
 - **Provisional** allows incomplete series (warnings only).
 

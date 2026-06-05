@@ -34,6 +34,7 @@ import {
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiEye, FiAlertCircle } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
+import { isE2eAdminBypassActive } from '@/lib/e2eBypass';
 import { parseMatchWorkbook, type ParsedImportRow } from '@/lib/excelImport';
 import type { ScoreInput } from '@/types/scores';
 
@@ -69,10 +70,19 @@ export default function FileUploadComponent({
   const [isDragOver, setIsDragOver] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
 
+  const getToken = async (): Promise<string | null> => {
+    if (isE2eAdminBypassActive()) {
+      return localStorage.getItem('access_token');
+    }
+    const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+    if (fresh) return fresh;
+    return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const token = await auth.currentUser?.getIdToken();
+        const token = await getToken();
         if (!token) return;
         const res = await fetch('/api/admin/events', {
           headers: { Authorization: `Bearer ${token}` },
@@ -159,7 +169,7 @@ export default function FileUploadComponent({
 
     setIsLoading(true);
     try {
-      const token = await auth.currentUser?.getIdToken() ?? localStorage.getItem('access_token');
+      const token = await getToken();
       if (!token) throw new Error('Please log in again');
 
       const response = await fetch('/api/admin/scores/import', {

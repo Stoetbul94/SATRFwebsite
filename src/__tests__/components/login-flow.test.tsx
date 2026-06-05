@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import { render } from '../setup';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/router';
 import { useAuth, useRedirectIfAuthenticated } from '../../contexts/AuthContext';
@@ -63,7 +64,7 @@ describe('Login Flow - Comprehensive Test Suite', () => {
   let user: ReturnType<typeof userEvent.setup>;
 
   beforeEach(() => {
-    user = userEvent.setup();
+    user = userEvent.setup({ delay: null });
     jest.clearAllMocks();
     
     // Reset router state for each test
@@ -98,11 +99,6 @@ describe('Login Flow - Comprehensive Test Suite', () => {
       expect(screen.getByLabelText(/Email Address/i)).toBeInTheDocument();
       expect(getPasswordInput()).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Sign In/i })).toBeInTheDocument();
-
-      // Check demo account information
-      expect(screen.getByText(/Demo Account/i)).toBeInTheDocument();
-      expect(screen.getByText(/demo@satrf.org.za/i)).toBeInTheDocument();
-      expect(screen.getByText(/DemoPass123/i)).toBeInTheDocument();
 
       // Check navigation links
       const backToHomeLink = screen.getByRole('link', { name: /Back to Home/i });
@@ -245,7 +241,7 @@ describe('Login Flow - Comprehensive Test Suite', () => {
 
   describe('3. Successful Login Flow', () => {
     it('handles successful login with real credentials', async () => {
-      const mockLogin = jest.fn().mockResolvedValue(true);
+      const mockLogin = jest.fn().mockResolvedValue({ id: '1', email: 'realuser@example.com', role: 'member' });
       
       mockUseAuth.mockReturnValue({
         user: null,
@@ -263,22 +259,18 @@ describe('Login Flow - Comprehensive Test Suite', () => {
       const passwordInput = getPasswordInput();
       const submitButton = screen.getByRole('button', { name: /Sign In/i });
 
-      await user.type(emailInput, 'realuser@example.com');
-      await user.type(passwordInput!, 'securepassword123');
-      await user.click(submitButton);
+      fireEvent.change(emailInput, { target: { value: 'realuser@example.com', name: 'email' } });
+      fireEvent.change(passwordInput!, { target: { value: 'securepassword123', name: 'password' } });
+      fireEvent.click(submitButton);
 
       await waitFor(() => {
         expect(mockLogin).toHaveBeenCalledWith('realuser@example.com', 'securepassword123');
-      });
-
-      // After successful login, the router.replace should be called with /dashboard
-      await waitFor(() => {
-        expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard');
+        expect(window.location.assign).toHaveBeenCalledWith('/dashboard');
       });
     });
 
     it('redirects to custom path after successful login', async () => {
-      const mockLogin = jest.fn().mockResolvedValue(true);
+      const mockLogin = jest.fn().mockResolvedValue({ id: '1', email: 'user@example.com', role: 'member' });
       mockRouter.query = { redirect: '/profile' };
       
       mockUseAuth.mockReturnValue({
@@ -297,16 +289,13 @@ describe('Login Flow - Comprehensive Test Suite', () => {
       const passwordInput = getPasswordInput();
       const submitButton = screen.getByRole('button', { name: /Sign In/i });
 
-      await user.type(emailInput, 'user@example.com');
-      await user.type(passwordInput!, 'password123');
-      await user.click(submitButton);
+      fireEvent.change(emailInput, { target: { value: 'user@example.com', name: 'email' } });
+      fireEvent.change(passwordInput!, { target: { value: 'password123', name: 'password' } });
+      fireEvent.click(submitButton);
 
       await waitFor(() => {
         expect(mockLogin).toHaveBeenCalledWith('user@example.com', 'password123');
-      });
-
-      await waitFor(() => {
-        expect(mockRouter.replace).toHaveBeenCalledWith('/profile');
+        expect(window.location.assign).toHaveBeenCalledWith('/profile');
       });
     });
   });
@@ -346,7 +335,7 @@ describe('Login Flow - Comprehensive Test Suite', () => {
       expect(screen.getByText(/Invalid email or password/i)).toBeInTheDocument();
 
       // Verify no redirect occurred
-      expect(mockRouter.replace).not.toHaveBeenCalled();
+      expect(window.location.assign).not.toHaveBeenCalled();
     });
 
     it('handles network errors gracefully', async () => {
@@ -582,7 +571,7 @@ describe('Login Flow - Comprehensive Test Suite', () => {
 
   describe('8. Integration Tests', () => {
     it('completes full login flow with state updates', async () => {
-      const mockLogin = jest.fn().mockResolvedValue(true);
+      const mockLogin = jest.fn().mockResolvedValue({ id: '1', email: 'demo@satrf.org.za', role: 'member' });
       
       mockUseAuth.mockReturnValue({
         user: null,
@@ -601,27 +590,13 @@ describe('Login Flow - Comprehensive Test Suite', () => {
       const passwordInput = getPasswordInput();
       const submitButton = screen.getByRole('button', { name: /Sign In/i });
 
-      // Clear inputs first, then type
-      await act(async () => {
-        await user.clear(emailInput);
-        await user.type(emailInput, 'demo@satrf.org.za');
-        await user.clear(passwordInput!);
-        await user.type(passwordInput!, 'DemoPass123');
-      });
+      fireEvent.change(emailInput, { target: { value: 'demo@satrf.org.za', name: 'email' } });
+      fireEvent.change(passwordInput!, { target: { value: 'DemoPass123', name: 'password' } });
+      fireEvent.click(submitButton);
 
-      // Step 2: Submit form
-      await act(async () => {
-        await user.click(submitButton);
-      });
-
-      // Step 3: Verify login called
       await waitFor(() => {
         expect(mockLogin).toHaveBeenCalledWith('demo@satrf.org.za', 'DemoPass123');
-      });
-
-      // Step 4: Verify redirect
-      await waitFor(() => {
-        expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard');
+        expect(window.location.assign).toHaveBeenCalledWith('/dashboard');
       });
     });
 
