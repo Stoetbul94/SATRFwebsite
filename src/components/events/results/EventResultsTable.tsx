@@ -348,10 +348,10 @@ export default function EventResultsTable({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const pillInactiveBg = useColorModeValue('white', 'gray.700');
-  const pillInactiveBorder = useColorModeValue('gray.300', 'gray.500');
-  const pillInactiveColor = useColorModeValue('satrf.grayBlue', 'gray.100');
-  const pillActiveBg = useColorModeValue('satrf.navy', 'satrf.lightBlue');
+  const pillInactiveBg = useColorModeValue('bg.surface', 'gray.700');
+  const pillInactiveBorder = useColorModeValue('border.default', 'gray.500');
+  const pillInactiveColor = useColorModeValue('text.muted', 'gray.100');
+  const pillActiveBg = useColorModeValue('brand', 'satrf.green.500');
   const pillActiveColor = 'white';
 
   const fetchResults = useCallback(async () => {
@@ -434,8 +434,8 @@ export default function EventResultsTable({
               fontWeight={isActive ? 'bold' : 'medium'}
               _hover={{
                 bg: isActive ? pillActiveBg : pillInactiveBg,
-                borderColor: isActive ? pillActiveBg : 'satrf.lightBlue',
-                color: isActive ? pillActiveColor : 'satrf.navy',
+                borderColor: isActive ? pillActiveBg : 'satrf.green.400',
+                color: isActive ? pillActiveColor : 'satrf.green.800',
               }}
             >
               {DISCIPLINES[d].label.replace('50m Rifle ', '').replace('F-Class ', 'F-')}
