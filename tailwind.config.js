@@ -8,12 +8,22 @@ module.exports = {
     extend: {
       colors: {
         satrf: {
-          navy: '#1a365d',
-          red: '#e53e3e',
-          lightBlue: '#3182ce',
-          grayBlue: '#4a5568',
-          lightGray: '#f7fafc',
-          darkGray: '#2d3748',
+          navy: '#0A1A2F',
+          green: {
+            DEFAULT: '#0B3D2E',
+            500: '#14492F',
+            700: '#0B3D2E',
+          },
+          gold: {
+            DEFAULT: '#C99A3B',
+            500: '#C99A3B',
+            600: '#B8860B',
+          },
+          red: '#E03C31',
+          lightBlue: '#C99A3B',
+          grayBlue: '#4A5C54',
+          lightGray: '#F7F8F7',
+          darkGray: '#1A2420',
         },
         midnight: {
           steel: '#0b1e2f',
@@ -27,8 +37,9 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        oxanium: ['var(--font-oxanium)', 'monospace'],
+        sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-montserrat)', 'Montserrat', 'sans-serif'],
+        wordmark: ['var(--font-orbitron)', 'Orbitron', 'sans-serif'],
       },
       spacing: {
         '18': '4.5rem',

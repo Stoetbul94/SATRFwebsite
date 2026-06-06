@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Box,
   Container,
@@ -9,124 +8,92 @@ import {
   VStack,
   HStack,
   Flex,
-  useColorModeValue,
 } from '@chakra-ui/react';
+import FlagStripe from '@/components/brand/FlagStripe';
+import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 
 export default function Footer() {
-  const bgColor = useColorModeValue('blue.900', 'blue.800');
-  const textColor = useColorModeValue('white', 'gray.100');
-  const linkColor = useColorModeValue('gray.300', 'gray.400');
-  const borderColor = useColorModeValue('gray.700', 'gray.600');
+  const linkColor = 'whiteAlpha.700';
+  const textColor = 'white';
 
   return (
-    <Box as="footer" bg={bgColor} color={textColor}>
-      <Container maxW="7xl" px={{ base: 4, sm: 6, lg: 8 }} py={12}>
+    <Box as="footer" bg="satrf.navy" color={textColor} position="relative">
+      <FlagStripe position="absolute" top={0} left={0} right={0} thickness={4} />
+      <Container maxW="7xl" px={{ base: 4, sm: 6, lg: 8 }} py={12} pt={14}>
         <Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={8}>
-          {/* Logo and Description */}
           <GridItem colSpan={{ base: 1, md: 2 }}>
-            <Flex align="center" mb={4}>
-              <Image
-                src="/images/SATRFLOGO.png"
-                alt="SATRF Logo"
-                width={120}
-                height={40}
-                style={{ height: '40px', width: 'auto' }}
-              />
-            </Flex>
+            <Box mb={4}>
+              <SatrfHorizontalLogo variant="footer" />
+            </Box>
+            <Text textStyle="eyebrow" mb={2} color="satrf.gold.400">
+              Precision · Focus · Excellence
+            </Text>
             <Text color={linkColor} fontSize="sm" lineHeight="relaxed" maxW="md">
-              The South African Target Rifle Federation promotes excellence in precision shooting 
+              The South African Target Rifle Federation promotes excellence in precision shooting
               and provides a platform for competitive target rifle shooting across South Africa.
             </Text>
           </GridItem>
 
-          {/* Quick Links */}
           <GridItem>
             <VStack align="flex-start" spacing={4}>
-              <Text fontSize="lg" fontWeight="semibold">Quick Links</Text>
+              <Text fontSize="sm" textStyle="eyebrowGreen" color="satrf.gold.400">
+                Quick Links
+              </Text>
               <VStack align="flex-start" spacing={2}>
-                <Link href="/about">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    About SATRF
-                  </Text>
-                </Link>
-                <Link href="/events">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Events
-                  </Text>
-                </Link>
-                <Link href="/scores">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Scores
-                  </Text>
-                </Link>
-                <Link href="/leaderboard">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Leaderboard
-                  </Text>
-                </Link>
-                <Link href="/media">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Media
-                  </Text>
-                </Link>
+                {[
+                  ['/about', 'About SATRF'],
+                  ['/events', 'Events'],
+                  ['/scores', 'Scores'],
+                  ['/leaderboard', 'Leaderboard'],
+                  ['/media', 'Media'],
+                ].map(([href, label]) => (
+                  <Link key={href} href={href}>
+                    <Text color={linkColor} fontSize="sm" _hover={{ color: 'white' }} transition="all 0.2s">
+                      {label}
+                    </Text>
+                  </Link>
+                ))}
               </VStack>
             </VStack>
           </GridItem>
 
-          {/* Contact & Support */}
           <GridItem>
             <VStack align="flex-start" spacing={4}>
-              <Text fontSize="lg" fontWeight="semibold">Contact & Support</Text>
+              <Text fontSize="sm" textStyle="eyebrowGreen" color="satrf.gold.400">
+                Contact & Support
+              </Text>
               <VStack align="flex-start" spacing={2}>
-                <Link href="/contact">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Contact Us
-                  </Text>
-                </Link>
-                <Link href="/forum">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Forum
-                  </Text>
-                </Link>
-                <Link href="/privacy">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Privacy Policy
-                  </Text>
-                </Link>
-                <Link href="/terms">
-                  <Text color={linkColor} _hover={{ color: textColor }} transition="all 0.2s">
-                    Terms of Service
-                  </Text>
-                </Link>
+                {[
+                  ['/contact', 'Contact Us'],
+                  ['/forum', 'Forum'],
+                  ['/privacy', 'Privacy Policy'],
+                  ['/terms', 'Terms of Service'],
+                ].map(([href, label]) => (
+                  <Link key={href} href={href}>
+                    <Text color={linkColor} fontSize="sm" _hover={{ color: 'white' }} transition="all 0.2s">
+                      {label}
+                    </Text>
+                  </Link>
+                ))}
               </VStack>
             </VStack>
           </GridItem>
         </Grid>
 
-        {/* Bottom Bar */}
-        <Box borderTop="1px" borderColor={borderColor} mt={8} pt={8}>
-          <Flex
-            direction={{ base: 'column', md: 'row' }}
-            justify="space-between"
-            align="center"
-          >
+        <Box borderTop="1px" borderColor="whiteAlpha.200" mt={8} pt={8}>
+          <Flex direction={{ base: 'column', md: 'row' }} justify="space-between" align="center">
             <Text color={linkColor} fontSize="sm">
-              © 2024 South African Target Rifle Federation. All rights reserved.
+              © {new Date().getFullYear()} South African Target Rifle Federation. All rights reserved.
             </Text>
             <HStack spacing={4} mt={{ base: 4, md: 0 }}>
               <Link href="/privacy">
-                <Text color={linkColor} _hover={{ color: textColor }} fontSize="sm" transition="all 0.2s">
+                <Text color={linkColor} _hover={{ color: 'white' }} fontSize="sm">
                   Privacy
                 </Text>
               </Link>
               <Link href="/terms">
-                <Text color={linkColor} _hover={{ color: textColor }} fontSize="sm" transition="all 0.2s">
+                <Text color={linkColor} _hover={{ color: 'white' }} fontSize="sm">
                   Terms
-                </Text>
-              </Link>
-              <Link href="/sitemap">
-                <Text color={linkColor} _hover={{ color: textColor }} fontSize="sm" transition="all 0.2s">
-                  Sitemap
                 </Text>
               </Link>
             </HStack>
@@ -135,4 +102,4 @@ export default function Footer() {
       </Container>
     </Box>
   );
-} 
+}

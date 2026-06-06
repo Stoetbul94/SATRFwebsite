@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Box,
   Flex,
@@ -12,47 +11,48 @@ import {
   VStack,
   HStack,
   Collapse,
-  useColorModeValue,
 } from '@chakra-ui/react';
-import { FiMenu, FiX, FiUser, FiLogOut, FiShield } from 'react-icons/fi';
+import { FiMenu, FiX, FiLogOut, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { isEmailAdmin } from '@/lib/adminClient';
 import { isUserAdmin } from '@/lib/userRole';
+import FlagStripe from '@/components/brand/FlagStripe';
+import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 
 export default function Navbar() {
-  // All useColorModeValue calls must be at the very top, before any other hooks
-  const bgColor = useColorModeValue('blue.900', 'blue.800');
-  const textColor = useColorModeValue('white', 'gray.100');
-  const hoverColor = useColorModeValue('blue.700', 'blue.600');
-  
   const { user, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Check if user is admin (via role - handles both flat and nested - or email whitelist)
-  const isAdmin = user ? (isUserAdmin(user as any) || isEmailAdmin(user.email)) : false;
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const isAdmin = user ? isUserAdmin(user as Parameters<typeof isUserAdmin>[0]) || isEmailAdmin(user.email) : false;
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
+  const toggleMobileMenu = () => setIsMobileMenuOpen((o) => !o);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const NavLink = ({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) => (
+  const NavLink = ({
+    href,
+    children,
+    onClick,
+  }: {
+    href: string;
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => (
     <Link href={href} onClick={onClick}>
       <Text
         px={3}
         py={2}
         rounded="md"
-        textStyle="sm"
-        fontWeight="medium"
-        color={textColor}
-        _hover={{ bg: hoverColor }}
+        fontSize="sm"
+        fontWeight="600"
+        fontFamily="heading"
+        letterSpacing="0.04em"
+        textTransform="uppercase"
+        color="whiteAlpha.900"
+        _hover={{ bg: 'whiteAlpha.200' }}
         transition="all 0.2s"
       >
         {children}
@@ -61,27 +61,18 @@ export default function Navbar() {
   );
 
   return (
-    <Box bg={bgColor} shadow="lg">
+    <Box as="header" bg="brand" shadow="md" position="relative">
+      <FlagStripe position="absolute" bottom={0} left={0} right={0} thickness={3} opacity={1} />
       <Box maxW="7xl" mx="auto" px={{ base: 4, sm: 6, lg: 8 }}>
-        <Flex justify="space-between" align="center" h="16">
-          {/* Logo */}
-          <Box flexShrink={0}>
+        <Flex justify="space-between" align="center" h={{ base: '14', md: '16' }}>
+          <Box flexShrink={0} py={1}>
             <Link href="/">
-              <Flex align="center">
-                <Image
-                  src="/images/SATRFLOGO.png"
-                  alt="SATRF Logo"
-                  width={120}
-                  height={40}
-                  style={{ height: '40px', width: 'auto' }}
-                />
-              </Flex>
+              <SatrfHorizontalLogo variant="nav" />
             </Link>
           </Box>
 
-          {/* Desktop Navigation */}
           <Box display={{ base: 'none', md: 'block' }}>
-            <HStack spacing={4} ml={10}>
+            <HStack spacing={1} ml={6}>
               <NavLink href="/">Home</NavLink>
               <NavLink href="/events">Events</NavLink>
               <NavLink href="/scores">Scores</NavLink>
@@ -94,24 +85,23 @@ export default function Navbar() {
             </HStack>
           </Box>
 
-          {/* User Menu / Auth Buttons */}
           <Box display={{ base: 'none', md: 'block' }}>
-            <HStack spacing={4} ml={4}>
+            <HStack spacing={3} ml={4}>
               {isAuthenticated && user ? (
                 <>
-                  <Text color={textColor} fontSize="sm">
-                    Welcome, {user.firstName}
+                  <Text color="whiteAlpha.900" fontSize="sm" fontWeight="500">
+                    {user.firstName}
                   </Text>
                   {!isAdmin && (
                     <Link href="/dashboard">
-                      <Button size="sm" variant="outline" colorScheme="blue">
+                      <Button size="sm" variant="satrfOutline" color="white" borderColor="whiteAlpha.600" _hover={{ bg: 'whiteAlpha.200' }}>
                         Dashboard
                       </Button>
                     </Link>
                   )}
                   {isAdmin && (
                     <Link href="/admin/dashboard">
-                      <Button size="sm" variant="solid" colorScheme="red" leftIcon={<FiShield />}>
+                      <Button size="sm" variant="satrfGold" leftIcon={<FiShield />}>
                         Admin
                       </Button>
                     </Link>
@@ -120,8 +110,8 @@ export default function Navbar() {
                     aria-label="Logout"
                     icon={<FiLogOut />}
                     variant="ghost"
-                    color={textColor}
-                    _hover={{ bg: hoverColor }}
+                    color="white"
+                    _hover={{ bg: 'whiteAlpha.200' }}
                     onClick={handleLogout}
                     size="sm"
                   />
@@ -130,7 +120,7 @@ export default function Navbar() {
                 <>
                   <NavLink href="/login">Login</NavLink>
                   <Link href="/register">
-                    <Button size="sm" colorScheme="blue">
+                    <Button size="sm" variant="satrfGold">
                       Join SATRF
                     </Button>
                   </Link>
@@ -139,14 +129,13 @@ export default function Navbar() {
             </HStack>
           </Box>
 
-          {/* Mobile menu button */}
           <Box display={{ base: 'block', md: 'none' }}>
             <IconButton
               aria-label="Toggle mobile menu"
               icon={isMobileMenuOpen ? <FiX /> : <FiMenu />}
               variant="ghost"
-              color={textColor}
-              _hover={{ bg: hoverColor }}
+              color="white"
+              _hover={{ bg: 'whiteAlpha.200' }}
               onClick={toggleMobileMenu}
               size="md"
             />
@@ -154,10 +143,9 @@ export default function Navbar() {
         </Flex>
       </Box>
 
-                {/* Mobile Navigation */}
       <Collapse in={isMobileMenuOpen} animateOpacity>
-        <Box display={{ base: 'block', md: 'none' }}>
-                      <VStack spacing={1} px={2} pt={2} pb={3} bg={bgColor}>
+        <Box display={{ base: 'block', md: 'none' }} bg="satrf.green.800" pb={3}>
+          <VStack spacing={1} px={2} pt={2} align="stretch">
             <NavLink href="/" onClick={closeMobileMenu}>Home</NavLink>
             <NavLink href="/events" onClick={closeMobileMenu}>Events</NavLink>
             <NavLink href="/scores" onClick={closeMobileMenu}>Scores</NavLink>
@@ -167,7 +155,7 @@ export default function Navbar() {
             <NavLink href="/about" onClick={closeMobileMenu}>About</NavLink>
             <NavLink href="/contact" onClick={closeMobileMenu}>Contact</NavLink>
             <NavLink href="/donate" onClick={closeMobileMenu}>Donate</NavLink>
-            
+
             {isAuthenticated && user ? (
               <>
                 <NavLink href="/profile" onClick={closeMobileMenu}>Profile</NavLink>
@@ -175,25 +163,18 @@ export default function Navbar() {
                   <NavLink href="/dashboard" onClick={closeMobileMenu}>Dashboard</NavLink>
                 )}
                 {isAdmin && (
-                  <NavLink href="/admin/dashboard" onClick={closeMobileMenu}>
-                    <HStack>
-                      <FiShield />
-                      <Text>Admin Dashboard</Text>
-                    </HStack>
-                  </NavLink>
+                  <NavLink href="/admin/dashboard" onClick={closeMobileMenu}>Admin</NavLink>
                 )}
                 <Button
                   variant="ghost"
-                  color={textColor}
-                  _hover={{ bg: hoverColor }}
+                  color="white"
+                  _hover={{ bg: 'whiteAlpha.200' }}
                   onClick={() => {
                     handleLogout();
                     closeMobileMenu();
                   }}
-                  w="full"
                   justifyContent="flex-start"
                   px={3}
-                  py={2}
                 >
                   Logout
                 </Button>
@@ -202,7 +183,7 @@ export default function Navbar() {
               <>
                 <NavLink href="/login" onClick={closeMobileMenu}>Login</NavLink>
                 <Link href="/register" onClick={closeMobileMenu}>
-                  <Button colorScheme="blue" w="full" mx={3} mt={4}>
+                  <Button variant="satrfGold" w="full" mx={2} mt={2}>
                     Join SATRF
                   </Button>
                 </Link>
@@ -213,4 +194,4 @@ export default function Navbar() {
       </Collapse>
     </Box>
   );
-} 
+}
