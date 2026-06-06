@@ -46,7 +46,8 @@ import {
   parseEventDisciplines,
 } from '@/lib/eventDisciplines';
 import type { Discipline } from '@/types/scores';
-import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX, FiUsers } from 'react-icons/fi';
+import { useRouter } from 'next/router';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
@@ -56,6 +57,7 @@ import { auth } from '@/lib/firebase';
 export default function AdminEvents() {
   useProtectedRoute();
   const { isAdmin, isLoading: authLoading } = useAdminRoute();
+  const router = useRouter();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [events, setEvents] = useState<Event[]>([]);
@@ -781,6 +783,14 @@ export default function AdminEvents() {
                   </Td>
                   <Td>
                     <HStack spacing={2}>
+                      <IconButton
+                        aria-label="View registrations"
+                        icon={<FiUsers />}
+                        size="sm"
+                        colorScheme="teal"
+                        variant="ghost"
+                        onClick={() => router.push(`/admin/events/${event.id}/registrations`)}
+                      />
                       <IconButton
                         aria-label="Edit event"
                         icon={<FiEdit />}
