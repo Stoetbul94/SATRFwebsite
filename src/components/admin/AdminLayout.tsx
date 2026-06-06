@@ -105,7 +105,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
         <Box
           as="nav"
           aria-label="Admin navigation"
-          w={{ base: '60px', md: '240px' }}
+          w={{ base: '64px', md: '272px' }}
           bg="satrf.green.900"
           color="whiteAlpha.800"
           minH="100vh"
@@ -117,27 +117,26 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           borderRightWidth="1px"
           borderColor="satrf.green.800"
         >
-          <Box mb={8} px={{ base: 0, md: 1 }} display="flex" justifyContent={{ base: 'center', md: 'flex-start' }}>
-            <Box display={{ base: 'none', md: 'block' }}>
-              <SatrfHorizontalLogo variant="nav" maxW="200px" />
-              <Text fontSize="2xs" color="satrf.gold.400" textTransform="uppercase" letterSpacing="widest" mt={2} pl={1}>
+          <Box mb={8} px={{ base: 0, md: 0.5 }} display="flex" justifyContent={{ base: 'center', md: 'stretch' }} w="100%">
+            <Box display={{ base: 'none', md: 'block' }} w="100%">
+              <SatrfHorizontalLogo variant="admin" />
+              <Text fontSize="2xs" color="satrf.gold.400" textTransform="uppercase" letterSpacing="widest" mt={2.5} pl={1}>
                 Admin
               </Text>
             </Box>
             <Box
-              display={{ base: 'flex', md: 'none' }}
-              alignItems="center"
-              justifyContent="center"
-              w="40px"
-              h="40px"
-              bg="satrf.green.800"
+              as="img"
+              display={{ base: 'block', md: 'none' }}
+              src="/brand/satrf-emblem.png"
+              alt="SATRF"
+              w="44px"
+              h="44px"
+              objectFit="contain"
               borderRadius="md"
-              fontWeight="bold"
-              fontSize="xs"
-              color="satrf.gold.400"
-            >
-              SA
-            </Box>
+              bg="white"
+              p={1}
+              boxShadow="sm"
+            />
           </Box>
 
           <VStack align="stretch" spacing={0.5}>

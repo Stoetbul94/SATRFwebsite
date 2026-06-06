@@ -4,8 +4,8 @@ import Image from 'next/image';
 import { Box, type BoxProps } from '@chakra-ui/react';
 
 interface SatrfHorizontalLogoProps extends BoxProps {
-  /** nav ~44px tall; footer ~48px */
-  variant?: 'nav' | 'footer';
+  /** nav ~44px; footer ~48px; admin sidebar ~56px */
+  variant?: 'nav' | 'footer' | 'admin';
 }
 
 /**
@@ -16,15 +16,26 @@ export default function SatrfHorizontalLogo({
   variant = 'nav',
   ...props
 }: SatrfHorizontalLogoProps) {
-  const height = variant === 'nav' ? 'clamp(36px, 10vw, 44px)' : 'clamp(40px, 11vw, 48px)';
-  const maxWidth = variant === 'nav' ? 'min(260px, 72vw)' : 'min(280px, 80vw)';
+  const height =
+    variant === 'admin'
+      ? 'clamp(48px, 14vw, 56px)'
+      : variant === 'nav'
+        ? 'clamp(36px, 10vw, 44px)'
+        : 'clamp(40px, 11vw, 48px)';
+  const maxWidth =
+    variant === 'admin'
+      ? '100%'
+      : variant === 'nav'
+        ? 'min(260px, 72vw)'
+        : 'min(280px, 80vw)';
 
   return (
     <Box
       bg="white"
       rounded="md"
-      px={{ base: 2, md: 2.5 }}
-      py={1}
+      px={variant === 'admin' ? { base: 2.5, md: 3 } : { base: 2, md: 2.5 }}
+      py={variant === 'admin' ? 1.5 : 1}
+      w={variant === 'admin' ? '100%' : undefined}
       lineHeight={0}
       boxShadow="sm"
       display="inline-flex"
