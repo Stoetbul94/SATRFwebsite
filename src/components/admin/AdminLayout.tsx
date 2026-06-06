@@ -105,7 +105,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
         <Box
           as="nav"
           aria-label="Admin navigation"
-          w={{ base: '64px', md: '272px' }}
+          w={{ base: '72px', md: '300px' }}
           bg="satrf.green.900"
           color="whiteAlpha.800"
           minH="100vh"
@@ -117,7 +117,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           borderRightWidth="1px"
           borderColor="satrf.green.800"
         >
-          <Box mb={8} px={{ base: 0, md: 0.5 }} display="flex" justifyContent={{ base: 'center', md: 'stretch' }} w="100%">
+          <Box mb={8} px={{ base: 0, md: 1 }} display="flex" justifyContent={{ base: 'center', md: 'stretch' }} w="100%">
             <Box display={{ base: 'none', md: 'block' }} w="100%">
               <SatrfHorizontalLogo variant="admin" />
               <Text fontSize="2xs" color="satrf.gold.400" textTransform="uppercase" letterSpacing="widest" mt={2.5} pl={1}>
@@ -129,8 +129,8 @@ export default function AdminLayout({ children, title, description }: AdminLayou
               display={{ base: 'block', md: 'none' }}
               src="/brand/satrf-emblem.png"
               alt="SATRF"
-              w="44px"
-              h="44px"
+              w="52px"
+              h="52px"
               objectFit="contain"
               borderRadius="md"
               bg="white"
