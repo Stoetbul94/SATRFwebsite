@@ -27,6 +27,7 @@ import {
 import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
+import LeaderboardPodium from '@/components/scores/LeaderboardPodium';
 import { leaderboardAPI } from '@/lib/api';
 import type { LeaderboardEntry } from '@/lib/api';
 
@@ -179,6 +180,9 @@ export default function Leaderboard() {
                 </Box>
               ) : leaderboardData && leaderboardData.data.length > 0 ? (
                 <>
+                  {leaderboardType === 'overall' && page === 1 && (
+                    <LeaderboardPodium entries={leaderboardData.data} />
+                  )}
                   <Box overflowX="auto">
                     <Table variant="simple" size="sm">
                       <Thead bg="brand">
