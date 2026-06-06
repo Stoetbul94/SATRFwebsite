@@ -46,9 +46,16 @@ import {
   parseEventDisciplines,
 } from '@/lib/eventDisciplines';
 import type { Discipline } from '@/types/scores';
-import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX, FiUsers } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX, FiUsers, FiCalendar } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTableCard from '@/components/admin/AdminTableCard';
+import AdminEmptyState from '@/components/admin/AdminEmptyState';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge';
+import AdminIconActions from '@/components/admin/AdminIconActions';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { Event } from '@/lib/api';
@@ -689,25 +696,11 @@ export default function AdminEvents() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      open: 'green',
-      full: 'yellow',
-      closed: 'gray',
-    };
-    return (
-      <Badge colorScheme={colors[status as keyof typeof colors] || 'gray'}>
-        {status}
-      </Badge>
-    );
-  };
-
   if (authLoading || loading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminPageHeader title="Event Management" subtitle="Create, edit, and manage events" />
+        <AdminTableSkeleton columns={7} />
       </AdminLayout>
     );
   }
@@ -717,21 +710,24 @@ export default function AdminEvents() {
   }
 
   return (
-    <AdminLayout title="Event Management" description="Create, edit, and manage events">
+    <AdminLayout>
       <Head>
         <title>Admin Events - SATRF</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <Box mb={6}>
-        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
-          Create New Event
-        </Button>
-      </Box>
+      <AdminPageHeader
+        title="Event Management"
+        subtitle="Create, edit, and manage events"
+        actions={
+          <Button leftIcon={<FiPlus />} variant="satrf" onClick={handleCreate}>
+            Create New Event
+          </Button>
+        }
+      />
 
-      {/* Events Table */}
-      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto">
-        <Table variant="simple">
+      <AdminTableCard>
+        <Table variant="admin" size="sm">
           <Thead>
             <Tr>
               <Th>Title</Th>
@@ -746,8 +742,17 @@ export default function AdminEvents() {
           <Tbody>
             {events.length === 0 ? (
               <Tr>
-                <Td colSpan={7} textAlign="center" py={8}>
-                  <Text color="gray.500">No events found</Text>
+                <Td colSpan={7} p={0} border={0}>
+                  <AdminEmptyState
+                    icon={FiCalendar}
+                    title="No events yet"
+                    description="Create your first event to get started."
+                    action={
+                      <Button leftIcon={<FiPlus />} variant="satrf" size="sm" onClick={handleCreate} mt={2}>
+                        Create New Event
+                      </Button>
+                    }
+                  />
                 </Td>
               </Tr>
             ) : (
@@ -776,42 +781,36 @@ export default function AdminEvents() {
                       .map((id) => EVENT_DISCIPLINE_OPTIONS.find((o) => o.id === id)?.shortLabel ?? id)
                       .join(', ') || (event as { type?: string }).type || '—'}
                   </Td>
-                  <Td>{getStatusBadge(event.status)}</Td>
+                  <Td><AdminStatusBadge status={event.status} /></Td>
                   <Td>
                     {event.currentParticipants || 0}
                     {event.maxParticipants && ` / ${event.maxParticipants}`}
                   </Td>
                   <Td>
-                    <HStack spacing={2}>
-                      <IconButton
-                        aria-label="View registrations"
-                        icon={<FiUsers />}
-                        size="sm"
-                        colorScheme="teal"
-                        variant="ghost"
-                        onClick={() => router.push(`/admin/events/${event.id}/registrations`)}
-                      />
-                      <IconButton
-                        aria-label="Edit event"
-                        icon={<FiEdit />}
-                        size="sm"
-                        onClick={() => handleEdit(event)}
-                      />
-                      <IconButton
-                        aria-label="Archive event"
-                        icon={<FiArchive />}
-                        size="sm"
-                        colorScheme="orange"
-                        onClick={() => handleArchive(event.id)}
-                      />
-                    </HStack>
+                    <AdminIconActions
+                      actions={[
+                        {
+                          label: 'View registrations',
+                          icon: <FiUsers />,
+                          colorScheme: 'teal',
+                          onClick: () => router.push(`/admin/events/${event.id}/registrations`),
+                        },
+                        { label: 'Edit event', icon: <FiEdit />, onClick: () => handleEdit(event) },
+                        {
+                          label: 'Archive event',
+                          icon: <FiArchive />,
+                          colorScheme: 'orange',
+                          onClick: () => handleArchive(event.id),
+                        },
+                      ]}
+                    />
                   </Td>
                 </Tr>
               ))
             )}
           </Tbody>
         </Table>
-      </Box>
+      </AdminTableCard>
 
       {/* Create/Edit Modal - Modernized */}
       <Modal 
@@ -1123,7 +1122,7 @@ export default function AdminEvents() {
               Cancel
             </Button>
             <Button 
-              colorScheme="blue" 
+              variant="satrf" 
               onClick={handleSave}
               isLoading={isSaving || uploadingImage}
               loadingText={uploadingImage ? "Uploading..." : (isEditMode ? "Updating..." : "Creating...")}

@@ -18,6 +18,10 @@ import {
   HStack,
 } from '@chakra-ui/react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTableCard from '@/components/admin/AdminTableCard';
+import AdminEmptyState from '@/components/admin/AdminEmptyState';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 
@@ -111,9 +115,8 @@ export default function AdminAudit() {
   if (authLoading || loading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminPageHeader title="Audit Log" subtitle="View all admin actions and system events" />
+        <AdminTableSkeleton columns={5} />
       </AdminLayout>
     );
   }
@@ -123,16 +126,17 @@ export default function AdminAudit() {
   }
 
   return (
-    <AdminLayout title="Audit Log" description="View all admin actions and system events">
+    <AdminLayout>
       <Head>
         <title>Admin Audit Log - SATRF</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      {/* Filter */}
-      <Box bg={cardBg} p={4} borderRadius="lg" border="1px" borderColor={borderColor} mb={6}>
-        <HStack>
-          <Text>Filter by action:</Text>
+      <AdminPageHeader title="Audit Log" subtitle="View all admin actions and system events" />
+
+      <Box bg="bg.surface" p={4} borderRadius="lg" borderWidth="1px" borderColor="border.default" mb={4} boxShadow="sm">
+        <HStack wrap="wrap" spacing={3}>
+          <Text fontSize="sm" color="text.muted">Filter by action:</Text>
           <Select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
@@ -151,9 +155,8 @@ export default function AdminAudit() {
         </HStack>
       </Box>
 
-      {/* Audit Log Table */}
-      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto">
-        <Table variant="simple">
+      <AdminTableCard>
+        <Table variant="admin" size="sm">
           <Thead>
             <Tr>
               <Th>Timestamp</Th>
@@ -166,8 +169,8 @@ export default function AdminAudit() {
           <Tbody>
             {actions.length === 0 ? (
               <Tr>
-                <Td colSpan={5} textAlign="center" py={8}>
-                  <Text color="gray.500">No audit log entries found</Text>
+                <Td colSpan={5} p={0} border={0}>
+                  <AdminEmptyState title="No audit log entries" description="Admin actions will appear here as they occur." />
                 </Td>
               </Tr>
             ) : (
@@ -195,7 +198,7 @@ export default function AdminAudit() {
             )}
           </Tbody>
         </Table>
-      </Box>
+      </AdminTableCard>
     </AdminLayout>
   );
 }

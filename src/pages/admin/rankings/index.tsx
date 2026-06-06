@@ -17,6 +17,10 @@ import {
   Text,
 } from '@chakra-ui/react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTableCard from '@/components/admin/AdminTableCard';
+import AdminEmptyState from '@/components/admin/AdminEmptyState';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { DISCIPLINES, CATEGORIES } from '@/lib/issf';
@@ -64,9 +68,8 @@ export default function AdminRankings() {
   if (authLoading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminPageHeader title="Rankings" subtitle="Official rankings by average decimal total" />
+        <AdminTableSkeleton columns={7} />
       </AdminLayout>
     );
   }
@@ -79,13 +82,15 @@ export default function AdminRankings() {
   };
 
   return (
-    <AdminLayout title="Rankings" description="Official rankings by average decimal total">
+    <AdminLayout>
       <Head>
         <title>Rankings - SATRF Admin</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <Box bg={cardBg} p={4} borderRadius="lg" border="1px" borderColor={borderColor} mb={6}>
+      <AdminPageHeader title="Rankings" subtitle="Official rankings by average decimal total" />
+
+      <Box bg="bg.surface" p={4} borderRadius="lg" borderWidth="1px" borderColor="border.default" mb={4} boxShadow="sm">
         <HStack spacing={4} wrap="wrap">
           <Select value={discipline} onChange={(e) => setDiscipline(e.target.value)} w="240px">
             {Object.values(DISCIPLINES).map((d) => (
@@ -101,17 +106,17 @@ export default function AdminRankings() {
         </HStack>
       </Box>
 
-      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto" shadow="sm">
+      <AdminTableCard>
         {loading ? (
-          <Center py={12}><Spinner color="blue.500" /></Center>
+          <AdminTableSkeleton columns={7} rows={8} />
         ) : rows.length === 0 ? (
-          <Box p={12} textAlign="center">
-            <Text fontSize="lg" fontWeight="semibold" color="gray.700" mb={2}>No ranked results</Text>
-            <Text color="gray.500" fontSize="sm">No official scores for this discipline/category yet.</Text>
-          </Box>
+          <AdminEmptyState
+            title="No ranked results"
+            description="No official scores for this discipline/category yet."
+          />
         ) : (
-          <Table variant="simple">
-            <Thead bg="gray.50">
+          <Table variant="admin" size="sm">
+            <Thead>
               <Tr>
                 <Th isNumeric>Rank</Th>
                 <Th>Shooter</Th>
@@ -124,14 +129,14 @@ export default function AdminRankings() {
             </Thead>
             <Tbody>
               {rows.map((r) => (
-                <Tr key={`${r.shooterName}-${r.club}-${r.rank}`} _hover={{ bg: 'gray.50' }}>
+                <Tr key={`${r.shooterName}-${r.club}-${r.rank}`}>
                   <Td isNumeric fontWeight="bold">
                     {medal(r.rank) ? <Badge colorScheme={medal(r.rank)}>{r.rank}</Badge> : r.rank}
                   </Td>
                   <Td fontWeight="semibold">{r.shooterName}</Td>
                   <Td>{r.club || '-'}</Td>
                   <Td textTransform="capitalize">{r.category}</Td>
-                  <Td isNumeric fontWeight="bold" color="blue.600">{r.average.toFixed(1)}</Td>
+                  <Td isNumeric fontWeight="bold" color="accent">{r.average.toFixed(1)}</Td>
                   <Td isNumeric>{r.best.toFixed(1)}</Td>
                   <Td isNumeric>{r.eventCount}</Td>
                 </Tr>
@@ -139,7 +144,7 @@ export default function AdminRankings() {
             </Tbody>
           </Table>
         )}
-      </Box>
+      </AdminTableCard>
     </AdminLayout>
   );
 }

@@ -35,6 +35,12 @@ import {
 } from '@chakra-ui/react';
 import { FiSearch, FiShield, FiCheck, FiX, FiSlash, FiRotateCcw, FiUsers } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTableCard from '@/components/admin/AdminTableCard';
+import AdminEmptyState from '@/components/admin/AdminEmptyState';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge';
+import AdminIconActions from '@/components/admin/AdminIconActions';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
@@ -150,19 +156,9 @@ export default function AdminUsers() {
   const statusOf = (u: UserProfile): string =>
     (u as any).status || (u.isActive === false ? 'suspended' : 'active');
 
-  const getStatusBadge = (status: string) => {
-    const map: Record<string, string> = {
-      pending: 'yellow',
-      active: 'green',
-      rejected: 'red',
-      suspended: 'orange',
-    };
-    return <Badge colorScheme={map[status] || 'gray'} textTransform="capitalize">{status}</Badge>;
-  };
-
   const getRoleBadge = (role: string) => {
-    const colors: Record<string, string> = { admin: 'red', event_scorer: 'purple', user: 'blue' };
-    return <Badge colorScheme={colors[role] || 'gray'}>{role}</Badge>;
+    const variant = role === 'admin' ? 'statusClosed' : role === 'event_scorer' ? 'discipline' : 'statusOpen';
+    return <Badge variant={variant}>{role}</Badge>;
   };
 
   const pendingCount = useMemo(() => users.filter((u) => statusOf(u) === 'pending').length, [users]);
@@ -185,9 +181,8 @@ export default function AdminUsers() {
   if (authLoading || loading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminPageHeader title="Members" subtitle="Approve registrations and manage member accounts" />
+        <AdminTableSkeleton columns={8} />
       </AdminLayout>
     );
   }
@@ -195,30 +190,34 @@ export default function AdminUsers() {
   if (!isAdmin) return null;
 
   return (
-    <AdminLayout title="Members" description="Approve registrations and manage member accounts">
+    <AdminLayout>
       <Head>
         <title>Members - SATRF Admin</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      {/* Filters */}
-      <HStack mb={4} spacing={3} wrap="wrap">
+      <AdminPageHeader
+        title="Members"
+        subtitle="Approve registrations and manage member accounts"
+      />
+
+      <HStack mb={4} spacing={2} wrap="wrap">
         <Button
-          colorScheme={statusFilter === 'pending' ? 'yellow' : 'gray'}
+          size="sm"
+          variant={statusFilter === 'pending' ? 'satrfGold' : 'satrfOutline'}
           onClick={() => setStatusFilter('pending')}
         >
-          Pending {pendingCount > 0 && <Badge ml={2} colorScheme="red">{pendingCount}</Badge>}
+          Pending {pendingCount > 0 && <Badge ml={2} bg="satrf.flagRed" color="white">{pendingCount}</Badge>}
         </Button>
-        <Button colorScheme={statusFilter === 'active' ? 'green' : 'gray'} onClick={() => setStatusFilter('active')}>
+        <Button size="sm" variant={statusFilter === 'active' ? 'satrf' : 'satrfOutline'} onClick={() => setStatusFilter('active')}>
           Active
         </Button>
-        <Button colorScheme={statusFilter === 'all' ? 'blue' : 'gray'} onClick={() => setStatusFilter('all')}>
+        <Button size="sm" variant={statusFilter === 'all' ? 'satrf' : 'satrfOutline'} onClick={() => setStatusFilter('all')}>
           All
         </Button>
       </HStack>
 
-      {/* Search */}
-      <Box bg={cardBg} p={4} borderRadius="lg" border="1px" borderColor={borderColor} mb={6}>
+      <Box bg="bg.surface" p={4} borderRadius="lg" borderWidth="1px" borderColor="border.default" mb={4} boxShadow="sm">
         <InputGroup>
           <InputLeftElement pointerEvents="none">
             <FiSearch color="gray.400" />
@@ -227,26 +226,24 @@ export default function AdminUsers() {
             placeholder="Search by name, email, or club..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            bg="white"
           />
         </InputGroup>
       </Box>
 
-      {/* Table */}
-      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto" shadow="sm">
+      <AdminTableCard>
         {filteredUsers.length === 0 ? (
-          <Box p={12} textAlign="center">
-            <FiUsers size={48} color="gray" style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-            <Text fontSize="lg" fontWeight="semibold" color="gray.700" mb={2}>
-              No members in this view
-            </Text>
-            <Text color="gray.500" fontSize="sm">
-              {statusFilter === 'pending' ? 'No registrations awaiting approval.' : 'Try a different filter or search.'}
-            </Text>
-          </Box>
+          <AdminEmptyState
+            icon={FiUsers}
+            title="No members in this view"
+            description={
+              statusFilter === 'pending'
+                ? 'No registrations awaiting approval.'
+                : 'Try a different filter or search.'
+            }
+          />
         ) : (
-          <Table variant="simple">
-            <Thead bg="gray.50">
+          <Table variant="admin" size="sm">
+            <Thead>
               <Tr>
                 <Th>Name</Th>
                 <Th>Email</Th>
@@ -262,7 +259,7 @@ export default function AdminUsers() {
               {filteredUsers.map((user) => {
                 const s = statusOf(user);
                 return (
-                  <Tr key={user.id} _hover={{ bg: 'gray.50' }}>
+                  <Tr key={user.id}>
                     <Td fontWeight="semibold">{user.firstName} {user.lastName}</Td>
                     <Td>{user.email}</Td>
                     <Td>{user.club || <Text as="span" color="gray.400">-</Text>}</Td>
@@ -270,7 +267,7 @@ export default function AdminUsers() {
                       <Badge colorScheme="teal" textTransform="capitalize">{user.membershipType || 'N/A'}</Badge>
                     </Td>
                     <Td>{getRoleBadge(user.role || 'user')}</Td>
-                    <Td>{getStatusBadge(s)}</Td>
+                    <Td><AdminStatusBadge status={s} /></Td>
                     <Td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</Td>
                     <Td>
                       <HStack spacing={1}>
@@ -305,7 +302,7 @@ export default function AdminUsers() {
             </Tbody>
           </Table>
         )}
-      </Box>
+      </AdminTableCard>
 
       {/* Role Change Modal */}
       <Modal isOpen={isOpen} onClose={onClose}>
@@ -327,7 +324,7 @@ export default function AdminUsers() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
-            <Button colorScheme="blue" onClick={handleSaveRole}>Save</Button>
+            <Button variant="satrf" onClick={handleSaveRole}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

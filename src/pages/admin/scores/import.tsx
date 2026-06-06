@@ -23,6 +23,8 @@ import FileUploadComponent from '@/components/admin/FileUploadComponent';
 import ManualEntryComponent from '@/components/admin/ManualEntryComponent';
 import PdfImportComponent from '@/components/admin/PdfImportComponent';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 
@@ -49,9 +51,7 @@ export default function AdminScoreImport() {
   if (authLoading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminLoadingPanel />
       </AdminLayout>
     );
   }
@@ -88,12 +88,18 @@ export default function AdminScoreImport() {
   };
 
   return (
-    <AdminLayout title="Score Import & Entry" description="Upload Excel/CSV files or manually enter scores for matches">
-      <Box mb={8}>
-        <Link href="/admin/scores/template" color="blue.500" fontSize="sm">
-          📥 Download Excel Template
-        </Link>
-      </Box>
+    <AdminLayout>
+      <AdminPageHeader
+        title="Score Import & Entry"
+        subtitle="Upload Excel/CSV files or manually enter scores for matches"
+        actions={
+          <Link href="/admin/scores/template">
+            <Box as="span" fontSize="sm" color="brand" fontWeight="semibold">
+              Download Excel Template →
+            </Box>
+          </Link>
+        }
+      />
 
         {importResult && (
           <Alert
@@ -138,7 +144,8 @@ export default function AdminScoreImport() {
           </Alert>
         )}
 
-        <Tabs variant="enclosed" colorScheme="blue">
+        <Box bg="bg.surface" borderRadius="lg" borderWidth="1px" borderColor="border.default" boxShadow="sm" p={{ base: 3, md: 4 }}>
+        <Tabs variant="enclosed" colorScheme="green">
           <TabList>
             <Tab>
               <FiUpload style={{ marginRight: '8px' }} />
@@ -181,6 +188,7 @@ export default function AdminScoreImport() {
             </TabPanel>
           </TabPanels>
         </Tabs>
+        </Box>
     </AdminLayout>
   );
 } 

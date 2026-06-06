@@ -103,6 +103,7 @@ const theme = extendTheme({
       'text.primary': { default: 'satrf.text.primary' },
       'text.muted': { default: 'satrf.text.muted' },
       'border.default': { default: 'satrf.border.default' },
+      'border.subtle': { default: 'satrf.border.subtle' },
       accent: { default: 'satrf.gold.500' },
       brand: { default: 'satrf.green.700' },
       'chakra-body-text': { default: 'satrf.text.primary' },
@@ -202,6 +203,105 @@ const theme = extendTheme({
         fontWeight: '700',
         color: 'text.primary',
         letterSpacing: '0.01em',
+      },
+    },
+    Table: {
+      variants: {
+        admin: {
+          table: {
+            width: '100%',
+          },
+          thead: {
+            tr: {
+              th: {
+                bg: 'brand',
+                color: 'white',
+                fontFamily: 'heading',
+                fontSize: 'xs',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                borderColor: 'satrf.green.800',
+                py: 3,
+                whiteSpace: 'nowrap',
+              },
+            },
+          },
+          tbody: {
+            tr: {
+              _even: { bg: 'satrf.green.50' },
+              _hover: { bg: 'satrf.green.100' },
+              transition: 'background 0.12s ease',
+            },
+            td: {
+              py: 3.5,
+              fontSize: 'sm',
+              borderColor: 'border.subtle',
+              verticalAlign: 'middle',
+            },
+          },
+        },
+      },
+      defaultProps: {
+        variant: 'admin',
+      },
+    },
+    Input: {
+      defaultProps: {
+        focusBorderColor: 'satrf.green.500',
+      },
+      variants: {
+        outline: {
+          field: {
+            bg: 'bg.surface',
+            borderColor: 'border.default',
+            _hover: { borderColor: 'satrf.green.300' },
+          },
+        },
+      },
+    },
+    Select: {
+      defaultProps: {
+        focusBorderColor: 'satrf.green.500',
+      },
+      variants: {
+        outline: {
+          field: {
+            bg: 'bg.surface',
+            borderColor: 'border.default',
+          },
+        },
+      },
+    },
+    FormLabel: {
+      baseStyle: {
+        fontFamily: 'heading',
+        fontWeight: '600',
+        fontSize: 'sm',
+        color: 'text.primary',
+        mb: 1.5,
+      },
+    },
+    Modal: {
+      baseStyle: {
+        dialog: {
+          borderRadius: 'lg',
+          mx: 4,
+        },
+        header: {
+          fontFamily: 'heading',
+          fontWeight: '700',
+          color: 'text.primary',
+          borderBottomWidth: '1px',
+          borderColor: 'border.subtle',
+          pb: 3,
+        },
+        footer: {
+          borderTopWidth: '1px',
+          borderColor: 'border.subtle',
+          pt: 4,
+          gap: 3,
+        },
       },
     },
   },
