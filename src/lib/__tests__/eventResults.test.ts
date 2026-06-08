@@ -184,6 +184,18 @@ describe('buildEventResultBoard', () => {
   });
 });
 
+describe('auto final rank (spot-check gate 11)', () => {
+  it('ranks 3P finalists by higher decimalTotal when elimination equal', () => {
+    const { rank3pFinalists } = require('@/lib/issf');
+    const map = rank3pFinalists([
+      { id: 'a', eliminatedAtShot: null, decimalTotal: 345.6 },
+      { id: 'b', eliminatedAtShot: null, decimalTotal: 358.8 },
+    ]);
+    expect(map.get('b')).toBe(1);
+    expect(map.get('a')).toBe(2);
+  });
+});
+
 describe('availableDisciplinesFromScores', () => {
   it('returns disciplines in preferred order', () => {
     const docs = [
