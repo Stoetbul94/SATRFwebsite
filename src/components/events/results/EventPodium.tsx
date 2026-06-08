@@ -89,6 +89,7 @@ function PodiumCard({
 
 export default function EventPodium({ rows }: EventPodiumProps) {
   const reducedMotion = useReducedMotion();
+  const isMobile = useBreakpointValue({ base: true, md: false });
   const top3 = rows.slice(0, 3);
   if (top3.length === 0) return null;
 
@@ -97,8 +98,6 @@ export default function EventPodium({ rows }: EventPodiumProps) {
     top3.find((r) => r.place === 1) ?? top3[0],
     top3.find((r) => r.place === 3) ?? top3[2],
   ].filter(Boolean) as EventResultRow[];
-
-  const isMobile = useBreakpointValue({ base: true, md: false });
 
   if (isMobile) {
     const mobileOrder = [...top3].sort((a, b) => a.place - b.place);

@@ -244,31 +244,40 @@ afterEach(() => {
 // Increase memory limits for tests
 process.setMaxListeners(0);
 
-// Mock framer-motion — Chakra modal/transition uses motion.section etc.; missing keys break @emotion/styled
+// Mock framer-motion — supports motion.div and motion(Component) e.g. motion(Box)
 jest.mock('framer-motion', () => {
   const React = require('react');
-  const motionCache = {};
+  const motionCache = new Map();
 
-  const createMotionComponent = (tag) => {
+  const createMotionComponent = (tagOrComponent) => {
+    const cacheKey =
+      typeof tagOrComponent === 'string'
+        ? tagOrComponent
+        : tagOrComponent.displayName || tagOrComponent.name || 'Component';
+
+    if (motionCache.has(cacheKey)) {
+      return motionCache.get(cacheKey);
+    }
+
     const Comp = React.forwardRef(({ children, ...props }, ref) =>
-      React.createElement(tag, { ...props, ref }, children),
+      React.createElement(tagOrComponent, { ...props, ref }, children),
     );
-    Comp.displayName = `motion.${tag}`;
+    Comp.displayName = `motion.${cacheKey}`;
+    motionCache.set(cacheKey, Comp);
     return Comp;
   };
 
-  const motion = new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (typeof prop !== 'string') return undefined;
-        if (!motionCache[prop]) {
-          motionCache[prop] = createMotionComponent(prop);
-        }
-        return motionCache[prop];
-      },
+  const motionFn = (component) => createMotionComponent(component);
+
+  const motion = new Proxy(motionFn, {
+    apply(_target, _thisArg, args) {
+      return createMotionComponent(args[0]);
     },
-  );
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined;
+      return createMotionComponent(prop);
+    },
+  });
 
   return {
     motion,
