@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
 import { UserProfileUpdate } from '../lib/auth';
+import { SHOOTING_DISCIPLINES } from '@/lib/memberFields';
 
 const ProfilePage: NextPage = () => {
+  const router = useRouter();
   const { user, updateProfile, isLoading, error, clearError } = useAuth();
   
   // Protect this route
@@ -291,6 +294,39 @@ const ProfilePage: NextPage = () => {
                   </div>
 
                   <div>
+                    <label className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Province / Region
+                    </label>
+                    <input
+                      type="text"
+                      value={user.province || '—'}
+                      disabled
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-400 bg-midnight-light/30 border-gray-600 font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
+                      Disciplines
+                    </label>
+                    <input
+                      type="text"
+                      value={
+                        user.disciplines?.length
+                          ? user.disciplines
+                              .map(
+                                (id) =>
+                                  SHOOTING_DISCIPLINES.find((d) => d.id === id)?.label ?? id
+                              )
+                              .join(', ')
+                          : '—'
+                      }
+                      disabled
+                      className="appearance-none relative block w-full px-3 py-3 border rounded-lg text-gray-400 bg-midnight-light/30 border-gray-600 font-oxanium disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
                     <label htmlFor="club" className="block text-sm font-oxanium font-medium text-gray-300 mb-2">
                       Club Name *
                     </label>
@@ -485,7 +521,7 @@ const ProfilePage: NextPage = () => {
                 {!isEditing ? (
                   <button
                     type="button"
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => router.push('/profile/edit')}
                     className="px-6 py-2 bg-electric-cyan text-midnight-steel font-oxanium font-medium rounded-lg hover:bg-electric-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-electric-cyan transition-all duration-200"
                   >
                     Edit Profile

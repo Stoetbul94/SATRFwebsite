@@ -8,11 +8,14 @@ import {
   AlertIcon,
   Box,
   Button,
+  Checkbox,
+  CheckboxGroup,
   FormControl,
   FormLabel,
   Input,
   Select,
   SimpleGrid,
+  Stack,
   Text,
   VStack,
   Link as ChakraLink,
@@ -27,6 +30,12 @@ import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
 import { UserRegistrationData, passwordValidator } from '../lib/auth';
 import AuthPageLayout, { AuthHeaderIcon } from '@/components/auth/AuthPageLayout';
+import {
+  SA_PROVINCES,
+  SHOOTING_DISCIPLINES,
+  validateDateOfBirth,
+  validatePhone,
+} from '@/lib/memberFields';
 
 const RegisterPage: NextPage = () => {
   const router = useRouter();
@@ -41,6 +50,10 @@ const RegisterPage: NextPage = () => {
     password: '',
     membershipType: 'senior',
     club: '',
+    province: '',
+    dateOfBirth: '',
+    phone: '',
+    disciplines: [],
   });
 
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -131,6 +144,19 @@ const RegisterPage: NextPage = () => {
       errors.club = 'Club name must be at least 2 characters';
     } else if (formData.club.trim().length > 100) {
       errors.club = 'Club name must be less than 100 characters';
+    }
+
+    if (!formData.province) {
+      errors.province = 'Province is required';
+    }
+
+    const dobError = validateDateOfBirth(formData.dateOfBirth);
+    if (dobError) errors.dateOfBirth = dobError;
+
+    if (!formData.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    } else if (!validatePhone(formData.phone)) {
+      errors.phone = 'Please enter a valid phone number';
     }
 
     setFormErrors(errors);
@@ -344,6 +370,86 @@ const RegisterPage: NextPage = () => {
                   {formErrors.club}
                 </Text>
               )}
+            </FormControl>
+
+            <FormControl isInvalid={!!formErrors.province} isRequired>
+              <FormLabel htmlFor="province">Province / Region</FormLabel>
+              <Select
+                id="province"
+                name="province"
+                value={formData.province}
+                onChange={handleInputChange}
+                placeholder="Select province"
+              >
+                {SA_PROVINCES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </Select>
+              {formErrors.province && (
+                <Text color="red.500" fontSize="sm" mt={1}>
+                  {formErrors.province}
+                </Text>
+              )}
+            </FormControl>
+
+            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+              <FormControl isInvalid={!!formErrors.dateOfBirth} isRequired>
+                <FormLabel htmlFor="dateOfBirth">Date of Birth</FormLabel>
+                <Input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={handleInputChange}
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                {formErrors.dateOfBirth && (
+                  <Text color="red.500" fontSize="sm" mt={1}>
+                    {formErrors.dateOfBirth}
+                  </Text>
+                )}
+              </FormControl>
+
+              <FormControl isInvalid={!!formErrors.phone} isRequired>
+                <FormLabel htmlFor="phone">Phone Number</FormLabel>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="+27 12 345 6789"
+                />
+                {formErrors.phone && (
+                  <Text color="red.500" fontSize="sm" mt={1}>
+                    {formErrors.phone}
+                  </Text>
+                )}
+              </FormControl>
+            </SimpleGrid>
+
+            <FormControl>
+              <FormLabel>Disciplines (optional)</FormLabel>
+              <CheckboxGroup
+                value={formData.disciplines ?? []}
+                onChange={(values) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    disciplines: values as string[],
+                  }))
+                }
+              >
+                <Stack direction={{ base: 'column', sm: 'row' }} spacing={4} flexWrap="wrap">
+                  {SHOOTING_DISCIPLINES.map((d) => (
+                    <Checkbox key={d.id} value={d.id} colorScheme="green">
+                      {d.label}
+                    </Checkbox>
+                  ))}
+                </Stack>
+              </CheckboxGroup>
             </FormControl>
 
             <Button

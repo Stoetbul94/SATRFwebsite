@@ -83,6 +83,10 @@ export interface UserRegistrationData {
   password: string;
   membershipType: 'junior' | 'senior' | 'veteran';
   club: string;
+  province: string;
+  dateOfBirth: string;
+  phone: string;
+  disciplines?: string[];
 }
 
 export interface UserLoginData {
@@ -104,6 +108,10 @@ export interface UserProfile {
   phone?: string; // Preferred field name
   phoneNumber?: string; // Legacy field name for backward compatibility
   dateOfBirth?: string;
+  province?: string;
+  disciplines?: string[];
+  /** Derived from DOB; informational hint — membershipType is authoritative. */
+  ageCategory?: 'junior' | 'senior' | 'veteran';
   address?: string;
   emergencyContact?: string;
   emergencyPhone?: string;
@@ -124,6 +132,8 @@ export interface UserProfileUpdate {
   phone?: string; // Preferred field name
   phoneNumber?: string; // Legacy field name for backward compatibility
   dateOfBirth?: string;
+  province?: string;
+  disciplines?: string[];
   address?: string;
   emergencyContact?: string;
   emergencyPhone?: string;
@@ -407,10 +417,33 @@ export const authAPI = {
     return response.data;
   },
 
-  // Update user profile
+  // Update user profile (Firebase — server route with ownership checks)
   updateProfile: async (profileData: UserProfileUpdate): Promise<UserProfile> => {
-    const response = await authApi.put('/users/profile', profileData);
-    return response.data;
+    if (typeof window === 'undefined') {
+      const response = await authApi.put('/users/profile', profileData);
+      return response.data;
+    }
+
+    const { auth } = await import('@/lib/firebase');
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error('Not authenticated');
+    }
+    const token = await firebaseUser.getIdToken();
+    const res = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(profileData),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Profile update failed');
+    }
+    const data = await res.json();
+    return data.profile as UserProfile;
   },
 
   // Get user dashboard
@@ -492,6 +525,9 @@ export function mapUserDoc(uid: string, data: any): UserProfile {
     phone: data.phone ?? data.phoneNumber,
     phoneNumber: data.phoneNumber,
     dateOfBirth: data.dateOfBirth,
+    province: data.province,
+    disciplines: Array.isArray(data.disciplines) ? data.disciplines : undefined,
+    ageCategory: data.ageCategory,
     address: data.address,
     emergencyContact: data.emergencyContact,
     emergencyPhone: data.emergencyPhone,
