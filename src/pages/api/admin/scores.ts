@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { buildScore, validateScoreInput } from '@/lib/issf';
+import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
 import type { ScoreInput, Score } from '@/types/scores';
 
 /**
@@ -130,7 +130,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const cache = new Map<string, string | null>();
       const batch = db.batch();
-      const created: string[] = [];
+      const created: { id: string; score: Omit<Score, 'id'> }[] = [];
 
       for (const input of inputs) {
         let userId = input.userId?.trim() ? input.userId : null;
@@ -140,14 +140,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const score = buildScore({ ...input, userId }, { createdBy: adminUid || 'admin' });
         const ref = db.collection('scores').doc();
         batch.set(ref, sanitizeForFirestore(score));
-        created.push(ref.id);
+        created.push({ id: ref.id, score });
       }
 
       await batch.commit();
+
+      const rankBatch = db.batch();
+      const byGroup = new Map<string, { id: string; score: Omit<Score, 'id'> }[]>();
+      for (const item of created) {
+        if (item.score.stage !== 'prone_final' && item.score.stage !== '3p_final') continue;
+        const key = `${item.score.eventId}|${item.score.discipline}|${item.score.stage}`;
+        const list = byGroup.get(key) ?? [];
+        list.push(item);
+        byGroup.set(key, list);
+      }
+      for (const group of Array.from(byGroup.values())) {
+        const st = group[0].score.stage;
+        const rankMap =
+          st === '3p_final'
+            ? rank3pFinalists(
+                group.map((g) => ({
+                  id: g.id,
+                  eliminatedAtShot: g.score.eliminatedAtShot,
+                  decimalTotal: g.score.decimalTotal,
+                }))
+              )
+            : rankProneFinalists(group.map((g) => ({ id: g.id, decimalTotal: g.score.decimalTotal })));
+        for (const g of group) {
+          const rank = g.score.finalRank ?? rankMap.get(g.id);
+          if (rank != null && g.score.finalRank == null) {
+            rankBatch.update(db.collection('scores').doc(g.id), {
+              finalRank: rank,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      }
+      if (byGroup.size > 0) {
+        await rankBatch.commit().catch((err) => console.warn('finalRank update failed:', err));
+      }
       return res.status(201).json({
         success: true,
         message: `Saved ${created.length} score(s)`,
-        ids: created,
+        ids: created.map((c) => c.id),
       });
     } catch (error: any) {
       console.error('Error saving scores:', error);

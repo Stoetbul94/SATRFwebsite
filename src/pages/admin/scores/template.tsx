@@ -24,10 +24,11 @@ export default function ScoreTemplate() {
             Back to Import
           </Link>
 
-          <Heading size="lg">Match score workbook</Heading>
+          <Heading size="lg">Score import workbook</Heading>
           <Text color="gray.600">
-            Download the official SATRF match template. Fill the sheets for this event (Prone, F-Class,
-            3-Position, Finals), then upload the file on the Import page with the event selected.
+            Download the official SATRF score import template. Fill qualification sheets (Prone, F-Class,
+            3-Position with 2 series per position) and finals sheets (Prone Final, 3P Final), then upload on
+            the Import page with the event selected.
           </Text>
 
           <Alert status="info" borderRadius="md">
@@ -40,13 +41,13 @@ export default function ScoreTemplate() {
 
           <Button
             as="a"
-            href="/templates/SATRF_Match_Template.xlsx"
-            download="SATRF_Match_Template.xlsx"
+            href="/templates/SATRF_Score_Import.xlsx"
+            download="SATRF_Score_Import.xlsx"
             leftIcon={<FiDownload />}
             colorScheme="blue"
             size="lg"
           >
-            Download SATRF_Match_Template.xlsx
+            Download SATRF_Score_Import.xlsx
           </Button>
 
           <Box fontSize="sm" color="gray.600">

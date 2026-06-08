@@ -150,8 +150,8 @@ async function assignFinalRanks(
 
     const batch = db.batch();
     for (const g of group) {
-      const rank = rankMap.get(g.id);
-      if (rank != null) {
+      const rank = g.score.finalRank ?? rankMap.get(g.id);
+      if (rank != null && g.score.finalRank == null) {
         batch.update(db.collection('scores').doc(g.id), { finalRank: rank, updatedAt: new Date().toISOString() });
       }
     }
