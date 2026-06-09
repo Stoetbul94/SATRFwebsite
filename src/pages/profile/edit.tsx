@@ -11,7 +11,9 @@ import {
   FormControl,
   FormLabel,
   Heading,
+  Icon,
   Input,
+  Link as ChakraLink,
   Select,
   SimpleGrid,
   Stack,
@@ -23,6 +25,8 @@ import {
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Link from 'next/link';
+import { FiArrowLeft } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import FlagStripe from '@/components/brand/FlagStripe';
 import { useForm, Controller } from 'react-hook-form';
@@ -51,6 +55,13 @@ const profileSchema = z.object({
     .refine((val) => validatePhone(val), 'Please enter a valid phone number'),
   disciplines: z.array(z.string()).optional(),
   address: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  emergencyPhone: z
+    .string()
+    .optional()
+    .refine((val) => !val?.trim() || validatePhone(val), {
+      message: 'Please enter a valid phone number',
+    }),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -94,6 +105,8 @@ export default function EditProfile() {
         phone: user.phone || user.phoneNumber || '',
         disciplines: user.disciplines ?? [],
         address: user.address || '',
+        emergencyContact: user.emergencyContact || '',
+        emergencyPhone: user.emergencyPhone || '',
       });
       setIsLoading(false);
     }
@@ -120,6 +133,8 @@ export default function EditProfile() {
         phoneNumber: data.phone,
         disciplines: data.disciplines ?? [],
         address: data.address || undefined,
+        emergencyContact: data.emergencyContact?.trim() || undefined,
+        emergencyPhone: data.emergencyPhone?.trim() || undefined,
       });
 
       if (success) {
@@ -170,6 +185,22 @@ export default function EditProfile() {
       <Box bg="bg.canvas" minH="calc(100vh - 80px)" py={{ base: 8, md: 12 }}>
         <Container maxW="container.md">
           <VStack spacing={6} align="stretch">
+            <ChakraLink
+              as={Link}
+              href="/dashboard"
+              display="inline-flex"
+              alignItems="center"
+              gap={2}
+              fontSize="sm"
+              fontWeight="medium"
+              color="satrf.green.700"
+              _hover={{ color: 'satrf.gold.600', textDecoration: 'none' }}
+              alignSelf="flex-start"
+            >
+              <Icon as={FiArrowLeft} boxSize={4} aria-hidden />
+              Back to Dashboard
+            </ChakraLink>
+
             <Box textAlign="center">
               <Heading size="lg" color="satrf.navy" fontFamily="heading">
                 Edit Profile
@@ -291,6 +322,28 @@ export default function EditProfile() {
                       <FormLabel>Address (optional)</FormLabel>
                       <Input {...register('address')} />
                     </FormControl>
+
+                    <Box>
+                      <Heading size="sm" color="satrf.green.700" fontFamily="heading" mb={4}>
+                        Emergency Contact
+                      </Heading>
+                      <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+                        <FormControl>
+                          <FormLabel>Emergency Contact Name (optional)</FormLabel>
+                          <Input {...register('emergencyContact')} />
+                        </FormControl>
+
+                        <FormControl isInvalid={!!errors.emergencyPhone}>
+                          <FormLabel>Emergency Contact Phone (optional)</FormLabel>
+                          <Input type="tel" placeholder="+27 12 345 6789" {...register('emergencyPhone')} />
+                          {errors.emergencyPhone && (
+                            <Text color="red.500" fontSize="sm">
+                              {errors.emergencyPhone.message}
+                            </Text>
+                          )}
+                        </FormControl>
+                      </SimpleGrid>
+                    </Box>
 
                     <HStack spacing={4} pt={2}>
                       <Button

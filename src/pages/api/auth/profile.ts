@@ -46,6 +46,9 @@ function validateProfileUpdate(body: UserProfileUpdate): string[] {
       errors.push('Invalid discipline selection');
     }
   }
+  if (body.emergencyPhone !== undefined && body.emergencyPhone.trim() && !validatePhone(body.emergencyPhone)) {
+    errors.push('Please enter a valid emergency contact phone number');
+  }
 
   return errors;
 }
