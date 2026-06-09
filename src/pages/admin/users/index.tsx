@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import {
   Box,
   Table,
@@ -50,6 +51,7 @@ const getToken = async (): Promise<string | null> => {
 export default function AdminUsers() {
   useProtectedRoute();
   const { isAdmin, isLoading: authLoading } = useAdminRoute();
+  const router = useRouter();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -66,6 +68,13 @@ export default function AdminUsers() {
     if (isAdmin) fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
+
+  useEffect(() => {
+    const q = router.query.search;
+    if (typeof q === 'string' && q.trim()) {
+      setSearchTerm(q.trim());
+    }
+  }, [router.query.search]);
 
   const fetchUsers = async () => {
     try {

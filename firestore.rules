@@ -78,11 +78,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Event registrations: members create their own; admins manage all.
+    // Legacy eventRegistrations — deny client access (use Admin SDK / API routes).
     match /eventRegistrations/{regId} {
-      allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow write: if isAdmin();
+      allow read, write: if false;
+    }
+
+    // Guest + member event registrations — written only via Next.js API (Admin SDK).
+    match /registrations/{regId} {
+      allow read, write: if false;
     }
     
     // ============================================================================

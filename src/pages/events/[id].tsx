@@ -17,7 +17,6 @@ import {
   Alert,
   AlertIcon,
   Image,
-  useToast,
 } from '@chakra-ui/react';
 import { FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
@@ -26,8 +25,9 @@ import EventDisciplinePills from '@/components/events/EventDisciplinePills';
 import EventImageFallback from '@/components/events/EventImageFallback';
 import { formatEntryFee, parseEventDisciplines } from '@/lib/eventDisciplines';
 import type { Discipline } from '@/types/scores';
-import { useAuth } from '@/contexts/AuthContext';
 import { eventsAPI } from '@/lib/api';
+import EventRegistrationModal from '@/components/events/EventRegistrationModal';
+import { getPublicRegistrationStatus } from '@/lib/eventRegistrationUi';
 
 interface Event {
   id: string;
@@ -38,7 +38,7 @@ interface Event {
   endDate: Date;
   location: string;
   disciplines: Discipline[];
-  price: number;
+  price: number | null;
   maxSpots: number;
   currentSpots: number;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
@@ -68,12 +68,10 @@ export default function EventDetail() {
   
   const router = useRouter();
   const { id } = router.query;
-  const { user, isAuthenticated } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const toast = useToast();
+  const [registrationOpen, setRegistrationOpen] = useState(false);
 
   useEffect(() => {
     if (id && typeof id === 'string') {
@@ -123,46 +121,6 @@ export default function EventDetail() {
     }
   };
 
-  const handleRegister = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: 'Login Required',
-        description: 'Please log in to register for events.',
-        status: 'warning',
-        duration: 5000,
-        isClosable: true,
-      });
-      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-
-    if (!event || !id || typeof id !== 'string') return;
-
-    setIsRegistering(true);
-    try {
-      await eventsAPI.register(id);
-      toast({
-        title: 'Registration Successful',
-        description: `You have been registered for ${event.title}`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-      // Refresh event data to update spots
-      fetchEvent(id);
-    } catch (err: any) {
-      toast({
-        title: 'Registration Failed',
-        description: err.message || 'There was an error processing your registration. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsRegistering(false);
-    }
-  };
-
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'upcoming': return 'blue';
@@ -171,13 +129,6 @@ export default function EventDetail() {
       case 'cancelled': return 'red';
       default: return 'gray';
     }
-  };
-
-  const getRegistrationStatus = () => {
-    if (!event) return 'closed';
-    if (event.currentSpots >= event.maxSpots) return 'full';
-    if (new Date() > event.registrationDeadline) return 'closed';
-    return 'open';
   };
 
   const formatDate = (date: Date) => {
@@ -228,8 +179,13 @@ export default function EventDetail() {
     );
   }
 
-  const registrationStatus = getRegistrationStatus();
-  const canRegister = registrationStatus === 'open' && isAuthenticated;
+  const registrationStatus = event ? getPublicRegistrationStatus(event) : 'closed';
+  const capacityLabel =
+    event && event.maxSpots > 0
+      ? `${event.currentSpots} / ${event.maxSpots} spots filled`
+      : event
+        ? `${event.currentSpots} registered`
+        : '';
 
   return (
     <Layout>
@@ -312,7 +268,7 @@ export default function EventDetail() {
               <HStack spacing={2}>
                 <FaUsers color="#4a5568" />
                 <Text fontSize="sm">
-                  <strong>Capacity:</strong> {event.currentSpots}/{event.maxSpots} spots
+                  <strong>Capacity:</strong> {capacityLabel}
                 </Text>
               </HStack>
               
@@ -416,56 +372,38 @@ export default function EventDetail() {
               colorScheme={registrationStatus === 'open' ? undefined : 'gray'}
               size="lg"
               w="100%"
-              onClick={handleRegister}
-              disabled={!canRegister}
-              isLoading={isRegistering}
-              loadingText="Registering..."
+              onClick={() => setRegistrationOpen(true)}
+              disabled={registrationStatus !== 'open'}
             >
-              {registrationStatus === 'open' 
-                ? (isAuthenticated ? 'Register Now' : 'Login to Register')
+              {registrationStatus === 'open'
+                ? 'Register Now'
                 : registrationStatus === 'full'
-                ? 'Event Full'
-                : 'Registration Closed'}
+                  ? 'Event Full'
+                  : 'Registration Closed'}
             </Button>
-            
-            {registrationStatus === 'open' && !isAuthenticated && (
-              <Text fontSize="sm" color="gray.500" textAlign="center">
-                Please log in to register for this event
-              </Text>
-            )}
 
-          {event.payfastUrl && (
-            <Button
-              as="a"
-              href={event.payfastUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              colorScheme="pink"
-              variant="outline"
-              w="100%"
-            >
-              Pay with PayFast
-            </Button>
-          )}
-
-          {event.eftInstructions && (
-            <Box
-              w="100%"
-              p={4}
-              border="1px"
-              borderColor={borderColor}
-              rounded="md"
-              bg={bgLight}
-            >
-              <Text fontWeight="semibold" mb={1}>EFT Payment Instructions</Text>
-              <Text fontSize="sm" color={textColorLight}>
-                {event.eftInstructions}
-              </Text>
-            </Box>
-          )}
+            <Text fontSize="xs" color="text.muted" textAlign="center">
+              No login required · Payment details shown after registration
+            </Text>
           </VStack>
         </VStack>
       </Container>
+
+      {event && (
+        <EventRegistrationModal
+          isOpen={registrationOpen}
+          onClose={() => setRegistrationOpen(false)}
+          event={{
+            id: event.id,
+            title: event.title,
+            price: event.price,
+            disciplines: event.disciplines,
+            payfastUrl: event.payfastUrl,
+            eftInstructions: event.eftInstructions,
+          }}
+          onSuccess={() => id && typeof id === 'string' && fetchEvent(id)}
+        />
+      )}
     </Layout>
   );
 }

@@ -10,7 +10,6 @@ import {
   VStack,
   HStack,
   Badge,
-  useToast,
   Input,
   Select,
   InputGroup,
@@ -40,8 +39,9 @@ import { FaSearch, FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAl
 import Layout from '@/components/layout/Layout';
 import { useRouter } from 'next/router';
 import { GetServerSideProps } from 'next';
-import { useAuth } from '@/contexts/AuthContext';
 import { eventsAPI } from '@/lib/api';
+import EventRegistrationModal from '@/components/events/EventRegistrationModal';
+import { getPublicRegistrationStatus } from '@/lib/eventRegistrationUi';
 import Head from 'next/head';
 import EventDisciplinePills from '@/components/events/EventDisciplinePills';
 import EventImageFallback from '@/components/events/EventImageFallback';
@@ -57,7 +57,7 @@ interface Event {
   endDate: Date;
   location: string;
   disciplines: Discipline[];
-  price: number;
+  price: number | null;
   maxSpots: number;
   currentSpots: number;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
@@ -100,12 +100,10 @@ export default function Events() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [isRegistering, setIsRegistering] = useState<string | null>(null);
+  const [registrationEvent, setRegistrationEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -199,63 +197,13 @@ export default function Events() {
     }
   }, [statusFilter, categoryFilter]);
 
-  // Get registration status for an event
-  const getRegistrationStatus = (event: Event) => {
-    if (event.currentSpots >= event.maxSpots) {
-      return 'full';
-    }
-    
-    if (new Date() > event.registrationDeadline) {
-      return 'closed';
-    }
-    
-    return 'open';
-  };
+  const capacityLabel = (event: Event) =>
+    event.maxSpots > 0
+      ? `${event.currentSpots} / ${event.maxSpots} spots filled`
+      : `${event.currentSpots} registered`;
 
   const handleEventClick = (event: Event) => {
     router.push(`/events/${event.id}`);
-  };
-
-  const handleRegister = async (event: Event) => {
-    if (!isAuthenticated) {
-      toast({
-        title: 'Login Required',
-        description: 'Please log in to register for events.',
-        status: 'warning',
-        duration: 5000,
-        isClosable: true,
-      });
-      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-
-    setIsRegistering(event.id);
-    
-    try {
-      await eventsAPI.register(event.id);
-      
-      toast({
-        title: 'Registration Successful',
-        description: `You have been registered for ${event.title}`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-      
-      // Refresh events to update spots
-      await fetchEvents();
-      onClose();
-    } catch (error: any) {
-      toast({
-        title: 'Registration Failed',
-        description: error.message || 'There was an error processing your registration. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsRegistering(null);
-    }
   };
 
   const getStatusBadgeColor = (status: string) => {
@@ -413,7 +361,7 @@ export default function Events() {
           {/* Events Grid */}
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
             {filteredEvents.map((event) => {
-              const registrationStatus = getRegistrationStatus(event);
+              const registrationStatus = getPublicRegistrationStatus(event);
               
               return (
                 <Box
@@ -490,7 +438,7 @@ export default function Events() {
                       <HStack spacing={2}>
                         <FaUsers color="#4a5568" />
                         <Text color={textColorSecondary} fontSize="sm">
-                          {event.currentSpots}/{event.maxSpots} spots filled
+                          {capacityLabel(event)}
                         </Text>
                       </HStack>
                       
@@ -512,44 +460,13 @@ export default function Events() {
                         {formatEntryFee(event.price)}
                       </Text>
 
-                      {/* Payment options */}
-                      {event.payfastUrl && (
-                        <Button
-                          as="a"
-                          href={event.payfastUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          colorScheme="pink"
-                          w="100%"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Pay with PayFast
-                        </Button>
-                      )}
-                      {event.eftInstructions && (
-                        <Box
-                          w="100%"
-                          p={3}
-                          border="1px"
-                          borderColor={borderColor}
-                          rounded="md"
-                          bg={bgLight}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Text fontSize="sm" fontWeight="semibold">EFT Payment</Text>
-                          <Text fontSize="sm" color={textColorLight}>
-                            {event.eftInstructions}
-                          </Text>
-                        </Box>
-                      )}
-                      
                       <Button
                         w="100%"
                         {...getRegistrationButtonProps(registrationStatus)}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (registrationStatus === 'open') {
-                            router.push(`/events/${event.id}`);
+                            setRegistrationEvent(event);
                           }
                         }}
                         disabled={registrationStatus !== 'open'}
@@ -655,7 +572,7 @@ export default function Events() {
                       <HStack spacing={2}>
                         <FaUsers color="#4a5568" />
                         <Text fontSize="sm">
-                          <strong>Capacity:</strong> {selectedEvent.currentSpots}/{selectedEvent.maxSpots} spots
+                          <strong>Capacity:</strong> {capacityLabel(selectedEvent)}
                         </Text>
                       </HStack>
                       
@@ -732,20 +649,41 @@ export default function Events() {
                     <Button
                       size="lg"
                       w="100%"
-                      {...getRegistrationButtonProps(getRegistrationStatus(selectedEvent))}
-                      onClick={() => handleRegister(selectedEvent)}
-                      disabled={getRegistrationStatus(selectedEvent) !== 'open'}
-                      isLoading={isRegistering === selectedEvent.id}
-                      loadingText="Registering..."
+                      {...getRegistrationButtonProps(getPublicRegistrationStatus(selectedEvent))}
+                      onClick={() => {
+                        if (getPublicRegistrationStatus(selectedEvent) === 'open') {
+                          setRegistrationEvent(selectedEvent);
+                        }
+                      }}
+                      disabled={getPublicRegistrationStatus(selectedEvent) !== 'open'}
                     >
-                      {getRegistrationBadgeText(getRegistrationStatus(selectedEvent))}
+                      {getRegistrationBadgeText(getPublicRegistrationStatus(selectedEvent))}
                     </Button>
+                    <Text fontSize="xs" color="gray.500" textAlign="center">
+                      No login required · Payment details after registration
+                    </Text>
                   </VStack>
                 </VStack>
               )}
             </ModalBody>
           </ModalContent>
         </Modal>
+
+        {registrationEvent && (
+          <EventRegistrationModal
+            isOpen={!!registrationEvent}
+            onClose={() => setRegistrationEvent(null)}
+            event={{
+              id: registrationEvent.id,
+              title: registrationEvent.title,
+              price: registrationEvent.price,
+              disciplines: registrationEvent.disciplines,
+              payfastUrl: registrationEvent.payfastUrl,
+              eftInstructions: registrationEvent.eftInstructions,
+            }}
+            onSuccess={() => fetchEvents()}
+          />
+        )}
       </Container>
     </Layout>
   );
