@@ -142,7 +142,7 @@ export default function FileUploadComponent({
           setValidationErrors(allErrors);
           setUploadedFile(file);
         } catch {
-          onImportError('Failed to parse workbook. Use SATRF_Match_Template.xlsx from the template link.');
+          onImportError('Failed to parse workbook. Use SATRF_Score_Import.xlsx from the template link.');
         }
       };
       reader.readAsArrayBuffer(file);
@@ -232,7 +232,7 @@ export default function FileUploadComponent({
         <AlertIcon />
         <Text fontSize="sm">
           Select the match event first, then upload{' '}
-          <strong>SATRF_Match_Template.xlsx</strong>. All sheets in the file are imported (Prone, F-Class,
+          <strong>SATRF_Score_Import.xlsx</strong>. Score sheets are imported (Prone, F-Class,
           3P, Finals).
         </Text>
       </Alert>

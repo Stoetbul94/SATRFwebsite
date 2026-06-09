@@ -40,7 +40,11 @@ describe('Scores Component', () => {
     render(<Scores />)
 
     expect(screen.getByText(/Rankings & Scores/i)).toBeInTheDocument()
-    expect(screen.getByText(/National rankings by average decimal total/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Qualification results only.*season averages by discipline.*Leaderboard page/i,
+      ),
+    ).toBeInTheDocument()
 
     await waitFor(() => {
       expect(screen.getByText(/John Smith/i)).toBeInTheDocument()

@@ -19,6 +19,22 @@ export default function ScoreDetailPanel({ row, isOpen }: ScoreDetailPanelProps)
   return (
     <Collapse in={isOpen} animateOpacity unmountOnExit>
       <Box mt={2} p={4} bg={bg} borderRadius="md" borderWidth="1px" borderColor={borderColor}>
+        {row.stage === '3p_final' && row.series && row.series.length > 0 && (
+          <Box mb={3}>
+            <Text fontSize="sm" fontWeight="semibold" mb={2} color="satrf.navy">
+              Position series
+            </Text>
+            <SimpleGrid columns={{ base: 3, sm: 6 }} spacing={2}>
+              {row.series.map((s, i) => (
+                <Box key={i} textAlign="center" py={1} px={1} borderRadius="sm" bg={shotCellBg} fontSize="xs">
+                  <Text color="gray.500">S{s.seriesNumber}</Text>
+                  <Text fontWeight="medium">{s.decimal.toFixed(1)}</Text>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </Box>
+        )}
+
         {row.stage === '3p_final' && row.finalShots && row.finalShots.length > 0 && (
           <Box>
             <Text fontSize="sm" fontWeight="semibold" mb={2} color="satrf.navy">

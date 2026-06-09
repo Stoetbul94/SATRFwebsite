@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { FiFilter, FiDownload, FiPrinter, FiTarget } from 'react-icons/fi';
-import { FaTrophy } from 'react-icons/fa';
+import { FiFilter, FiTarget } from 'react-icons/fi';
 import {
   Box,
-  Button,
   Card,
   CardBody,
   HStack,
@@ -27,74 +25,61 @@ import {
 import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
-import LeaderboardPodium from '@/components/scores/LeaderboardPodium';
-import { leaderboardAPI } from '@/lib/api';
-import type { LeaderboardEntry } from '@/lib/api';
+import { DISCIPLINES, CATEGORIES } from '@/lib/issf';
+import type { Discipline } from '@/types/scores';
 
-type LeaderboardType = 'overall' | 'event' | 'club';
-type TimePeriod = 'all' | 'year' | 'month' | 'week';
+interface FinalsRankRow {
+  rank: number;
+  shooterName: string;
+  club: string;
+  category: string;
+  discipline: string;
+  decimalTotal: number;
+  finalRank: number | null;
+  eventName: string;
+  date: string;
+}
+
+const FINALS_DISCIPLINES: Discipline[] = ['prone_50m', 'three_position_50m'];
 
 export default function Leaderboard() {
-  const [leaderboardType, setLeaderboardType] = useState<LeaderboardType>('overall');
-  const [discipline, setDiscipline] = useState<string>('');
-  const [category, setCategory] = useState<string>('');
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
-  const [page, setPage] = useState(1);
-  const [limit] = useState(50);
+  const [discipline, setDiscipline] = useState<Discipline>('prone_50m');
+  const [category, setCategory] = useState<string>('all');
   const [loading, setLoading] = useState(true);
-  const [leaderboardData, setLeaderboardData] = useState<{
-    data: LeaderboardEntry[];
-    total: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-  } | null>(null);
-
-  const fetchLeaderboard = async () => {
-    setLoading(true);
-    try {
-      let data;
-      if (leaderboardType === 'club') {
-        data = await leaderboardAPI.getClubLeaderboard({ time_period: timePeriod, page, limit });
-      } else {
-        data = await leaderboardAPI.getOverall({
-          discipline: discipline || undefined,
-          category: category || undefined,
-          time_period: timePeriod,
-          page,
-          limit,
-        });
-      }
-      setLeaderboardData(data);
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [rows, setRows] = useState<FinalsRankRow[]>([]);
 
   useEffect(() => {
-    fetchLeaderboard();
-  }, [leaderboardType, discipline, category, timePeriod, page]);
+    const fetchFinals = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ discipline });
+        if (category !== 'all') params.append('category', category);
+        const res = await fetch(`/api/leaderboard/finals?${params.toString()}`);
+        const data = await res.json();
+        setRows(data.data || []);
+      } catch (error) {
+        console.error('Error fetching finals leaderboard:', error);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFinals();
+  }, [discipline, category]);
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <FaTrophy color="#C99A3B" />;
-    if (rank === 2) return <FaTrophy color="#A0AEC0" />;
-    if (rank === 3) return <FaTrophy color="#DD6B20" />;
-    return <Text fontWeight="medium" color="text.muted">{rank}</Text>;
-  };
+  const disciplineLabel = DISCIPLINES[discipline]?.label ?? discipline;
 
   return (
     <Layout>
       <Head>
-        <title>Leaderboard - SATRF</title>
+        <title>Finals Leaderboard - SATRF</title>
       </Head>
       <PublicPageShell>
         <VStack align="stretch" spacing={8}>
           <PublicPageHeader
             eyebrow="Performance"
-            title="Leaderboard"
-            subtitle="View rankings and performance statistics across disciplines."
+            title="Finals Leaderboard"
+            subtitle="Finals results only — ranked by final score. Qualification standings are on the Scores page."
           />
 
           <Card>
@@ -104,157 +89,95 @@ export default function Leaderboard() {
                   <Icon as={FiFilter} color="text.muted" />
                   <Select
                     size="sm"
-                    maxW="200px"
-                    value={leaderboardType}
-                    onChange={(e) => {
-                      setLeaderboardType(e.target.value as LeaderboardType);
-                      setPage(1);
-                    }}
+                    maxW="220px"
+                    value={discipline}
+                    onChange={(e) => setDiscipline(e.target.value as Discipline)}
                     bg="bg.surface"
                   >
-                    <option value="overall">Overall Rankings</option>
-                    <option value="club">Club Rankings</option>
+                    {FINALS_DISCIPLINES.map((id) => (
+                      <option key={id} value={id}>
+                        {DISCIPLINES[id].label} Final
+                      </option>
+                    ))}
                   </Select>
-                  {leaderboardType === 'overall' && (
-                    <>
-                      <Select
-                        size="sm"
-                        maxW="200px"
-                        value={discipline}
-                        onChange={(e) => {
-                          setDiscipline(e.target.value);
-                          setPage(1);
-                        }}
-                        bg="bg.surface"
-                      >
-                        <option value="">All Disciplines</option>
-                        <option value="50m Rifle Prone">50m Rifle Prone</option>
-                        <option value="50m Rifle 3 Positions">50m Rifle 3 Positions</option>
-                      </Select>
-                      <Select
-                        size="sm"
-                        maxW="160px"
-                        value={category}
-                        onChange={(e) => {
-                          setCategory(e.target.value);
-                          setPage(1);
-                        }}
-                        bg="bg.surface"
-                      >
-                        <option value="">All Categories</option>
-                        <option value="junior">Junior</option>
-                        <option value="open">Open</option>
-                        <option value="veteran">Veteran</option>
-                      </Select>
-                    </>
-                  )}
                   <Select
                     size="sm"
                     maxW="160px"
-                    value={timePeriod}
-                    onChange={(e) => {
-                      setTimePeriod(e.target.value as TimePeriod);
-                      setPage(1);
-                    }}
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
                     bg="bg.surface"
                   >
-                    <option value="all">All Time</option>
-                    <option value="year">This Year</option>
-                    <option value="month">This Month</option>
-                    <option value="week">This Week</option>
+                    <option value="all">All Categories</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
                   </Select>
-                </HStack>
-                <HStack>
-                  <Button size="sm" variant="satrfOutline" leftIcon={<FiDownload />} onClick={() => console.log('export')}>
-                    Export
-                  </Button>
-                  <Button size="sm" variant="satrfOutline" leftIcon={<FiPrinter />} onClick={() => window.print()}>
-                    Print
-                  </Button>
                 </HStack>
               </Flex>
 
-              {loading && !leaderboardData ? (
+              <Text fontSize="sm" color="text.muted" mb={4}>
+                {disciplineLabel} finals
+                {category !== 'all' ? ` · ${CATEGORIES.find((c) => c.id === category)?.label ?? category}` : ''}
+              </Text>
+
+              {loading ? (
                 <Box textAlign="center" py={12}>
                   <Spinner size="lg" color="brand" />
                 </Box>
-              ) : leaderboardData && leaderboardData.data.length > 0 ? (
-                <>
-                  {leaderboardType === 'overall' && page === 1 && (
-                    <LeaderboardPodium entries={leaderboardData.data} />
-                  )}
-                  <Box overflowX="auto">
-                    <Table variant="simple" size="sm">
-                      <Thead bg="brand">
-                        <Tr>
-                          <Th color="white">Rank</Th>
-                          <Th color="white">Name</Th>
-                          <Th color="white">Club</Th>
-                          {leaderboardType === 'overall' && <Th color="white">Category</Th>}
-                          <Th color="white" isNumeric>Best</Th>
-                          <Th color="white" isNumeric>Average</Th>
-                          <Th color="white" isNumeric>Events</Th>
-                          {leaderboardType === 'club' && <Th color="white" isNumeric>Members</Th>}
+              ) : rows.length > 0 ? (
+                <Box overflowX="auto">
+                  <Table variant="simple" size="sm">
+                    <Thead bg="brand">
+                      <Tr>
+                        <Th color="white">Rank</Th>
+                        <Th color="white">Shooter</Th>
+                        <Th color="white">Club</Th>
+                        <Th color="white">Category</Th>
+                        <Th color="white">Event</Th>
+                        <Th color="white" isNumeric>
+                          Final Total
+                        </Th>
+                        <Th color="white" isNumeric>
+                          Final Place
+                        </Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {rows.map((entry) => (
+                        <Tr key={`${entry.shooterName}-${entry.eventName}-${entry.date}`}>
+                          <Td fontWeight="bold">{entry.rank}</Td>
+                          <Td fontWeight="medium">{entry.shooterName}</Td>
+                          <Td color="text.muted">{entry.club}</Td>
+                          <Td>
+                            <Badge variant="discipline" textTransform="capitalize">
+                              {entry.category}
+                            </Badge>
+                          </Td>
+                          <Td fontSize="sm" color="text.muted">
+                            {entry.eventName}
+                          </Td>
+                          <Td isNumeric fontWeight="semibold" color="accent">
+                            {entry.decimalTotal.toFixed(1)}
+                          </Td>
+                          <Td isNumeric color="text.muted">
+                            {entry.finalRank ?? '—'}
+                          </Td>
                         </Tr>
-                      </Thead>
-                      <Tbody>
-                        {leaderboardData.data.map((entry) => (
-                          <Tr key={entry.userId || entry.club} _hover={{ bg: 'satrf.green.50' }}>
-                            <Td>{getRankIcon(entry.rank)}</Td>
-                            <Td fontWeight="medium">{entry.userName}</Td>
-                            <Td color="text.muted">{entry.club}</Td>
-                            {leaderboardType === 'overall' && (
-                              <Td>
-                                <Badge variant="discipline" textTransform="capitalize">
-                                  {entry.category}
-                                </Badge>
-                              </Td>
-                            )}
-                            <Td isNumeric fontWeight="semibold" color="accent">
-                              {entry.bestScore}
-                            </Td>
-                            <Td isNumeric color="text.muted">{entry.averageScore}</Td>
-                            <Td isNumeric color="text.muted">{entry.eventCount}</Td>
-                            {leaderboardType === 'club' && (
-                              <Td isNumeric color="text.muted">{entry.memberCount}</Td>
-                            )}
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </Box>
-                  {leaderboardData.total_pages > 1 && (
-                    <HStack justify="center" mt={6} spacing={2}>
-                      <Button
-                        size="sm"
-                        variant="satrfOutline"
-                        onClick={() => setPage(page - 1)}
-                        isDisabled={page === 1}
-                      >
-                        Previous
-                      </Button>
-                      <Text fontSize="sm" color="text.muted">
-                        Page {page} of {leaderboardData.total_pages}
-                      </Text>
-                      <Button
-                        size="sm"
-                        variant="satrfOutline"
-                        onClick={() => setPage(page + 1)}
-                        isDisabled={page === leaderboardData.total_pages}
-                      >
-                        Next
-                      </Button>
-                    </HStack>
-                  )}
-                </>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
               ) : (
                 <VStack py={12} spacing={3}>
                   <Icon as={FiTarget} boxSize={10} color="text.muted" />
                   <Text fontWeight="semibold" color="text.primary">
-                    No rankings found
+                    No finals results yet
                   </Text>
                   <Text fontSize="sm" color="text.muted" textAlign="center">
-                    Try adjusting your filters or check back later.
+                    {disciplineLabel} finals for this category will appear here once official final scores are
+                    recorded.
                   </Text>
                 </VStack>
               )}

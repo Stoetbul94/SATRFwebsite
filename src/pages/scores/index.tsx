@@ -89,7 +89,7 @@ export default function Scores() {
           <PublicPageHeader
             eyebrow="Season rankings"
             title="Rankings & Scores"
-            subtitle="National rankings by average decimal total. Public — open to everyone."
+            subtitle="Qualification results only — season averages by discipline. Finals rankings are on the Leaderboard page."
           />
 
           {error && (

@@ -28,7 +28,8 @@ import { FiPlus, FiTrash2, FiSave } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
 import { isE2eAdminBypassActive } from '@/lib/e2eBypass';
 import { DISCIPLINES, CATEGORIES, POSITION_LABELS, SHOTS_PER_SERIES } from '@/lib/issf';
-import type { Category, Discipline, Position } from '@/types/scores';
+import type { Category, Discipline, Position, ScoreStage } from '@/types/scores';
+import { MAX_5SHOT_SERIES_DECIMAL } from '@/lib/issf';
 
 interface ManualEntryComponentProps {
   onImportSuccess: (result: any) => void;
@@ -108,6 +109,9 @@ export default function ManualEntryComponent({
   setIsLoading,
 }: ManualEntryComponentProps) {
   const [discipline, setDiscipline] = useState<Discipline>('prone_50m');
+  const [stage, setStage] = useState<ScoreStage>('qualification');
+  const [finalRank, setFinalRank] = useState('');
+  const [elimShots, setElimShots] = useState<string[]>(['', '', '', '', '']);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [eventName, setEventName] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -233,9 +237,31 @@ export default function ManualEntryComponent({
     [positionTotals]
   );
 
+  const availableStages = useMemo((): ScoreStage[] => {
+    if (discipline === 'three_position_50m') return ['qualification', '3p_final'];
+    if (discipline === 'prone_50m') return ['qualification', 'prone_final'];
+    return ['qualification'];
+  }, [discipline]);
+
   const changeDiscipline = (d: Discipline) => {
     setDiscipline(d);
+    setStage('qualification');
+    setFinalRank('');
+    setElimShots(['', '', '', '', '']);
     setSeriesByPosition(makePositionSeries(d));
+  };
+
+  const changeStage = (next: ScoreStage) => {
+    setStage(next);
+    setFinalRank('');
+    setElimShots(['', '', '', '', '']);
+    if (next === '3p_final') {
+      setSeriesByPosition(makePositionSeries('three_position_50m'));
+    } else if (next === 'prone_final') {
+      setSeriesByPosition(makePositionSeries('prone_50m'));
+    } else {
+      setSeriesByPosition(makePositionSeries(discipline));
+    }
   };
 
   const updateSeries = (pos: Position, idx: number, field: keyof SeriesEntry, value: string) => {
@@ -254,27 +280,36 @@ export default function ManualEntryComponent({
     setSeriesByPosition(makePositionSeries(discipline));
   };
 
-  const buildInput = () => ({
-    userId: selectedMemberId && selectedMemberId !== GUEST_MEMBER ? selectedMemberId : null,
-    shooterName: shooterName.trim(),
-    club: club.trim(),
-    category,
-    eventId: selectedEventId && selectedEventId !== CUSTOM_EVENT ? selectedEventId : '',
-    eventName: eventName.trim(),
-    date,
-    discipline,
-    scoringType: 'decimal' as const,
-    status: 'official' as const,
-    source: 'manual' as const,
-    positions: spec.positions.map((pos) => ({
+  const buildInput = () => {
+    const positions = spec.positions.map((pos) => ({
       position: pos,
       series: seriesByPosition[pos].map((s, i) => ({
         seriesNumber: i + 1,
         decimal: parseDecimalValue(s.decimal),
         integer: parseInt(s.integer, 10) || 0,
       })),
-    })),
-  });
+    }));
+    const parsedElim = elimShots.map((s) => parseDecimalValue(s)).filter((v) => v > 0);
+    const rank = parseInt(finalRank, 10);
+
+    return {
+      userId: selectedMemberId && selectedMemberId !== GUEST_MEMBER ? selectedMemberId : null,
+      shooterName: shooterName.trim(),
+      club: club.trim(),
+      category,
+      eventId: selectedEventId && selectedEventId !== CUSTOM_EVENT ? selectedEventId : '',
+      eventName: eventName.trim(),
+      date,
+      discipline,
+      stage,
+      scoringType: 'decimal' as const,
+      status: 'official' as const,
+      source: 'manual' as const,
+      positions: stage === '3p_final' ? positions : positions,
+      finalShots: stage === '3p_final' && parsedElim.length > 0 ? parsedElim : undefined,
+      finalRank: Number.isFinite(rank) && rank > 0 ? rank : undefined,
+    };
+  };
 
   const validateLocal = (): string | null => {
     if (!eventName.trim() && selectedEventId !== CUSTOM_EVENT && !selectedEventId) {
@@ -282,11 +317,16 @@ export default function ManualEntryComponent({
     }
     if (!eventName.trim()) return 'Event name is required';
     if (!shooterName.trim()) return 'Select a member or enter shooter name (guest)';
-    if (!club.trim()) return 'Club is required';
+    if (stage === 'qualification' && !club.trim()) return 'Club is required';
     const anyScore = spec.positions.some((pos) =>
       seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0)
     );
-    if (!anyScore) return 'Enter at least one series score';
+    const anyElim = elimShots.some((s) => parseDecimalValue(s) > 0);
+    if (stage === '3p_final') {
+      if (!anyScore && !anyElim) return 'Enter position series and/or elimination shots';
+    } else if (!anyScore) {
+      return 'Enter at least one series score';
+    }
     return null;
   };
 
@@ -384,6 +424,16 @@ export default function ManualEntryComponent({
             {Object.values(DISCIPLINES).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.label}
+              </option>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel>Stage</FormLabel>
+          <Select value={stage} onChange={(e) => changeStage(e.target.value as ScoreStage)}>
+            {availableStages.map((s) => (
+              <option key={s} value={s}>
+                {s === 'qualification' ? 'Qualification' : s === 'prone_final' ? 'Prone Final' : '3P Final'}
               </option>
             ))}
           </Select>
@@ -494,7 +544,8 @@ export default function ManualEntryComponent({
             {seriesByPosition[pos].map((s, i) => (
               <Box key={i}>
                 <Text fontSize="xs" color="gray.500" mb={1}>
-                  Series {i + 1} (max {(SHOTS_PER_SERIES * 10.9).toFixed(1)})
+                  Series {i + 1} (max{' '}
+                  {stage === '3p_final' ? MAX_5SHOT_SERIES_DECIMAL : (SHOTS_PER_SERIES * 10.9).toFixed(1)})
                 </Text>
                 <Input
                   type="number"
@@ -522,9 +573,53 @@ export default function ManualEntryComponent({
         </Box>
       ))}
 
+      {stage === '3p_final' && (
+        <Box borderWidth="1px" borderRadius="md" p={4}>
+          <Heading size="sm" mb={3}>
+            Elimination shots (31–35)
+          </Heading>
+          <SimpleGrid columns={{ base: 2, md: 5 }} spacing={3}>
+            {elimShots.map((val, i) => (
+              <FormControl key={i}>
+                <FormLabel fontSize="xs">Elim {i + 1}</FormLabel>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10.9"
+                  value={val}
+                  onChange={(e) => {
+                    const next = [...elimShots];
+                    next[i] = e.target.value;
+                    setElimShots(next);
+                  }}
+                  size="sm"
+                />
+              </FormControl>
+            ))}
+          </SimpleGrid>
+        </Box>
+      )}
+
+      {(stage === 'prone_final' || stage === '3p_final') && (
+        <FormControl maxW="200px">
+          <FormLabel>Final rank (optional)</FormLabel>
+          <Input
+            type="number"
+            min="1"
+            value={finalRank}
+            onChange={(e) => setFinalRank(e.target.value)}
+            placeholder="e.g. 1"
+          />
+        </FormControl>
+      )}
+
       <HStack justify="space-between">
         <Badge fontSize="md" colorScheme="green" px={3} py={1}>
-          Grand total: {grandTotal.toFixed(1)}
+          {stage === 'qualification' ? 'Qual total' : 'Final total'}: {grandTotal.toFixed(1)}
+          {stage === '3p_final' &&
+            elimShots.some((s) => parseDecimalValue(s) > 0) &&
+            ` + ${elimShots.reduce((a, s) => a + parseDecimalValue(s), 0).toFixed(1)} elim`}
         </Badge>
         <Button leftIcon={<FiPlus />} onClick={addToBatch} variant="outline" colorScheme="blue">
           Add another shooter

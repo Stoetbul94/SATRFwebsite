@@ -15,6 +15,8 @@ import type {
 } from '@/types/scores';
 
 export const SHOTS_PER_SERIES = 10;
+/** Max decimal for a 5-shot series in 3P final (5 × 10.9). */
+export const MAX_5SHOT_SERIES_DECIMAL = 54.5;
 export const MAX_SHOT_DECIMAL = 10.9;
 export const MAX_SHOT_INTEGER = 10;
 export const MAX_DECIMAL_PER_POSITION_3P = 218.0;
@@ -121,19 +123,46 @@ function isSixSeriesDiscipline(discipline: Discipline): boolean {
 function validate3pFinal(input: ScoreInput, strict: boolean): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
-  const shots = input.finalShots ?? [];
+  const elimShots = input.finalShots ?? [];
+  const positionBlocks = input.positions ?? [];
+  const usesSeries = positionBlocks.length > 0;
 
   if (input.discipline !== 'three_position_50m') {
     errors.push({ path: 'discipline', message: '3P final requires three_position_50m' });
   }
 
-  if (strict && shots.length < 30) {
-    errors.push({ path: 'finalShots', message: '3P final requires at least 30 shots (K+P+standing series)' });
-  } else if (!strict && shots.length < 30) {
-    warnings.push({ path: 'finalShots', message: 'Fewer than 30 shots recorded' });
+  if (usesSeries) {
+    const filledSeries = positionBlocks.flatMap((b) =>
+      b.series.filter((s) => (s.decimal ?? 0) > 0)
+    );
+    if (strict && filledSeries.length < 6) {
+      errors.push({
+        path: 'positions',
+        message: '3P final requires all 6 position series (Kn/Pr/St × 2)',
+      });
+    } else if (!strict && filledSeries.length < 6) {
+      warnings.push({ path: 'positions', message: 'Fewer than 6 position series recorded' });
+    }
+    positionBlocks.forEach((block) => {
+      block.series.forEach((s, i) => {
+        const dec = s.decimal ?? 0;
+        if (dec > MAX_5SHOT_SERIES_DECIMAL) {
+          errors.push({
+            path: `positions.${block.position}.series[${i}].decimal`,
+            message: `5-shot series decimal must be 0–${MAX_5SHOT_SERIES_DECIMAL}`,
+          });
+        }
+      });
+    });
+  } else {
+    if (strict && elimShots.length < 30) {
+      errors.push({ path: 'finalShots', message: '3P final requires at least 30 shots (K+P+standing series)' });
+    } else if (!strict && elimShots.length < 30) {
+      warnings.push({ path: 'finalShots', message: 'Fewer than 30 shots recorded' });
+    }
   }
 
-  shots.forEach((shot, i) => {
+  elimShots.forEach((shot, i) => {
     if (shot < 0 || shot > MAX_SHOT_DECIMAL) {
       errors.push({ path: `finalShots[${i}]`, message: `Shot must be 0–${MAX_SHOT_DECIMAL}` });
     }
@@ -144,6 +173,10 @@ function validate3pFinal(input: ScoreInput, strict: boolean): ValidationResult {
     if (!Number.isInteger(e) || e < 30 || e > 35) {
       errors.push({ path: 'eliminatedAtShot', message: 'Eliminated at shot must be 30–35 or blank' });
     }
+  }
+
+  if (input.finalRank != null && (!Number.isInteger(input.finalRank) || input.finalRank < 1)) {
+    errors.push({ path: 'finalRank', message: 'Final rank must be a positive integer' });
   }
 
   return { valid: errors.length === 0, errors, warnings };
@@ -321,8 +354,41 @@ export function buildScore(
   const stage: ScoreStage = input.stage ?? 'qualification';
 
   if (stage === '3p_final') {
-    const finalShots = (input.finalShots ?? []).map((s) => round1(s));
-    const decimalTotal = round1(finalShots.reduce((a, b) => a + b, 0));
+    const elimShots = (input.finalShots ?? []).map((s) => round1(s));
+    const positionBlocks = (input.positions ?? []).map((block) => {
+      const series: ShotSeries[] = block.series.map((s, i) => ({
+        seriesNumber: s.seriesNumber ?? i + 1,
+        decimal: round1(s.decimal ?? 0),
+        integer: Math.round(s.integer ?? 0),
+      }));
+      const decimalTotal = round1(series.reduce((sum, s) => sum + s.decimal, 0));
+      return {
+        position: block.position,
+        series,
+        decimalTotal,
+        integerTotal: series.reduce((sum, s) => sum + s.integer, 0),
+        innerTens: 0,
+      };
+    });
+
+    const seriesTotal = round1(positionBlocks.reduce((sum, p) => sum + p.decimalTotal, 0));
+    const elimTotal = round1(elimShots.reduce((a, b) => a + b, 0));
+    const decimalTotal =
+      positionBlocks.length > 0
+        ? round1(seriesTotal + elimTotal)
+        : round1(elimShots.reduce((a, b) => a + b, 0));
+
+    const seriesShots = positionBlocks.reduce(
+      (sum, p) => sum + p.series.filter((s) => s.decimal > 0).length * 5,
+      0
+    );
+    const totalShots = positionBlocks.length > 0 ? seriesShots + elimShots.length : elimShots.length;
+
+    let eliminatedAtShot = input.eliminatedAtShot ?? null;
+    if (eliminatedAtShot == null && elimShots.length > 0 && elimShots.length < 5) {
+      eliminatedAtShot = 30 + elimShots.length;
+    }
+
     return {
       userId: input.userId ?? null,
       shooterName: input.shooterName.trim(),
@@ -334,14 +400,14 @@ export function buildScore(
       discipline: input.discipline,
       scoringType: input.scoringType ?? 'decimal',
       stage,
-      positions: [],
-      finalShots,
-      eliminatedAtShot: input.eliminatedAtShot ?? null,
+      positions: positionBlocks,
+      finalShots: elimShots.length > 0 ? elimShots : undefined,
+      eliminatedAtShot,
       finalRank: input.finalRank,
       decimalTotal,
       integerTotal: 0,
       innerTens: 0,
-      totalShots: finalShots.length,
+      totalShots,
       status: input.status ?? 'official',
       source: input.source ?? 'manual',
       createdBy: meta.createdBy,
@@ -490,6 +556,20 @@ export function scoreToEventResultRow(score: ScoreDoc, place: number): EventResu
     row.finalShots = score.finalShots;
     row.eliminatedAtShot = score.eliminatedAtShot ?? null;
     row.finalRank = score.finalRank;
+    if (score.positions?.length) {
+      row.positions = score.positions.map((p) => ({
+        position: p.position,
+        decimalTotal: p.decimalTotal,
+        integerTotal: p.integerTotal,
+      }));
+      row.series = score.positions.flatMap((p) =>
+        p.series.map((s) => ({
+          seriesNumber: s.seriesNumber,
+          decimal: s.decimal,
+          integer: s.integer,
+        }))
+      );
+    }
     return row;
   }
 
