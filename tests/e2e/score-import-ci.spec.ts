@@ -187,7 +187,7 @@ test.describe('Score import — main CI', () => {
       await decimalInputs.nth(i).fill(String(SERIES_SCORES[i]));
     }
 
-    await expect(manual.getByText(`Grand total: ${EXPECTED_TOTAL.toFixed(1)}`)).toBeVisible();
+    await expect(manual.getByText(new RegExp(`Qual total: ${EXPECTED_TOTAL.toFixed(1)}`))).toBeVisible();
 
     await manual.getByRole('button', { name: /save 1 score/i }).click();
     await expect(page.getByText('Saved 1 score(s)').first()).toBeVisible({ timeout: 15_000 });
