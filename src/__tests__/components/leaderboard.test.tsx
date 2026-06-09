@@ -2,128 +2,91 @@ import React from 'react'
 import { render, screen, waitFor } from '../setup'
 import Leaderboard from '../../pages/scores/leaderboard'
 
-// Mock the API calls
-jest.mock('../../lib/api', () => ({
-  leaderboardAPI: {
-    getOverall: jest.fn(),
-    getClubLeaderboard: jest.fn(),
+const mockFinalsRows = [
+  {
+    rank: 1,
+    shooterName: 'John Doe',
+    club: 'SATRF Club',
+    category: 'senior',
+    discipline: 'prone_50m',
+    decimalTotal: 95.5,
+    finalRank: 1,
+    eventName: 'SATRF Championship',
+    date: '2024-01-15',
   },
-}))
-
-const mockLeaderboardAPI = require('../../lib/api').leaderboardAPI
-
-const renderWithProvider = (component: React.ReactElement) => {
-  return render(component)
-}
-
-const mockLeaderboardData = {
-  data: [
-    {
-      id: '1',
-      rank: 1,
-      playerName: 'John Doe',
-      score: 950,
-      discipline: 'Rifle',
-      category: 'Open',
-      date: '2024-01-15',
-      club: 'SATRF Club',
-    },
-    {
-      id: '2',
-      rank: 2,
-      playerName: 'Jane Smith',
-      score: 920,
-      discipline: 'Pistol',
-      category: 'Open',
-      date: '2024-01-15',
-      club: 'SATRF Club',
-    },
-  ],
-  total: 2,
-  page: 1,
-  limit: 10,
-}
+  {
+    rank: 2,
+    shooterName: 'Jane Smith',
+    club: 'Cape Town RC',
+    category: 'senior',
+    discipline: 'prone_50m',
+    decimalTotal: 92.0,
+    finalRank: 2,
+    eventName: 'SATRF Championship',
+    date: '2024-01-15',
+  },
+]
 
 describe('Leaderboard Component', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: mockFinalsRows }),
+    }) as jest.Mock
   })
 
-  it('renders leaderboard page with loading skeleton initially', () => {
-    // Don't mock the API response initially to test loading state
-    renderWithProvider(<Leaderboard />)
-    
-    // Should show loading skeleton initially - check for skeleton elements
-    expect(screen.getAllByText(/leaderboard/i).length).toBeGreaterThan(0)
-  })
+  it('renders finals leaderboard page with title and subtitle', async () => {
+    render(<Leaderboard />)
 
-  it('handles empty leaderboard data gracefully', async () => {
-    mockLeaderboardAPI.getOverall.mockResolvedValue({ data: [], total: 0, page: 1, limit: 10 })
-    
-    renderWithProvider(<Leaderboard />)
-    
-    // Wait for the component to load and show the heading
+    expect(screen.getByRole('heading', { name: /Finals Leaderboard/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Finals results only.*ranked by final score.*Scores page/i,
+      ),
+    ).toBeInTheDocument()
+
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /leaderboard/i })).toBeInTheDocument()
-    }, { timeout: 10000 })
+      expect(screen.getByText(/John Doe/i)).toBeInTheDocument()
+    })
   })
 
-  it('handles API error gracefully', async () => {
-    mockLeaderboardAPI.getOverall.mockRejectedValue(new Error('API Error'))
-    
-    renderWithProvider(<Leaderboard />)
-    
-    // Wait for the component to load and show the heading
+  it('displays filter controls', () => {
+    render(<Leaderboard />)
+
+    expect(screen.getByText(/All Categories/i)).toBeInTheDocument()
+  })
+
+  it('displays table headers after data loads', async () => {
+    render(<Leaderboard />)
+
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /leaderboard/i })).toBeInTheDocument()
-    }, { timeout: 10000 })
+      expect(screen.getByText('Rank')).toBeInTheDocument()
+      expect(screen.getByText('Shooter')).toBeInTheDocument()
+      expect(screen.getByText('Final Total')).toBeInTheDocument()
+    })
   })
 
-  it('shows loading skeleton when data is loading', () => {
-    // Mock a delayed response to test loading state
-    mockLeaderboardAPI.getOverall.mockImplementation(() => new Promise(() => {}))
-    
-    renderWithProvider(<Leaderboard />)
-    
-    // Should show loading skeleton - check for skeleton elements
-    expect(screen.getAllByText(/leaderboard/i).length).toBeGreaterThan(0)
-  })
+  it('handles empty finals data gracefully', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    }) as jest.Mock
 
-  it('displays leaderboard data when loaded successfully', async () => {
-    mockLeaderboardAPI.getOverall.mockResolvedValue(mockLeaderboardData)
-    
-    renderWithProvider(<Leaderboard />)
-    
-    // Wait for the component to load and check for the heading
+    render(<Leaderboard />)
+
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /leaderboard/i })).toBeInTheDocument()
-    }, { timeout: 10000 })
+      expect(screen.getByText(/No finals results yet/i)).toBeInTheDocument()
+    })
   })
 
-  it('displays filter options when loaded', async () => {
-    mockLeaderboardAPI.getOverall.mockResolvedValue(mockLeaderboardData)
-    
-    renderWithProvider(<Leaderboard />)
-    
-    await waitFor(() => {
-      // Check for filter options
-      expect(screen.getByText(/overall rankings/i)).toBeInTheDocument()
-    }, { timeout: 10000 })
-  })
+  it('calls finals API with default discipline', async () => {
+    render(<Leaderboard />)
 
-  it('calls API with correct parameters', async () => {
-    mockLeaderboardAPI.getOverall.mockResolvedValue(mockLeaderboardData)
-    
-    renderWithProvider(<Leaderboard />)
-    
     await waitFor(() => {
-      expect(mockLeaderboardAPI.getOverall).toHaveBeenCalledWith({
-        discipline: undefined,
-        category: undefined,
-        time_period: 'all',
-        page: 1,
-        limit: 50,
-      })
-    }, { timeout: 10000 })
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/leaderboard/finals?discipline=prone_50m'),
+      )
+    })
   })
-}) 
+})
