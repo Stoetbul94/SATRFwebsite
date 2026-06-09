@@ -4,8 +4,8 @@ import Image from 'next/image';
 import { Box, type BoxProps } from '@chakra-ui/react';
 
 interface SatrfHorizontalLogoProps extends BoxProps {
-  /** nav ~44px tall; footer ~48px */
-  variant?: 'nav' | 'footer';
+  /** nav ~44px; footer ~48px; admin sidebar ~72px */
+  variant?: 'nav' | 'footer' | 'admin';
 }
 
 /**
@@ -16,15 +16,26 @@ export default function SatrfHorizontalLogo({
   variant = 'nav',
   ...props
 }: SatrfHorizontalLogoProps) {
-  const height = variant === 'nav' ? 'clamp(36px, 10vw, 44px)' : 'clamp(40px, 11vw, 48px)';
-  const maxWidth = variant === 'nav' ? 'min(260px, 72vw)' : 'min(280px, 80vw)';
+  const height =
+    variant === 'admin'
+      ? 'clamp(56px, 18vw, 72px)'
+      : variant === 'nav'
+        ? 'clamp(36px, 10vw, 44px)'
+        : 'clamp(40px, 11vw, 48px)';
+  const maxWidth =
+    variant === 'admin'
+      ? '100%'
+      : variant === 'nav'
+        ? 'min(260px, 72vw)'
+        : 'min(280px, 80vw)';
 
   return (
     <Box
       bg="white"
       rounded="md"
-      px={{ base: 2, md: 2.5 }}
-      py={1}
+      px={variant === 'admin' ? { base: 3, md: 4 } : { base: 2, md: 2.5 }}
+      py={variant === 'admin' ? 2 : 1}
+      w={variant === 'admin' ? '100%' : undefined}
       lineHeight={0}
       boxShadow="sm"
       display="inline-flex"
@@ -34,9 +45,9 @@ export default function SatrfHorizontalLogo({
       <Image
         src="/brand/satrf-logo-horizontal.png"
         alt="South African Target Rifle Federation"
-        width={280}
-        height={56}
-        priority={variant === 'nav'}
+        width={variant === 'admin' ? 360 : 280}
+        height={variant === 'admin' ? 72 : 56}
+        priority={variant === 'nav' || variant === 'admin'}
         style={{
           height,
           width: 'auto',

@@ -36,6 +36,12 @@ import {
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiSearch } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTableCard from '@/components/admin/AdminTableCard';
+import AdminEmptyState from '@/components/admin/AdminEmptyState';
+import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge';
+import AdminIconActions from '@/components/admin/AdminIconActions';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
@@ -148,19 +154,13 @@ export default function AdminScores() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors: Record<string, string> = { official: 'green', provisional: 'yellow' };
-    return <Badge colorScheme={colors[status] || 'gray'} textTransform="capitalize">{status}</Badge>;
-  };
-
   const disciplineLabel = (d: string) => DISCIPLINES[d as keyof typeof DISCIPLINES]?.label || d;
 
   if (authLoading || loading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminPageHeader title="Scores" subtitle="Review, edit, and manage submitted scores" />
+        <AdminTableSkeleton columns={9} />
       </AdminLayout>
     );
   }
@@ -168,14 +168,15 @@ export default function AdminScores() {
   if (!isAdmin) return null;
 
   return (
-    <AdminLayout title="Scores" description="Review, edit, and manage submitted scores">
+    <AdminLayout>
       <Head>
         <title>Admin Scores - SATRF</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      {/* Filters */}
-      <Box bg={cardBg} p={4} borderRadius="lg" border="1px" borderColor={borderColor} mb={6}>
+      <AdminPageHeader title="Scores" subtitle="Review, edit, and manage submitted scores" />
+
+      <Box bg="bg.surface" p={4} borderRadius="lg" borderWidth="1px" borderColor="border.default" mb={4} boxShadow="sm">
         <HStack spacing={4} wrap="wrap">
           <Box flex="1" minW="240px">
             <InputGroup>
@@ -203,9 +204,8 @@ export default function AdminScores() {
         </HStack>
       </Box>
 
-      {/* Table */}
-      <Box bg={cardBg} borderRadius="lg" border="1px" borderColor={borderColor} overflowX="auto">
-        <Table variant="simple">
+      <AdminTableCard>
+        <Table variant="admin" size="sm">
           <Thead>
             <Tr>
               <Th>Shooter</Th>
@@ -222,8 +222,12 @@ export default function AdminScores() {
           <Tbody>
             {scores.length === 0 ? (
               <Tr>
-                <Td colSpan={9} textAlign="center" py={8}>
-                  <Text color="gray.500">No scores found</Text>
+                <Td colSpan={9} p={0} border={0}>
+                  <AdminEmptyState
+                    icon={FiSearch}
+                    title="No scores found"
+                    description="Try adjusting filters or import scores to get started."
+                  />
                 </Td>
               </Tr>
             ) : (
@@ -240,20 +244,22 @@ export default function AdminScores() {
                   <Td textTransform="capitalize">{score.category}</Td>
                   <Td isNumeric fontWeight="semibold">{score.decimalTotal?.toFixed(1)}</Td>
                   <Td isNumeric>{score.innerTens || 0}</Td>
-                  <Td>{getStatusBadge(score.status)}</Td>
+                  <Td><AdminStatusBadge status={score.status} /></Td>
                   <Td>{score.date ? new Date(score.date).toLocaleDateString() : '-'}</Td>
                   <Td>
-                    <HStack spacing={2}>
-                      <IconButton aria-label="Edit score" icon={<FiEdit />} size="sm" onClick={() => handleEdit(score)} />
-                      <IconButton aria-label="Delete score" icon={<FiTrash2 />} size="sm" colorScheme="red" onClick={() => handleDelete(score.id)} />
-                    </HStack>
+                    <AdminIconActions
+                      actions={[
+                        { label: 'Edit score', icon: <FiEdit />, onClick: () => handleEdit(score) },
+                        { label: 'Delete score', icon: <FiTrash2 />, colorScheme: 'red', onClick: () => handleDelete(score.id) },
+                      ]}
+                    />
                   </Td>
                 </Tr>
               ))
             )}
           </Tbody>
         </Table>
-      </Box>
+      </AdminTableCard>
 
       {/* Edit Modal */}
       <Modal isOpen={isOpen} onClose={onClose}>
@@ -278,7 +284,7 @@ export default function AdminScores() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
-            <Button colorScheme="blue" onClick={handleSave}>Save</Button>
+            <Button variant="satrf" onClick={handleSave}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

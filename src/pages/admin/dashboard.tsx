@@ -1,25 +1,23 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { 
-  Box, 
-  Grid, 
-  GridItem, 
-  Stat, 
-  StatLabel, 
-  StatNumber, 
+import {
+  Box,
+  Grid,
+  Stat,
+  StatLabel,
+  StatNumber,
   StatHelpText,
-  StatArrow,
   VStack,
   HStack,
   Button,
   Text,
-  useColorModeValue,
-  Spinner,
-  Center
+  Icon,
 } from '@chakra-ui/react';
 import { FiTarget, FiCalendar, FiUsers, FiUserCheck, FiArrowRight } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
@@ -40,10 +38,6 @@ const getToken = async (): Promise<string | null> => {
 
 export default function AdminDashboard() {
   useProtectedRoute();
-  // All useColorModeValue calls must be at the very top, before any other hooks
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  
   const { isAdmin, isLoading } = useAdminRoute();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,218 +47,130 @@ export default function AdminDashboard() {
       try {
         const token = await getToken();
         if (!token) return;
-
-        // Fetch stats from API
         const response = await fetch('/api/admin/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
         if (response.ok) {
-          const data = await response.json();
-          setStats(data);
+          setStats(await response.json());
         } else {
-          // Fallback stats if API fails
-          setStats({
-            totalUsers: 0,
-            totalScores: 0,
-            totalEvents: 0,
-            pendingMembers: 0,
-            recentActivity: 0,
-          });
+          setStats({ totalUsers: 0, totalScores: 0, totalEvents: 0, pendingMembers: 0, recentActivity: 0 });
         }
-      } catch (error) {
-        console.error('Error fetching admin stats:', error);
-        // Fallback stats
-        setStats({
-          totalUsers: 0,
-          totalScores: 0,
-          totalEvents: 0,
-          pendingMembers: 0,
-          recentActivity: 0,
-        });
+      } catch {
+        setStats({ totalUsers: 0, totalScores: 0, totalEvents: 0, pendingMembers: 0, recentActivity: 0 });
       } finally {
         setLoading(false);
       }
     };
-
-    if (isAdmin) {
-      fetchStats();
-    }
+    if (isAdmin) fetchStats();
   }, [isAdmin]);
 
   if (isLoading || loading) {
     return (
       <AdminLayout>
-        <Center minH="50vh">
-          <Spinner size="xl" color="blue.500" />
-        </Center>
+        <AdminLoadingPanel label="Loading statistics…" />
       </AdminLayout>
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
+  if (!isAdmin) return null;
 
   const statCards = [
-    {
-      label: 'Pending Members',
-      value: stats?.pendingMembers || 0,
-      icon: FiUserCheck,
-      color: 'orange',
-      href: '/admin/users',
-    },
-    {
-      label: 'Total Members',
-      value: stats?.totalUsers || 0,
-      icon: FiUsers,
-      color: 'blue',
-      href: '/admin/users',
-    },
-    {
-      label: 'Total Scores',
-      value: stats?.totalScores || 0,
-      icon: FiTarget,
-      color: 'green',
-      href: '/admin/scores',
-    },
-    {
-      label: 'Total Events',
-      value: stats?.totalEvents || 0,
-      icon: FiCalendar,
-      color: 'purple',
-      href: '/admin/events',
-    },
+    { label: 'Pending Members', value: stats?.pendingMembers || 0, icon: FiUserCheck, accent: 'satrf.gold.600', href: '/admin/users' },
+    { label: 'Total Members', value: stats?.totalUsers || 0, icon: FiUsers, accent: 'brand', href: '/admin/users' },
+    { label: 'Total Scores', value: stats?.totalScores || 0, icon: FiTarget, accent: 'satrf.green.600', href: '/admin/scores' },
+    { label: 'Total Events', value: stats?.totalEvents || 0, icon: FiCalendar, accent: 'satrf.green.700', href: '/admin/events' },
   ];
 
   const quickActions = [
-    { label: 'Approve Members', href: '/admin/users', color: 'orange' },
-    { label: 'Import Scores', href: '/admin/scores/import', color: 'blue' },
-    { label: 'Add Score', href: '/admin/scores/import', color: 'green' },
-    { label: 'Create Event', href: '/admin/events?action=create', color: 'purple' },
+    { label: 'Approve Members', href: '/admin/users', variant: 'satrfGold' as const },
+    { label: 'Import Scores', href: '/admin/scores/import', variant: 'satrfOutline' as const },
+    { label: 'Manage Scores', href: '/admin/scores', variant: 'satrfOutline' as const },
+    { label: 'Create Event', href: '/admin/events', variant: 'satrf' as const },
   ];
 
   return (
-    <AdminLayout title="Statistics" description="Overview of members, scores, and events">
+    <AdminLayout>
       <Head>
         <title>Statistics - SATRF Admin</title>
-        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      {/* Stats Grid */}
-      <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={6} mb={8}>
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Link key={card.label} href={card.href}>
-              <Box
-                bg={cardBg}
-                p={6}
-                borderRadius="lg"
-                border="1px"
-                borderColor={borderColor}
-                _hover={{ shadow: 'lg', transform: 'translateY(-2px)', borderColor: `${card.color}.300` }}
-                transition="all 0.2s"
-                cursor="pointer"
-                height="100%"
-              >
-                <Stat>
-                  <HStack justify="space-between" mb={3}>
-                    <StatLabel fontSize="sm" fontWeight="medium" color="gray.600" textTransform="uppercase" letterSpacing="wide">
-                      {card.label}
-                    </StatLabel>
-                    <Box
-                      p={2}
-                      borderRadius="md"
-                      bg={`${card.color}.50`}
-                      color={`${card.color}.600`}
-                    >
-                      <Icon size={20} />
-                    </Box>
-                  </HStack>
-                  <StatNumber fontSize="3xl" fontWeight="bold" color={`${card.color}.600`} mb={1}>
-                    {card.value.toLocaleString()}
-                  </StatNumber>
-                  <StatHelpText fontSize="xs" color="gray.500" mb={0}>
-                    Click to view details
-                  </StatHelpText>
-                </Stat>
-              </Box>
-            </Link>
-          );
-        })}
+      <AdminPageHeader
+        title="Statistics"
+        subtitle="Overview of members, scores, and events"
+      />
+
+      <Grid templateColumns={{ base: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={4} mb={8}>
+        {statCards.map((card) => (
+          <Link key={card.label} href={card.href}>
+            <Box
+              bg="bg.surface"
+              p={5}
+              borderRadius="lg"
+              borderWidth="1px"
+              borderColor="border.default"
+              boxShadow="sm"
+              _hover={{ borderColor: 'satrf.green.300', boxShadow: 'md' }}
+              transition="box-shadow 0.15s ease, border-color 0.15s ease"
+              cursor="pointer"
+              h="100%"
+            >
+              <Stat>
+                <HStack justify="space-between" mb={2}>
+                  <StatLabel fontSize="xs" color="text.muted" textTransform="uppercase" letterSpacing="wider">
+                    {card.label}
+                  </StatLabel>
+                  <Box p={2} borderRadius="md" bg="satrf.green.50" color={card.accent}>
+                    <Icon as={card.icon} boxSize={4} />
+                  </Box>
+                </HStack>
+                <StatNumber fontSize="2xl" fontWeight="bold" color="text.primary">
+                  {card.value.toLocaleString()}
+                </StatNumber>
+                <StatHelpText fontSize="xs" color="text.muted" mb={0}>
+                  View details →
+                </StatHelpText>
+              </Stat>
+            </Box>
+          </Link>
+        ))}
       </Grid>
 
-      {/* Quick Actions Section */}
-      <Box bg={cardBg} p={8} borderRadius="lg" border="1px" borderColor={borderColor} mb={8}>
-        <VStack align="stretch" spacing={6}>
-          <Box>
-            <Text fontSize="xl" fontWeight="semibold" color="gray.800" mb={2}>
-              Quick Actions
-            </Text>
-            <Text fontSize="sm" color="gray.600">
-              Common administrative tasks and shortcuts
-            </Text>
-          </Box>
-          <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={4}>
-            {quickActions.map((action) => (
-              <Link key={action.label} href={action.href}>
-                <Button
-                  w="full"
-                  colorScheme={action.color}
-                  variant="outline"
-                  size="lg"
-                  rightIcon={<FiArrowRight />}
-                  _hover={{ bg: `${action.color}.50`, borderColor: `${action.color}.400`, transform: 'translateX(4px)' }}
-                  transition="all 0.2s"
-                  justifyContent="space-between"
-                >
-                  {action.label}
-                </Button>
-              </Link>
-            ))}
-          </Grid>
-        </VStack>
+      <Box bg="bg.surface" p={6} borderRadius="lg" borderWidth="1px" borderColor="border.default" boxShadow="sm" mb={6}>
+        <Text fontSize="md" fontWeight="semibold" fontFamily="heading" mb={1}>
+          Quick Actions
+        </Text>
+        <Text fontSize="sm" color="text.muted" mb={4}>
+          Common administrative tasks
+        </Text>
+        <Grid templateColumns={{ base: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} gap={3}>
+          {quickActions.map((action) => (
+            <Link key={action.label} href={action.href}>
+              <Button w="full" variant={action.variant} size="md" rightIcon={<FiArrowRight />}>
+                {action.label}
+              </Button>
+            </Link>
+          ))}
+        </Grid>
       </Box>
 
-      {/* Recent Activity Section */}
-      <Box bg={cardBg} p={8} borderRadius="lg" border="1px" borderColor={borderColor}>
-        <VStack align="stretch" spacing={4}>
-          <Box>
-            <Text fontSize="xl" fontWeight="semibold" color="gray.800" mb={2}>
-              Recent Activity
-            </Text>
-            <Text fontSize="sm" color="gray.600">
-              Monitor system events and admin actions
-            </Text>
-          </Box>
-          <Box
-            p={6}
-            bg="gray.50"
-            borderRadius="md"
-            border="1px dashed"
-            borderColor="gray.300"
-          >
-            <Text color="gray.600" fontSize="sm" textAlign="center">
-              Recent admin actions and system events will appear here.
-            </Text>
-          </Box>
-          <Link href="/admin/audit">
-            <Button 
-              variant="link" 
-              colorScheme="blue" 
-              size="sm"
-              _hover={{ textDecoration: 'underline' }}
-            >
-              View Full Audit Log →
-            </Button>
-          </Link>
-        </VStack>
+      <Box bg="bg.surface" p={6} borderRadius="lg" borderWidth="1px" borderColor="border.default" boxShadow="sm">
+        <Text fontSize="md" fontWeight="semibold" fontFamily="heading" mb={1}>
+          Recent Activity
+        </Text>
+        <Text fontSize="sm" color="text.muted" mb={4}>
+          Monitor system events and admin actions
+        </Text>
+        <Box p={5} bg="bg.canvas" borderRadius="md" borderWidth="1px" borderStyle="dashed" borderColor="border.default">
+          <Text color="text.muted" fontSize="sm" textAlign="center">
+            Recent admin actions and system events will appear here.
+          </Text>
+        </Box>
+        <Link href="/admin/audit">
+          <Button variant="link" color="brand" size="sm" mt={4}>
+            View full audit log →
+          </Button>
+        </Link>
       </Box>
     </AdminLayout>
   );
 }
-
-
