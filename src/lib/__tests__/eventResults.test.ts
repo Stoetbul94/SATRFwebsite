@@ -2,6 +2,7 @@ import {
   buildEventResultBoard,
   availableDisciplinesFromScores,
   defaultDisciplineFromAvailable,
+  rank3pFinalists,
 } from '../issf';
 import type { Score } from '@/types/scores';
 
@@ -186,7 +187,6 @@ describe('buildEventResultBoard', () => {
 
 describe('auto final rank (spot-check gate 11)', () => {
   it('ranks 3P finalists by higher decimalTotal when elimination equal', () => {
-    const { rank3pFinalists } = require('@/lib/issf');
     const map = rank3pFinalists([
       { id: 'a', eliminatedAtShot: null, decimalTotal: 345.6 },
       { id: 'b', eliminatedAtShot: null, decimalTotal: 358.8 },
