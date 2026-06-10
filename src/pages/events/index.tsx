@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   Container,
   Heading,
   SimpleGrid,
@@ -8,44 +7,30 @@ import {
   Text,
   useColorModeValue,
   VStack,
-  HStack,
-  Badge,
   Input,
   Select,
   InputGroup,
   InputLeftElement,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalCloseButton,
-  useDisclosure,
-  Flex,
-  Divider,
-  IconButton,
-  Tooltip,
   Spinner,
   Alert,
   AlertIcon,
   AlertTitle,
   AlertDescription,
-  useBreakpointValue,
   Grid,
   GridItem,
 } from '@chakra-ui/react';
-import { useState, useMemo, useEffect } from 'react';
-import { FaSearch, FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { FaSearch } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
-import { useRouter } from 'next/router';
 import { GetServerSideProps } from 'next';
 import { eventsAPI } from '@/lib/api';
 import EventRegistrationModal from '@/components/events/EventRegistrationModal';
 import { getPublicRegistrationStatus } from '@/lib/eventRegistrationUi';
 import Head from 'next/head';
-import EventDisciplinePills from '@/components/events/EventDisciplinePills';
-import EventImageFallback from '@/components/events/EventImageFallback';
-import { formatEntryFee, parseEventDisciplines } from '@/lib/eventDisciplines';
+import EventHeroCard from '@/components/events/EventHeroCard';
+import EventListCard, { type EventCardData } from '@/components/events/EventListCard';
+import { disciplinePublicLabel, parseEventDisciplines } from '@/lib/eventDisciplines';
+import { isEventPast, startOfToday } from '@/lib/eventDisplay';
 import type { Discipline } from '@/types/scores';
 
 interface Event {
@@ -62,214 +47,199 @@ interface Event {
   currentSpots: number;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationDeadline: Date;
-  image?: string;
+  image?: string | null;
   payfastUrl?: string | null;
   eftInstructions?: string | null;
-  requirements?: string[];
-  schedule?: string[];
-  contactInfo?: {
-    name: string;
-    email: string;
-    phone: string;
+}
+
+function toDate(d: unknown): Date | null {
+  if (!d) return null;
+  if (
+    typeof d === 'object' &&
+    d !== null &&
+    'toDate' in d &&
+    typeof (d as { toDate: () => Date }).toDate === 'function'
+  ) {
+    return (d as { toDate: () => Date }).toDate();
+  }
+  const parsed = new Date(d as string);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toEventCardData(event: Event): EventCardData {
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    eventDate: event.startDate,
+    location: event.location,
+    disciplineLabels: event.disciplines.map(disciplinePublicLabel),
+    price: event.price,
+    maxSpots: event.maxSpots,
+    currentSpots: event.currentSpots,
+    registrationDeadline: event.registrationDeadline,
+    image: event.image,
+    payfastUrl: event.payfastUrl,
+    eftInstructions: event.eftInstructions,
+    isPast: isEventPast(event.startDate),
   };
 }
 
-interface UserRegistration {
-  eventId: string;
-  status: 'registered' | 'waitlist' | 'cancelled';
-  registeredAt: Date;
+function registrationLabel(status: ReturnType<typeof getPublicRegistrationStatus>): string {
+  switch (status) {
+    case 'open':
+      return 'Register Now';
+    case 'full':
+      return 'Full';
+    case 'closed':
+      return 'Closed';
+    default:
+      return 'Register';
+  }
 }
 
 export default function Events() {
-  // All useColorModeValue calls must be at the very top, before any other hooks
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
-  const imageBg = useColorModeValue('gray.100', 'gray.600');
-  const imageTextColor = useColorModeValue('gray.500', 'gray.400');
-  const textColorPrimary = useColorModeValue('gray.800', 'white');
-  const bgLight = useColorModeValue('gray.50', 'gray.800');
-  const textColorLight = useColorModeValue('gray.600', 'gray.300');
-  const loadingTextColor = useColorModeValue('gray.600', 'gray.400');
-  const modalImageBg = useColorModeValue('gray.100', 'gray.600');
-  const modalImageTextColor = useColorModeValue('gray.500', 'gray.400');
-  const modalTextColor = useColorModeValue('gray.600', 'gray.400');
-  
+
   const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [registrationEvent, setRegistrationEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const isMobile = useBreakpointValue({ base: true, md: false });
 
-  // Fetch events from API
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const filters: any = {};
-      if (statusFilter !== 'all') filters.status = statusFilter;
-      if (categoryFilter !== 'all') filters.type = categoryFilter;
-      
-      const eventsData = await eventsAPI.getAll(filters);
-      
-      // Transform API response to match our Event interface
-      const toDate = (d: any) => {
-        if (!d) return null;
-        if (d.toDate) return d.toDate();
-        const parsed = new Date(d);
-        return isNaN(parsed.getTime()) ? null : parsed;
-      };
+      const eventsData = await eventsAPI.getAll();
 
-      const transformedEvents: Event[] = Array.isArray(eventsData) 
-        ? eventsData.map((e: any) => {
+      const transformedEvents: Event[] = Array.isArray(eventsData)
+        ? eventsData.map((e: Record<string, unknown>) => {
             const dateVal = toDate(e.date);
             const start = toDate(e.startDate) || dateVal;
             const end = toDate(e.endDate) || dateVal;
-            const deadline = toDate(e.registrationDeadline || e.deadline || e.date) || dateVal || new Date();
+            const deadline =
+              toDate(e.registrationDeadline || e.deadline || e.date) || dateVal || new Date();
 
             return {
-              id: e.id,
-              title: e.title || e.name || 'Untitled Event',
-              description: e.description || '',
+              id: String(e.id),
+              title: String(e.title || e.name || 'Untitled Event'),
+              description: String(e.description || ''),
               date: dateVal ? dateVal.toISOString() : '',
               startDate: start || new Date(),
               endDate: end || start || new Date(),
-              location: e.location || '',
+              location: String(e.location || ''),
               disciplines: Array.isArray(e.disciplines)
-                ? e.disciplines
+                ? (e.disciplines as Discipline[])
                 : parseEventDisciplines(e),
-              price: e.price ?? null,
-              maxSpots: e.maxParticipants ?? e.maxSpots ?? 0,
-              currentSpots: e.currentParticipants ?? e.currentSpots ?? 0,
-              status: e.status || 'upcoming',
+              price: (e.price as number | null) ?? null,
+              maxSpots: Number(e.maxParticipants ?? e.maxSpots) || 0,
+              currentSpots: Number(e.currentParticipants ?? e.currentSpots) || 0,
+              status: (e.status as Event['status']) || 'upcoming',
               registrationDeadline: deadline,
-              image: e.image || e.imageUrl || e.imageURL || null,
-              payfastUrl: e.payfastUrl || null,
-              eftInstructions: e.eftInstructions || null,
-              requirements: e.requirements || [],
-              schedule: e.schedule || [],
-              contactInfo: e.contactInfo,
+              image: (e.image || e.imageUrl || e.imageURL || null) as string | null,
+              payfastUrl: (e.payfastUrl as string | null) || null,
+              eftInstructions: (e.eftInstructions as string | null) || null,
             };
           })
         : [];
-      
+
       setEvents(transformedEvents);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching events:', err);
-      setError(err.message || 'Failed to load events');
-      // Fallback to empty array on error
+      setError(err instanceof Error ? err.message : 'Failed to load events');
       setEvents([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Filter events based on search and filters
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
   const filteredEvents = useMemo(() => {
-    return events.filter(event => {
-      const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.description.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
+    const today = startOfToday();
+    return events.filter((event) => {
+      const isPast = isEventPast(event.startDate);
+      const matchesSearch =
+        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+      let matchesStatus = true;
+      if (statusFilter === 'upcoming') matchesStatus = !isPast && event.status !== 'cancelled';
+      else if (statusFilter === 'completed') matchesStatus = isPast;
+      else if (statusFilter === 'ongoing') {
+        matchesStatus =
+          !isPast &&
+          event.status !== 'cancelled' &&
+          event.startDate.toDateString() === today.toDateString();
+      } else if (statusFilter === 'cancelled') {
+        matchesStatus = event.status === 'cancelled';
+      }
+
       const matchesCategory =
-        categoryFilter === 'all' ||
-        event.disciplines.some((d) => d === categoryFilter);
-      
+        categoryFilter === 'all' || event.disciplines.some((d) => d === categoryFilter);
+
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [events, searchTerm, statusFilter, categoryFilter]);
 
-  // Re-fetch events when filters change
-  useEffect(() => {
-    if (!isLoading) {
-      fetchEvents();
-    }
-  }, [statusFilter, categoryFilter]);
+  const { heroEvent, upcomingGrid, pastEvents } = useMemo(() => {
+    const upcoming = filteredEvents
+      .filter((e) => !isEventPast(e.startDate) && e.status !== 'cancelled')
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
-  const capacityLabel = (event: Event) =>
-    event.maxSpots > 0
-      ? `${event.currentSpots} / ${event.maxSpots} spots filled`
-      : `${event.currentSpots} registered`;
+    const past = filteredEvents
+      .filter((e) => isEventPast(e.startDate))
+      .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
 
-  const handleEventClick = (event: Event) => {
-    router.push(`/events/${event.id}`);
-  };
+    const hero = upcoming.length > 0 ? upcoming[0] : null;
+    const grid = hero ? upcoming.slice(1) : upcoming;
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'upcoming':
-      case 'open':
-        return 'green';
-      case 'ongoing':
-        return 'yellow';
-      case 'completed':
-      case 'closed':
-        return 'gray';
-      case 'cancelled':
-        return 'red';
-      case 'full':
-        return 'orange';
-      default:
-        return 'gray';
+    return { heroEvent: hero, upcomingGrid: grid, pastEvents: past };
+  }, [filteredEvents]);
+
+  const openRegistration = (event: Event) => {
+    if (getPublicRegistrationStatus(event) === 'open') {
+      setRegistrationEvent(event);
     }
   };
 
-  const getRegistrationButtonProps = (status: string) => {
-    switch (status) {
-      case 'open':
-        return { variant: 'satrf' as const, colorScheme: undefined };
-      case 'full':
-        return { colorScheme: 'orange' as const, variant: 'solid' as const };
-      case 'closed':
-        return { colorScheme: 'gray' as const, variant: 'solid' as const };
-      default:
-        return { colorScheme: 'gray' as const, variant: 'solid' as const };
-    }
+  const cardRegistrationProps = (event: Event) => {
+    const status = getPublicRegistrationStatus(event);
+    return {
+      registrationOpen: status === 'open',
+      registrationLabel: registrationLabel(status),
+      onRegister: () => openRegistration(event),
+    };
   };
 
-  const getRegistrationBadgeText = (status: string) => {
-    switch (status) {
-      case 'registered': return 'Registered';
-      case 'full': return 'Full';
-      case 'closed': return 'Closed';
-      case 'open': return 'Register Now';
-      default: return 'Unknown';
-    }
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-ZA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatEventDate = (event: Event) => formatDate(event.startDate);
+  const hasNoUpcoming = !isLoading && !error && upcomingGrid.length === 0 && !heroEvent;
+  const noMatches = !isLoading && !error && filteredEvents.length === 0;
 
   return (
     <Layout>
       <Head>
         <title>Events & Competitions - SATRF</title>
-        <meta name="description" content="Discover and register for upcoming shooting events and competitions organized by the South African Target Rifle Federation." />
+        <meta
+          name="description"
+          content="Discover and register for upcoming shooting events and competitions organized by the South African Target Rifle Federation."
+        />
         <meta property="og:title" content="Events & Competitions - SATRF" />
-        <meta property="og:description" content="Discover and register for upcoming shooting events and competitions." />
+        <meta
+          property="og:description"
+          content="Discover and register for upcoming shooting events and competitions."
+        />
         <meta property="og:type" content="website" />
       </Head>
       <Container maxW="container.xl" py={8}>
         <Stack spacing={8}>
-          {/* Header */}
           <Box>
             <Heading size="xl" mb={2} color="satrf.navy">
               Events & Competitions
@@ -279,7 +249,6 @@ export default function Events() {
             </Text>
           </Box>
 
-          {/* Error Display */}
           {error && (
             <Alert status="error" borderRadius="lg">
               <AlertIcon />
@@ -290,17 +259,15 @@ export default function Events() {
             </Alert>
           )}
 
-          {/* Loading State */}
           {isLoading && (
             <Box textAlign="center" py={8}>
-              <Spinner size="xl" color="blue.500" />
-              <Text mt={4} color={loadingTextColor}>
+              <Spinner size="xl" color="satrf.lightBlue" />
+              <Text mt={4} color={textColorSecondary}>
                 Loading events...
               </Text>
             </Box>
           )}
 
-          {/* Search and Filters */}
           <Box
             bg={cardBg}
             p={6}
@@ -322,27 +289,17 @@ export default function Events() {
                   />
                 </InputGroup>
               </GridItem>
-              
               <GridItem>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  placeholder="Filter by status"
-                >
+                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="all">All Status</option>
                   <option value="upcoming">Upcoming</option>
                   <option value="ongoing">Ongoing</option>
-                  <option value="completed">Completed</option>
+                  <option value="completed">Past</option>
                   <option value="cancelled">Cancelled</option>
                 </Select>
               </GridItem>
-              
               <GridItem>
-                <Select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  placeholder="Filter by category"
-                >
+                <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
                   <option value="all">All Categories</option>
                   <option value="prone_50m">Prone</option>
                   <option value="fclass_open">F-Class Open</option>
@@ -353,321 +310,82 @@ export default function Events() {
             </Grid>
           </Box>
 
-          {/* Results Count */}
-          <Text color={textColorSecondary}>
-            Showing {filteredEvents.length} of {events.length} events
-          </Text>
+          {!isLoading && !error && (
+            <Text color={textColorSecondary}>
+              Showing {filteredEvents.length} of {events.length} events
+            </Text>
+          )}
 
-          {/* Events Grid */}
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            {filteredEvents.map((event) => {
-              const registrationStatus = getPublicRegistrationStatus(event);
-              
-              return (
-                <Box
-                  key={event.id}
-                  bg={cardBg}
-                  p={6}
-                  rounded="lg"
-                  shadow="md"
-                  borderWidth="1px"
-                  borderColor={borderColor}
-                  _hover={{
-                    shadow: 'lg',
-                    transform: 'translateY(-2px)',
-                    transition: 'all 0.2s'
-                  }}
-                  cursor="pointer"
-                  onClick={() => router.push(`/events/${event.id}`)}
-                >
-                  <VStack align="start" spacing={4}>
-                    {/* Event Image */}
-                    {event.image ? (
-                      <Box
-                        w="100%"
-                        h="200px"
-                        bg={imageBg}
-                        rounded="md"
-                        overflow="hidden"
-                        position="relative"
-                      >
-                        <img
-                          src={event.image}
-                          alt={event.title}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            objectPosition: 'center',
-                          }}
-                        />
-                      </Box>
-                    ) : (
-                      <EventImageFallback height="200px" title={event.title} />
-                    )}
-
-                    {/* Event Title and Badges */}
-                    <VStack align="start" spacing={2} w="100%">
-                      <Heading size="md" color="satrf.navy">
-                        {event.title}
-                      </Heading>
-                      <HStack spacing={2} flexWrap="wrap" align="center">
-                        <Badge colorScheme={getStatusBadgeColor(event.status)} textTransform="capitalize">
-                          {event.status}
-                        </Badge>
-                        <EventDisciplinePills disciplines={event.disciplines} />
-                      </HStack>
-                    </VStack>
-
-                    {/* Event Details */}
-                    <Stack spacing={2} w="100%">
-                      <HStack spacing={2}>
-                        <FaRegCalendarAlt color="#4a5568" />
-                        <Text color={textColorSecondary} fontSize="sm">
-                          {formatEventDate(event)}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing={2}>
-                        <FaMapMarkerAlt color="#4a5568" />
-                        <Text color={textColorSecondary} fontSize="sm">
-                          {event.location}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing={2}>
-                        <FaUsers color="#4a5568" />
-                        <Text color={textColorSecondary} fontSize="sm">
-                          {capacityLabel(event)}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing={2}>
-                        <FaClock color="#4a5568" />
-                        <Text color={textColorSecondary} fontSize="sm">
-                          Registration closes: {formatDate(event.registrationDeadline)}
-                        </Text>
-                      </HStack>
-                    </Stack>
-
-                    {/* Price and Registration */}
-                    <VStack spacing={3} w="100%">
-                      <Text
-                        color={textColorPrimary}
-                        fontWeight="bold"
-                        fontSize="lg"
-                      >
-                        {formatEntryFee(event.price)}
-                      </Text>
-
-                      <Button
-                        w="100%"
-                        {...getRegistrationButtonProps(registrationStatus)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (registrationStatus === 'open') {
-                            setRegistrationEvent(event);
-                          }
-                        }}
-                        disabled={registrationStatus !== 'open'}
-                      >
-                        {getRegistrationBadgeText(registrationStatus)}
-                      </Button>
-                    </VStack>
-                  </VStack>
-                </Box>
-              );
-            })}
-          </SimpleGrid>
-
-          {/* No Results */}
-          {filteredEvents.length === 0 && (
-            <Alert status="info">
+          {noMatches && (
+            <Alert status="info" borderRadius="lg">
               <AlertIcon />
-              <AlertTitle>No events found!</AlertTitle>
-              <AlertDescription>
-                Try adjusting your search terms or filters to find events.
-              </AlertDescription>
+              <AlertTitle>No events match your filters</AlertTitle>
+              <AlertDescription>Try adjusting your search terms or filters.</AlertDescription>
             </Alert>
           )}
-        </Stack>
 
-        {/* Event Details Modal */}
-        <Modal isOpen={isOpen} onClose={onClose} size={isMobile ? 'full' : 'xl'}>
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader color="satrf.navy">
-              {selectedEvent?.title}
-            </ModalHeader>
-            <ModalCloseButton />
-            <ModalBody pb={6}>
-              {selectedEvent && (
-                <VStack spacing={6} align="start">
-                  {/* Event Image */}
-                  <Box
-                    w="100%"
-                    h="300px"
-                    bg={modalImageBg}
-                    rounded="md"
-                    overflow="hidden"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    {selectedEvent.image ? (
-                      <img
-                        src={selectedEvent.image}
-                        alt={selectedEvent.title}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          objectPosition: 'center',
-                        }}
-                      />
-                    ) : (
-                      <EventImageFallback height="300px" title={selectedEvent.title} />
-                    )}
-                  </Box>
+          {!noMatches && heroEvent && (
+            <EventHeroCard
+              event={toEventCardData(heroEvent)}
+              {...cardRegistrationProps(heroEvent)}
+            />
+          )}
 
-                  {/* Status Badges */}
-                  <HStack spacing={2} flexWrap="wrap">
-                    <Badge colorScheme={getStatusBadgeColor(selectedEvent.status)} textTransform="capitalize">
-                      {selectedEvent.status}
-                    </Badge>
-                    <EventDisciplinePills disciplines={selectedEvent.disciplines} size="md" />
-                  </HStack>
+          {!noMatches && hasNoUpcoming && pastEvents.length > 0 && (
+            <Alert status="info" borderRadius="lg">
+              <AlertIcon />
+              <AlertTitle>No upcoming events</AlertTitle>
+              <AlertDescription>Check back soon — browse past events below.</AlertDescription>
+            </Alert>
+          )}
 
-                  {/* Description */}
-                  <Box>
-                    <Heading size="md" mb={3} color="satrf.navy">
-                      Description
-                    </Heading>
-                    <Text color={modalTextColor}>
-                      {selectedEvent.description}
-                    </Text>
-                  </Box>
+          {!noMatches && hasNoUpcoming && pastEvents.length === 0 && (
+            <Alert status="info" borderRadius="lg">
+              <AlertIcon />
+              <AlertTitle>No upcoming events</AlertTitle>
+              <AlertDescription>Check back soon for new competitions.</AlertDescription>
+            </Alert>
+          )}
 
-                  {/* Event Details */}
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} w="100%">
-                    <VStack align="start" spacing={3}>
-                      <Heading size="sm" color="satrf.navy">
-                        Event Information
-                      </Heading>
-                      
-                      <HStack spacing={2}>
-                        <FaRegCalendarAlt color="#4a5568" />
-                        <Text fontSize="sm">
-                          <strong>Date:</strong> {formatEventDate(selectedEvent)}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing={2}>
-                        <FaMapMarkerAlt color="#4a5568" />
-                        <Text fontSize="sm">
-                          <strong>Location:</strong> {selectedEvent.location}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing={2}>
-                        <FaUsers color="#4a5568" />
-                        <Text fontSize="sm">
-                          <strong>Capacity:</strong> {capacityLabel(selectedEvent)}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing={2}>
-                        <FaClock color="#4a5568" />
-                        <Text fontSize="sm">
-                          <strong>Registration Deadline:</strong> {formatDate(selectedEvent.registrationDeadline)}
-                        </Text>
-                      </HStack>
-                      
-                      <Text fontSize="sm">
-                        <strong>{formatEntryFee(selectedEvent.price)}</strong>
-                      </Text>
-                    </VStack>
-
-                    <VStack align="start" spacing={3}>
-                      <Heading size="sm" color="satrf.navy">
-                        Requirements
-                      </Heading>
-                      <VStack align="start" spacing={1}>
-                        {selectedEvent.requirements?.map((req, index) => (
-                          <Text key={index} fontSize="sm" color={modalTextColor}>
-                            • {req}
-                          </Text>
-                        ))}
-                      </VStack>
-                    </VStack>
-                  </SimpleGrid>
-
-                  {/* Schedule */}
-                  {selectedEvent.schedule && (
-                    <Box w="100%">
-                      <Heading size="sm" mb={3} color="satrf.navy">
-                        Schedule
-                      </Heading>
-                      <VStack align="start" spacing={2}>
-                        {selectedEvent.schedule.map((item, index) => (
-                          <Text key={index} fontSize="sm" color={modalTextColor}>
-                            {item}
-                          </Text>
-                        ))}
-                      </VStack>
-                    </Box>
-                  )}
-
-                  {/* Contact Information */}
-                  {selectedEvent.contactInfo && (
-                    <Box w="100%">
-                      <Heading size="sm" mb={3} color="satrf.navy">
-                        Contact Information
-                      </Heading>
-                      <VStack align="start" spacing={2}>
-                        <Text fontSize="sm">
-                          <strong>Contact:</strong> {selectedEvent.contactInfo.name}
-                        </Text>
-                        <Text fontSize="sm">
-                          <strong>Email:</strong> {selectedEvent.contactInfo.email}
-                        </Text>
-                        <Text fontSize="sm">
-                          <strong>Phone:</strong> {selectedEvent.contactInfo.phone}
-                        </Text>
-                      </VStack>
-                    </Box>
-                  )}
-
-                  <Divider />
-
-                  {/* Registration Action */}
-                  <VStack spacing={4} w="100%">
-                    <Text fontSize="lg" fontWeight="bold" color="satrf.navy">
-                      {formatEntryFee(selectedEvent.price)}
-                    </Text>
-                    
-                    <Button
-                      size="lg"
-                      w="100%"
-                      {...getRegistrationButtonProps(getPublicRegistrationStatus(selectedEvent))}
-                      onClick={() => {
-                        if (getPublicRegistrationStatus(selectedEvent) === 'open') {
-                          setRegistrationEvent(selectedEvent);
-                        }
-                      }}
-                      disabled={getPublicRegistrationStatus(selectedEvent) !== 'open'}
-                    >
-                      {getRegistrationBadgeText(getPublicRegistrationStatus(selectedEvent))}
-                    </Button>
-                    <Text fontSize="xs" color="gray.500" textAlign="center">
-                      No login required · Payment details after registration
-                    </Text>
-                  </VStack>
-                </VStack>
+          {upcomingGrid.length > 0 && (
+            <VStack align="stretch" spacing={4}>
+              {heroEvent && (
+                <Heading size="md" color="satrf.navy">
+                  More upcoming events
+                </Heading>
               )}
-            </ModalBody>
-          </ModalContent>
-        </Modal>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                {upcomingGrid.map((event, i) => (
+                  <EventListCard
+                    key={event.id}
+                    event={toEventCardData(event)}
+                    index={i}
+                    variant="grid"
+                    {...cardRegistrationProps(event)}
+                  />
+                ))}
+              </SimpleGrid>
+            </VStack>
+          )}
+
+          {pastEvents.length > 0 && (
+            <VStack align="stretch" spacing={4} pt={4}>
+              <Heading size="md" color="satrf.navy">
+                Past Events
+              </Heading>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                {pastEvents.map((event, i) => (
+                  <EventListCard
+                    key={event.id}
+                    event={toEventCardData(event)}
+                    index={i}
+                    variant="past"
+                  />
+                ))}
+              </SimpleGrid>
+            </VStack>
+          )}
+        </Stack>
 
         {registrationEvent && (
           <EventRegistrationModal
@@ -689,9 +407,8 @@ export default function Events() {
   );
 }
 
-// Make this page server-side rendered to avoid useAuth issues during static generation
 export const getServerSideProps: GetServerSideProps = async () => {
   return {
-    props: {}
+    props: {},
   };
-}; 
+};
