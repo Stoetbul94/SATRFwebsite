@@ -11,8 +11,7 @@ import {
   authAPI,
   canAccessApp,
 } from '../lib/auth';
-import { isUserAdmin } from '@/lib/userRole';
-import { isEmailAdmin } from '@/lib/adminClient';
+import { resolvePostLoginPath } from '@/lib/userAthlete';
 import { isE2eAdminBypassActive } from '@/lib/e2eBypass';
 
 // Auth state interface
@@ -462,29 +461,11 @@ export const useRedirectIfAuthenticated = (redirectTo: string = '/dashboard'): v
   useEffect(() => {
     // Only redirect after initial auth check is complete and not loading
     if (isInitialized && !isLoading && isAuthenticated && user) {
-      // Check if user is admin (both role structure and email whitelist)
-      const isAdmin = isUserAdmin(user as any) || isEmailAdmin(user.email);
-      
-      // Check if there's a redirect query parameter
       const { redirect } = router.query;
-      let targetPath = redirect ? String(redirect) : redirectTo;
-      
-      // CRITICAL: Override redirect for admins - they must go to admin dashboard
-      if (isAdmin) {
-        // If admin and trying to go to user dashboard, redirect to admin dashboard
-        if (targetPath === '/dashboard' || targetPath.startsWith('/dashboard')) {
-          targetPath = '/admin/dashboard';
-        }
-        // If non-admin path specified but user is admin, redirect to admin dashboard
-        if (!targetPath.startsWith('/admin')) {
-          targetPath = '/admin/dashboard';
-        }
-      } else {
-        // Non-admin trying to access admin area: redirect to user dashboard
-        if (targetPath.startsWith('/admin')) {
-          targetPath = '/dashboard';
-        }
-      }
+      const targetPath = resolvePostLoginPath(
+        user as Parameters<typeof resolvePostLoginPath>[0],
+        redirect ? String(redirect) : redirectTo
+      );
       
       // Only redirect if we're not already on the target path
       // Use router.pathname instead of router.asPath to avoid query param issues

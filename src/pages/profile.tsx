@@ -23,6 +23,7 @@ import { FiArrowLeft } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import FlagStripe from '@/components/brand/FlagStripe';
 import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
+import { getMemberDashboardPath } from '@/lib/userAthlete';
 import { GetServerSideProps } from 'next';
 import { SHOOTING_DISCIPLINES } from '@/lib/memberFields';
 
@@ -81,7 +82,7 @@ const ProfilePage: NextPage = () => {
           <VStack spacing={6} align="stretch">
             <ChakraLink
               as={Link}
-              href="/dashboard"
+              href={getMemberDashboardPath(user)}
               display="inline-flex"
               alignItems="center"
               gap={2}
@@ -204,7 +205,7 @@ const ProfilePage: NextPage = () => {
                     </Button>
                     <Button
                       as={Link}
-                      href="/dashboard"
+                      href={getMemberDashboardPath(user)}
                       variant="outline"
                       size="lg"
                       flex={1}

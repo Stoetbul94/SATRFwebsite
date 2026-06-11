@@ -33,6 +33,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth, useProtectedRoute } from '@/contexts/AuthContext';
+import { getMemberDashboardPath } from '@/lib/userAthlete';
 import {
   SA_PROVINCES,
   SHOOTING_DISCIPLINES,
@@ -187,7 +188,7 @@ export default function EditProfile() {
           <VStack spacing={6} align="stretch">
             <ChakraLink
               as={Link}
-              href="/dashboard"
+              href={getMemberDashboardPath(user)}
               display="inline-flex"
               alignItems="center"
               gap={2}

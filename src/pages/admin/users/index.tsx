@@ -32,6 +32,10 @@ import {
   Select,
   VStack,
   Tooltip,
+  Switch,
+  FormControl,
+  FormLabel,
+  FormHelperText,
 } from '@chakra-ui/react';
 import { FiSearch, FiShield, FiCheck, FiX, FiSlash, FiRotateCcw, FiUsers } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -69,6 +73,7 @@ export default function AdminUsers() {
 
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [newRole, setNewRole] = useState<'user' | 'admin' | 'event_scorer'>('user');
+  const [newIsAthlete, setNewIsAthlete] = useState(false);
 
   useEffect(() => {
     if (isAdmin) fetchUsers();
@@ -128,6 +133,7 @@ export default function AdminUsers() {
   const handleRoleChange = (user: UserProfile) => {
     setSelectedUser(user);
     setNewRole(user.role);
+    setNewIsAthlete(user.isAthlete === true);
     onOpen();
   };
 
@@ -141,24 +147,51 @@ export default function AdminUsers() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ role: newRole }),
       });
-      if (response.ok) {
-        toast({ title: 'Success', description: `Role updated to ${newRole}`, status: 'success', duration: 3000 });
-        onClose();
-        fetchUsers();
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to update user role');
       }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update user role', status: 'error', duration: 3000 });
+
+      const roleIsAdmin = newRole === 'admin';
+      const athleteChanged =
+        roleIsAdmin && newIsAthlete !== (selectedUser.isAthlete === true);
+
+      if (athleteChanged) {
+        const athleteRes = await fetch(`/api/admin/users/${selectedUser.id}/athlete`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ isAthlete: newIsAthlete }),
+        });
+        if (!athleteRes.ok) {
+          const d = await athleteRes.json().catch(() => ({}));
+          throw new Error(d.error || 'Failed to update athlete dashboard access');
+        }
+      }
+
+      toast({ title: 'Success', description: 'Member updated', status: 'success', duration: 3000 });
+      onClose();
+      fetchUsers();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to update member';
+      toast({ title: 'Error', description: message, status: 'error', duration: 3000 });
     }
   };
 
   const statusOf = (u: UserProfile): string =>
     (u as any).status || (u.isActive === false ? 'suspended' : 'active');
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (user: UserProfile) => {
+    const role = user.role || 'user';
     const variant = role === 'admin' ? 'statusClosed' : role === 'event_scorer' ? 'discipline' : 'statusOpen';
-    return <Badge variant={variant}>{role}</Badge>;
+    return (
+      <HStack spacing={1} flexWrap="wrap">
+        <Badge variant={variant}>{role}</Badge>
+        {role === 'admin' && user.isAthlete && (
+          <Badge colorScheme="teal" variant="subtle">
+            Athlete
+          </Badge>
+        )}
+      </HStack>
+    );
   };
 
   const pendingCount = useMemo(() => users.filter((u) => statusOf(u) === 'pending').length, [users]);
@@ -266,7 +299,7 @@ export default function AdminUsers() {
                     <Td>
                       <Badge colorScheme="teal" textTransform="capitalize">{user.membershipType || 'N/A'}</Badge>
                     </Td>
-                    <Td>{getRoleBadge(user.role || 'user')}</Td>
+                    <Td>{getRoleBadge(user)}</Td>
                     <Td><AdminStatusBadge status={s} /></Td>
                     <Td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</Td>
                     <Td>
@@ -315,11 +348,36 @@ export default function AdminUsers() {
               <Text>
                 Change role for: <strong>{selectedUser?.firstName} {selectedUser?.lastName}</strong>
               </Text>
-              <Select value={newRole} onChange={(e) => setNewRole(e.target.value as any)}>
+              <Select
+                value={newRole}
+                onChange={(e) => {
+                  const role = e.target.value as 'user' | 'admin' | 'event_scorer';
+                  setNewRole(role);
+                  if (role !== 'admin') setNewIsAthlete(false);
+                }}
+              >
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
                 <option value="event_scorer">Event Scorer</option>
               </Select>
+              {newRole === 'admin' && (
+                <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <FormLabel htmlFor="athlete-dashboard" mb={0} fontWeight="medium">
+                      Athlete dashboard
+                    </FormLabel>
+                    <FormHelperText mt={0}>
+                      Allow this admin to use the member dashboard and see their own scores.
+                    </FormHelperText>
+                  </Box>
+                  <Switch
+                    id="athlete-dashboard"
+                    colorScheme="teal"
+                    isChecked={newIsAthlete}
+                    onChange={(e) => setNewIsAthlete(e.target.checked)}
+                  />
+                </FormControl>
+              )}
             </VStack>
           </ModalBody>
           <ModalFooter>

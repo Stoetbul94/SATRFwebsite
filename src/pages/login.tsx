@@ -25,6 +25,7 @@ import { useAuth, useRedirectIfAuthenticated } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
 import { isProfileAdmin } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/userRole';
+import { resolvePostLoginPath } from '@/lib/userAthlete';
 import AuthPageLayout, { AuthHeaderIcon } from '@/components/auth/AuthPageLayout';
 
 const isAdminUser = (user: { role?: string; email?: string; roles?: { admin?: boolean }; admin?: boolean }) =>
@@ -95,10 +96,10 @@ const LoginPage: NextPage = () => {
       const loggedInUser = await login(formData.email, formData.password);
 
       if (loggedInUser) {
-        const isAdmin = isAdminUser(loggedInUser);
-        let dest = (router.query.redirect as string) || (isAdmin ? '/admin/dashboard' : '/dashboard');
-        if (isAdmin && dest.startsWith('/dashboard')) dest = '/admin/dashboard';
-        if (!isAdmin && dest.startsWith('/admin')) dest = '/dashboard';
+        const dest = resolvePostLoginPath(
+          loggedInUser,
+          (router.query.redirect as string) || undefined
+        );
 
         const token =
           typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;

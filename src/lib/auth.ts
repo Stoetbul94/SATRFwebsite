@@ -102,6 +102,8 @@ export interface UserProfile {
   membershipType: 'junior' | 'senior' | 'veteran';
   club: string;
   role: 'user' | 'admin' | 'event_scorer';
+  /** When true on role:admin, enables member /dashboard alongside admin panel. Ignored for role:user. */
+  isAthlete?: boolean;
   /** Approval lifecycle: members must be 'active' to use the member area. */
   status: 'pending' | 'active' | 'rejected' | 'suspended';
   profileImageUrl?: string;
@@ -520,6 +522,7 @@ export function mapUserDoc(uid: string, data: any): UserProfile {
     membershipType: data.membershipType as UserProfile['membershipType'],
     club: data.club as string,
     role,
+    isAthlete: role === 'admin' ? data.isAthlete === true : undefined,
     status,
     profileImageUrl: data.profileImageUrl,
     phone: data.phone ?? data.phoneNumber,

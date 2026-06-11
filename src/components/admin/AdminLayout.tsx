@@ -22,7 +22,10 @@ import {
   FiTrendingUp,
   FiBarChart2,
   FiExternalLink,
+  FiGrid,
+  FiUser,
 } from 'react-icons/fi';
+import { isAdminAthlete } from '@/lib/userAthlete';
 import FlagStripe from '@/components/brand/FlagStripe';
 import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
@@ -116,6 +119,8 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           flexShrink={0}
           borderRightWidth="1px"
           borderColor="satrf.green.800"
+          display="flex"
+          flexDirection="column"
         >
           <Box mb={8} px={{ base: 0, md: 1 }} display="flex" justifyContent={{ base: 'center', md: 'stretch' }} w="100%">
             <Box display={{ base: 'none', md: 'block' }} w="100%">
@@ -139,7 +144,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
             />
           </Box>
 
-          <VStack align="stretch" spacing={0.5}>
+          <VStack align="stretch" spacing={0.5} flex={1}>
             {adminNavItems.map((item) => {
               const Icon = item.icon;
               const isActive =
@@ -200,6 +205,66 @@ export default function AdminLayout({ children, title, description }: AdminLayou
               );
             })}
           </VStack>
+
+          {user && isAdminAthlete(user) && (
+            <Box mt="auto" pt={6} borderTopWidth="1px" borderColor="satrf.green.800">
+              <Text
+                display={{ base: 'none', md: 'block' }}
+                fontSize="2xs"
+                color="satrf.gold.400"
+                textTransform="uppercase"
+                letterSpacing="widest"
+                px={3}
+                mb={2}
+              >
+                My athlete area
+              </Text>
+              <VStack align="stretch" spacing={0.5}>
+                {[
+                  { href: '/dashboard', label: 'My Dashboard', icon: FiGrid },
+                  { href: '/profile', label: 'My Profile', icon: FiUser },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = router.pathname === item.href;
+                  const linkContent = (
+                    <Flex
+                      align="center"
+                      justify={{ base: 'center', md: 'flex-start' }}
+                      px={{ base: 2, md: 3 }}
+                      py={2.5}
+                      borderRadius="md"
+                      bg={isActive ? 'satrf.green.700' : 'transparent'}
+                      color={isActive ? 'white' : 'whiteAlpha.700'}
+                      borderLeftWidth={{ md: '3px' }}
+                      borderLeftColor={isActive ? 'satrf.gold.500' : 'transparent'}
+                      _hover={{ bg: 'satrf.green.800', color: 'white' }}
+                      cursor="pointer"
+                      transition="background 0.15s ease, color 0.15s ease"
+                      minH="44px"
+                    >
+                      <HStack spacing={3}>
+                        <Icon size={18} />
+                        <Text display={{ base: 'none', md: 'block' }} fontSize="sm" fontWeight="medium">
+                          {item.label}
+                        </Text>
+                      </HStack>
+                    </Flex>
+                  );
+                  return (
+                    <Tooltip
+                      key={item.href}
+                      label={item.label}
+                      placement="right"
+                      display={{ base: 'block', md: 'none' }}
+                      openDelay={300}
+                    >
+                      <Link href={item.href}>{linkContent}</Link>
+                    </Tooltip>
+                  );
+                })}
+              </VStack>
+            </Box>
+          )}
         </Box>
 
         {/* Main */}

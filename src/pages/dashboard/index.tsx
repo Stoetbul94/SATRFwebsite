@@ -5,8 +5,7 @@ import { useRouter } from 'next/router';
 import { FiTarget, FiCalendar, FiTrendingUp, FiUsers, FiAward, FiUpload, FiEye, FiEdit, FiInfo } from 'react-icons/fi';
 import { useAuth, useProtectedRoute } from '../../contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
-import { isUserAdmin } from '@/lib/userRole';
-import { isEmailAdmin } from '@/lib/adminClient';
+import { shouldRedirectAdminFromDashboard } from '@/lib/userAthlete';
 import { auth } from '@/lib/firebase';
 import { DISCIPLINES } from '@/lib/issf';
 
@@ -33,12 +32,10 @@ export default function Dashboard() {
   // Protected route guard - redirect to login if not authenticated
   useProtectedRoute();
 
-  // CRITICAL: Redirect admins to admin dashboard - they must NEVER see user dashboard
+  // Admin-only users go to admin dashboard; admin-athletes (isAthlete) may use member dashboard
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      const isAdmin = isUserAdmin(user as any) || isEmailAdmin(user.email);
-      if (isAdmin) {
-        // Admin detected: redirect to admin dashboard immediately
+      if (shouldRedirectAdminFromDashboard(user)) {
         router.replace('/admin/dashboard');
       }
     }

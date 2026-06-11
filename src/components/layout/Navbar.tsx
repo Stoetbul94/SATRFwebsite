@@ -14,8 +14,8 @@ import {
 } from '@chakra-ui/react';
 import { FiMenu, FiX, FiLogOut, FiShield } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import { isEmailAdmin } from '@/lib/adminClient';
 import { isUserAdmin } from '@/lib/userRole';
+import { isAdminAthlete } from '@/lib/userAthlete';
 import FlagStripe from '@/components/brand/FlagStripe';
 import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 
@@ -23,7 +23,9 @@ export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isAdmin = user ? isUserAdmin(user as Parameters<typeof isUserAdmin>[0]) || isEmailAdmin(user.email) : false;
+  const isAdmin = user ? isUserAdmin(user as Parameters<typeof isUserAdmin>[0]) : false;
+  const showMemberDashboard = user && (!isAdmin || isAdminAthlete(user));
+  const showAdminNav = isAdmin;
 
   const toggleMobileMenu = () => setIsMobileMenuOpen((o) => !o);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -92,17 +94,24 @@ export default function Navbar() {
                   <Text color="whiteAlpha.900" fontSize="sm" fontWeight="500">
                     {user.firstName}
                   </Text>
-                  {!isAdmin && (
+                  {showMemberDashboard && (
                     <Link href="/dashboard">
                       <Button size="sm" variant="satrfOutline" color="white" borderColor="whiteAlpha.600" _hover={{ bg: 'whiteAlpha.200' }}>
                         Dashboard
                       </Button>
                     </Link>
                   )}
-                  {isAdmin && (
+                  {showAdminNav && (
                     <Link href="/admin/dashboard">
                       <Button size="sm" variant="satrfGold" leftIcon={<FiShield />}>
                         Admin
+                      </Button>
+                    </Link>
+                  )}
+                  {isAuthenticated && user && (
+                    <Link href="/profile">
+                      <Button size="sm" variant="ghost" color="white" _hover={{ bg: 'whiteAlpha.200' }}>
+                        Profile
                       </Button>
                     </Link>
                   )}
@@ -159,10 +168,10 @@ export default function Navbar() {
             {isAuthenticated && user ? (
               <>
                 <NavLink href="/profile" onClick={closeMobileMenu}>Profile</NavLink>
-                {!isAdmin && (
+                {showMemberDashboard && (
                   <NavLink href="/dashboard" onClick={closeMobileMenu}>Dashboard</NavLink>
                 )}
-                {isAdmin && (
+                {showAdminNav && (
                   <NavLink href="/admin/dashboard" onClick={closeMobileMenu}>Admin</NavLink>
                 )}
                 <Button
