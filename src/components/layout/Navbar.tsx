@@ -60,9 +60,9 @@ export default function Navbar() {
   return (
     <Box as="header" bg="brand" shadow="md" position="relative">
       <FlagStripe position="absolute" bottom={0} left={0} right={0} thickness={3} opacity={1} />
-      <Box maxW="7xl" mx="auto" px={{ base: 3, sm: 6, lg: 8 }}>
-        <Flex justify="space-between" align="center" h={{ base: '16', md: '18' }} gap={2}>
-          <Box flexShrink={0} py={1} minW={0}>
+      <Box maxW="7xl" mx="auto" px={{ base: 3, sm: 6, lg: 8 }} py={{ base: 2, md: 3 }}>
+        <Flex justify="space-between" align="center" minH={{ base: '16', md: '20' }} gap={2}>
+          <Box flexShrink={0} minW={0}>
             <SatrfNavEmblem showWordmark />
           </Box>
 

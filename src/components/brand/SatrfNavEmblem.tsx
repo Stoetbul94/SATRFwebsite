@@ -13,22 +13,29 @@ export default function SatrfNavEmblem({ showWordmark = true, ...props }: SatrfN
   return (
     <Box as={Link} href="/" display="inline-flex" alignItems="center" lineHeight={0} {...props}>
       <HStack spacing={{ base: 2, md: 3 }} align="center">
-        <Image
-          src="/brand/satrf-emblem-transparent.png"
-          alt="SATRF"
-          width={588}
-          height={644}
-          priority
-          style={{
-            height: 'clamp(52px, 12vw, 68px)',
-            width: 'auto',
-            objectFit: 'contain',
-          }}
-        />
+        <Box
+          as="span"
+          display="inline-block"
+          lineHeight={0}
+          h={{ base: '48px', md: '60px', lg: '64px' }}
+        >
+          <Image
+            src="/brand/satrf-emblem-transparent.png"
+            alt="SATRF"
+            width={588}
+            height={644}
+            priority
+            style={{
+              height: '100%',
+              width: 'auto',
+              objectFit: 'contain',
+            }}
+          />
+        </Box>
         {showWordmark && (
           <Text
             display={{ base: 'none', sm: 'block' }}
-            fontFamily="heading"
+            fontFamily="wordmark"
             fontWeight="800"
             fontSize={{ base: 'lg', md: 'xl' }}
             letterSpacing="0.12em"
