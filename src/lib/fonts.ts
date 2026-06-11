@@ -1,10 +1,10 @@
-import { Orbitron, Montserrat, Inter } from 'next/font/google';
+import { Michroma, Montserrat, Inter } from 'next/font/google';
 
-/** Orbitron — SATRF wordmark / logo text only */
-export const orbitron = Orbitron({
+/** Michroma — SATRF wordmark / logo text only (Microgramma/Eurostile-inspired) */
+export const michroma = Michroma({
   subsets: ['latin'],
-  weight: ['700', '800', '900'],
-  variable: '--font-orbitron',
+  weight: ['400'],
+  variable: '--font-michroma',
   display: 'swap',
 });
 
@@ -24,4 +24,4 @@ export const inter = Inter({
   display: 'swap',
 });
 
-export const fontVariables = `${orbitron.variable} ${montserrat.variable} ${inter.variable}`;
+export const fontVariables = `${michroma.variable} ${montserrat.variable} ${inter.variable}`;

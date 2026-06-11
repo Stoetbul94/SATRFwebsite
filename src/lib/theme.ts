@@ -61,13 +61,13 @@ const theme = extendTheme({
   fonts: {
     heading: 'var(--font-montserrat), Montserrat, sans-serif',
     body: 'var(--font-inter), Inter, sans-serif',
-    wordmark: 'var(--font-orbitron), Orbitron, sans-serif',
+    wordmark: 'var(--font-michroma), Michroma, sans-serif',
   },
   textStyles: {
     wordmark: {
       fontFamily: 'wordmark',
-      fontWeight: '900',
-      letterSpacing: '0.03em',
+      fontWeight: '400',
+      letterSpacing: '0.06em',
       textTransform: 'uppercase',
       lineHeight: '1',
     },

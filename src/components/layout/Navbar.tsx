@@ -12,20 +12,15 @@ import {
   HStack,
   Collapse,
 } from '@chakra-ui/react';
-import { FiMenu, FiX, FiLogOut, FiShield } from 'react-icons/fi';
+import { FiMenu, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import { isUserAdmin } from '@/lib/userRole';
-import { isAdminAthlete } from '@/lib/userAthlete';
 import FlagStripe from '@/components/brand/FlagStripe';
-import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
+import SatrfNavEmblem from '@/components/brand/SatrfNavEmblem';
+import UserNavMenu from '@/components/layout/UserNavMenu';
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const isAdmin = user ? isUserAdmin(user as Parameters<typeof isUserAdmin>[0]) : false;
-  const showMemberDashboard = user && (!isAdmin || isAdminAthlete(user));
-  const showAdminNav = isAdmin;
 
   const toggleMobileMenu = () => setIsMobileMenuOpen((o) => !o);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -48,10 +43,10 @@ export default function Navbar() {
         px={3}
         py={2}
         rounded="md"
-        fontSize="sm"
-        fontWeight="600"
+        fontSize={{ base: 'sm', md: 'md' }}
+        fontWeight="700"
         fontFamily="heading"
-        letterSpacing="0.04em"
+        letterSpacing="0.05em"
         textTransform="uppercase"
         color="whiteAlpha.900"
         _hover={{ bg: 'whiteAlpha.200' }}
@@ -65,16 +60,14 @@ export default function Navbar() {
   return (
     <Box as="header" bg="brand" shadow="md" position="relative">
       <FlagStripe position="absolute" bottom={0} left={0} right={0} thickness={3} opacity={1} />
-      <Box maxW="7xl" mx="auto" px={{ base: 4, sm: 6, lg: 8 }}>
-        <Flex justify="space-between" align="center" h={{ base: '14', md: '16' }}>
-          <Box flexShrink={0} py={1}>
-            <Link href="/">
-              <SatrfHorizontalLogo variant="nav" />
-            </Link>
+      <Box maxW="7xl" mx="auto" px={{ base: 3, sm: 6, lg: 8 }} py={{ base: 2, md: 3 }}>
+        <Flex justify="space-between" align="center" minH={{ base: '16', md: '20' }} gap={2}>
+          <Box flexShrink={0} minW={0}>
+            <SatrfNavEmblem showWordmark />
           </Box>
 
-          <Box display={{ base: 'none', md: 'block' }}>
-            <HStack spacing={1} ml={6}>
+          <Box display={{ base: 'none', md: 'block' }} flex={1}>
+            <HStack spacing={1} ml={4} justify="center">
               <NavLink href="/">Home</NavLink>
               <NavLink href="/events">Events</NavLink>
               <NavLink href="/scores">Scores</NavLink>
@@ -87,68 +80,34 @@ export default function Navbar() {
             </HStack>
           </Box>
 
-          <Box display={{ base: 'none', md: 'block' }}>
-            <HStack spacing={3} ml={4}>
+          <HStack spacing={2} flexShrink={0}>
+            <Box display={{ base: 'none', md: 'block' }}>
               {isAuthenticated && user ? (
-                <>
-                  <Text color="whiteAlpha.900" fontSize="sm" fontWeight="500">
-                    {user.firstName}
-                  </Text>
-                  {showMemberDashboard && (
-                    <Link href="/dashboard">
-                      <Button size="sm" variant="satrfOutline" color="white" borderColor="whiteAlpha.600" _hover={{ bg: 'whiteAlpha.200' }}>
-                        Dashboard
-                      </Button>
-                    </Link>
-                  )}
-                  {showAdminNav && (
-                    <Link href="/admin/dashboard">
-                      <Button size="sm" variant="satrfGold" leftIcon={<FiShield />}>
-                        Admin
-                      </Button>
-                    </Link>
-                  )}
-                  {isAuthenticated && user && (
-                    <Link href="/profile">
-                      <Button size="sm" variant="ghost" color="white" _hover={{ bg: 'whiteAlpha.200' }}>
-                        Profile
-                      </Button>
-                    </Link>
-                  )}
-                  <IconButton
-                    aria-label="Logout"
-                    icon={<FiLogOut />}
-                    variant="ghost"
-                    color="white"
-                    _hover={{ bg: 'whiteAlpha.200' }}
-                    onClick={handleLogout}
-                    size="sm"
-                  />
-                </>
+                <UserNavMenu user={user} onLogout={handleLogout} />
               ) : (
-                <>
+                <HStack spacing={3}>
                   <NavLink href="/login">Login</NavLink>
                   <Link href="/register">
-                    <Button size="sm" variant="satrfGold">
+                    <Button size="md" variant="satrfGold">
                       Join SATRF
                     </Button>
                   </Link>
-                </>
+                </HStack>
               )}
-            </HStack>
-          </Box>
+            </Box>
 
-          <Box display={{ base: 'block', md: 'none' }}>
-            <IconButton
-              aria-label="Toggle mobile menu"
-              icon={isMobileMenuOpen ? <FiX /> : <FiMenu />}
-              variant="ghost"
-              color="white"
-              _hover={{ bg: 'whiteAlpha.200' }}
-              onClick={toggleMobileMenu}
-              size="md"
-            />
-          </Box>
+            <Box display={{ base: 'block', md: 'none' }}>
+              <IconButton
+                aria-label="Toggle mobile menu"
+                icon={isMobileMenuOpen ? <FiX /> : <FiMenu />}
+                variant="ghost"
+                color="white"
+                _hover={{ bg: 'whiteAlpha.200' }}
+                onClick={toggleMobileMenu}
+                size="md"
+              />
+            </Box>
+          </HStack>
         </Flex>
       </Box>
 
@@ -166,28 +125,12 @@ export default function Navbar() {
             <NavLink href="/donate" onClick={closeMobileMenu}>Donate</NavLink>
 
             {isAuthenticated && user ? (
-              <>
-                <NavLink href="/profile" onClick={closeMobileMenu}>Profile</NavLink>
-                {showMemberDashboard && (
-                  <NavLink href="/dashboard" onClick={closeMobileMenu}>Dashboard</NavLink>
-                )}
-                {showAdminNav && (
-                  <NavLink href="/admin/dashboard" onClick={closeMobileMenu}>Admin</NavLink>
-                )}
-                <Button
-                  variant="ghost"
-                  color="white"
-                  _hover={{ bg: 'whiteAlpha.200' }}
-                  onClick={() => {
-                    handleLogout();
-                    closeMobileMenu();
-                  }}
-                  justifyContent="flex-start"
-                  px={3}
-                >
-                  Logout
-                </Button>
-              </>
+              <UserNavMenu
+                user={user}
+                onLogout={handleLogout}
+                variant="stack"
+                onNavigate={closeMobileMenu}
+              />
             ) : (
               <>
                 <NavLink href="/login" onClick={closeMobileMenu}>Login</NavLink>

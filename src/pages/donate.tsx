@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Head from 'next/head';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Box,
@@ -22,8 +23,8 @@ import { FiHeart, FiCreditCard, FiHome, FiMail, FiCopy, FiCheck, FiTarget, FiUse
 import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
-import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 import FlagStripe from '@/components/brand/FlagStripe';
+import TargetRingMotif from '@/components/brand/TargetRingMotif';
 
 const payfastUrl = process.env.NEXT_PUBLIC_PAYFAST_URL || 'https://www.payfast.co.za/eng/process';
 const merchant_id = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || '24319614';
@@ -79,17 +80,57 @@ export default function Donate() {
         <meta name="description" content="Support the South African Target Rifle Federation." />
       </Head>
 
-      <Box bg="satrf.navy" color="white" py={{ base: 12, md: 16 }} textAlign="center" position="relative">
-        <Box maxW="container.md" mx="auto" px={4}>
-          <Box display="flex" justifyContent="center" mb={6}>
-            <SatrfHorizontalLogo variant="footer" />
+      <Box
+        bg="brand"
+        color="white"
+        py={{ base: 12, md: 16 }}
+        position="relative"
+        overflow="hidden"
+        textAlign={{ base: 'center', md: 'left' }}
+      >
+        <TargetRingMotif top="10%" right="-5%" size={320} opacity={0.08} color="white" />
+        <Box
+          maxW="container.xl"
+          mx="auto"
+          px={{ base: 4, md: 8 }}
+          position="relative"
+          zIndex={1}
+        >
+          <Box
+            display="flex"
+            justifyContent={{ base: 'center', md: 'flex-start' }}
+            mb={6}
+          >
+            <Image
+              src="/brand/satrf-emblem-transparent.png"
+              alt="SATRF emblem"
+              width={588}
+              height={644}
+              priority
+              style={{
+                height: 'clamp(80px, 14vw, 100px)',
+                width: 'auto',
+                objectFit: 'contain',
+              }}
+            />
           </Box>
-          <Heading size="xl" mb={4}>
+          <Text textStyle="eyebrow" color="satrf.gold.300" mb={2}>
+            Give
+          </Text>
+          <Heading size="2xl" mb={4} color="white">
             Support Olympic Shooting in South Africa
           </Heading>
-          <Text fontSize="lg" color="whiteAlpha.800" mb={6}>
+          <Text fontSize="lg" color="whiteAlpha.800" maxW="2xl" mb={8} mx={{ base: 'auto', md: 0 }}>
             Every donation helps train the next generation of South African shooters.
           </Text>
+          <Button
+            as="a"
+            href="#donate-form"
+            variant="satrfGold"
+            size="lg"
+          >
+            Choose amount
+          </Button>
         </Box>
         <Box position="absolute" bottom={0} left={0} right={0}>
           <FlagStripe thickness={4} />
@@ -99,13 +140,12 @@ export default function Donate() {
       <PublicPageShell maxW="container.md">
         <VStack align="stretch" spacing={8}>
           <PublicPageHeader
-            eyebrow="Give"
             title="Choose Your Donation"
             subtitle="Secure PayFast or EFT — every contribution supports training, equipment, and competitions."
             showMotif={false}
           />
 
-          <Card>
+          <Card id="donate-form">
             <CardBody>
               <Text fontWeight="semibold" mb={4}>
                 Payment method

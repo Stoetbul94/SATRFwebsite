@@ -14,19 +14,11 @@
   }
 }
 
-/* Orbitron — SATRF wordmark only (not general headings) */
+/* Michroma — SATRF wordmark only (not general headings) */
 .satrf-wordmark {
-  font-family: var(--font-orbitron), Orbitron, sans-serif;
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  transform: scaleX(1.13);
-  transform-origin: left center;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .satrf-wordmark {
-    transform: none;
-  }
+  font-family: var(--font-michroma), Michroma, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.06em;
 }
 
 @layer components {
