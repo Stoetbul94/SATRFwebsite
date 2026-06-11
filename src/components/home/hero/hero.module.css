@@ -69,9 +69,9 @@
 .heroStageLayer {
   position: absolute;
   top: 50%;
-  right: clamp(1.25rem, 4vw, 3rem);
+  right: clamp(0.5rem, 2.5vw, 2rem);
   z-index: 1;
-  width: min(58vw, 720px);
+  width: min(50vw, 640px);
   aspect-ratio: 1 / 1.08;
   min-height: clamp(380px, 48vh, 600px);
   transform: translateY(-50%);
@@ -81,10 +81,19 @@
 @media (min-width: 981px) {
   .heroGrid {
     min-height: clamp(480px, 55vh, 640px);
+    padding: 112px clamp(1rem, 3vw, 2.5rem) 92px clamp(0.75rem, 2.5vw, 2rem);
   }
 
   .heroCopy {
-    max-width: 52%;
+    max-width: min(42rem, 62%);
+  }
+
+  .h1 {
+    text-wrap: pretty;
+  }
+
+  .gold {
+    white-space: nowrap;
   }
 }
 
