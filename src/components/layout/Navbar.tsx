@@ -43,10 +43,10 @@ export default function Navbar() {
         px={3}
         py={2}
         rounded="md"
-        fontSize="sm"
-        fontWeight="600"
+        fontSize={{ base: 'sm', md: 'md' }}
+        fontWeight="700"
         fontFamily="heading"
-        letterSpacing="0.04em"
+        letterSpacing="0.05em"
         textTransform="uppercase"
         color="whiteAlpha.900"
         _hover={{ bg: 'whiteAlpha.200' }}
@@ -88,7 +88,7 @@ export default function Navbar() {
                 <HStack spacing={3}>
                   <NavLink href="/login">Login</NavLink>
                   <Link href="/register">
-                    <Button size="sm" variant="satrfGold">
+                    <Button size="md" variant="satrfGold">
                       Join SATRF
                     </Button>
                   </Link>
