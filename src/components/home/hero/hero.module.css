@@ -43,7 +43,19 @@
   padding: 112px clamp(1.25rem, 4vw, 3rem) 92px;
   max-width: 1500px;
   margin: 0 auto;
-  overflow: visible;
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+}
+
+.heroStageCol {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 @media (max-width: 980px) {
@@ -187,7 +199,10 @@
 
 .canvasBleed {
   position: absolute;
-  inset: -14%;
+  top: -14%;
+  right: -14%;
+  bottom: -14%;
+  left: 0;
 }
 
 .canvasBleed canvas {
@@ -211,7 +226,10 @@
 .monitor::before {
   content: '';
   position: absolute;
-  inset: -22%;
+  top: -22%;
+  right: -22%;
+  bottom: -22%;
+  left: 0;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(
