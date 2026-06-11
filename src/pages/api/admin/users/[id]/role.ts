@@ -80,8 +80,8 @@ export default async function handler(
       updateData['roles.admin'] = true;
     } else {
       updateData.role = role;
-      // Clear nested admin if not admin
       updateData['roles.admin'] = false;
+      updateData.isAthlete = false;
     }
     
     await userRef.update(updateData);
