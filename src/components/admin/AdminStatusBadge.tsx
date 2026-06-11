@@ -1,4 +1,4 @@
-import { Badge, type BadgeProps } from '@chakra-ui/react';
+import { Badge } from '@chakra-ui/react';
 
 type AdminStatus =
   | 'open'
@@ -13,7 +13,7 @@ type AdminStatus =
   | 'draft'
   | string;
 
-const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
+const STATUS_VARIANT: Record<string, string> = {
   open: 'statusOpen',
   active: 'statusOpen',
   official: 'statusOpen',
@@ -26,14 +26,11 @@ const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
   draft: 'statusClosed',
 };
 
-export default function AdminStatusBadge({
-  status,
-  ...props
-}: { status: AdminStatus } & BadgeProps) {
+export default function AdminStatusBadge({ status }: { status: AdminStatus }) {
   const key = String(status).toLowerCase();
   const variant = STATUS_VARIANT[key] || 'statusClosed';
   return (
-    <Badge variant={variant} textTransform="capitalize" {...props}>
+    <Badge variant={variant} textTransform="capitalize">
       {status}
     </Badge>
   );

@@ -34,11 +34,9 @@ export default function SatrfNavEmblem({ showWordmark = true, ...props }: SatrfN
           />
         </Box>
         {showWordmark && (
-          <SatrfWordmark
-            tone="light"
-            display={{ base: 'none', sm: 'block' }}
-            fontSize={{ base: 'lg', md: 'xl' }}
-          />
+          <Box display={{ base: 'none', sm: 'block' }}>
+            <SatrfWordmark tone="light" fontSize={{ base: 'lg', md: 'xl' }} />
+          </Box>
         )}
       </HStack>
     </Box>
