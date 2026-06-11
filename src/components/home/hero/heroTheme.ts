@@ -14,3 +14,5 @@ export const HERO_COLORS = {
 } as const;
 
 export const TARGET_RADIUS = 2.45;
+export const EMBLEM_FIT = 0.86;
+export const HERO_CAMERA_Z = 8.1;

@@ -14,6 +14,8 @@ export default function HeroHud() {
     hintHidden,
     isTargetMode,
     flashAt,
+    lastShotAt,
+    reduceMotion,
   } = useHeroScene();
 
   return (
@@ -36,14 +38,26 @@ export default function HeroHud() {
 
       <div className={`${styles.scoreboard} ${!isTargetMode ? styles.uiDim : ''}`}>
         <div className={styles.scoreLabel}>Last shot</div>
-        <div className={`${styles.scoreValue} ${isTenPlus ? styles.scoreTen : ''}`}>
+        <div
+          key={reduceMotion ? 'score-static' : lastShotAt}
+          className={`${styles.scoreValue} ${isTenPlus ? styles.scoreTen : ''} ${
+            !reduceMotion && lastShotAt > 0 ? styles.scorePop : ''
+          }`}
+        >
           {lastScore}
         </div>
       </div>
 
       <div className={`${styles.series} ${!isTargetMode ? styles.uiDim : ''}`} aria-live="polite">
-        {shots.map((shot) => (
-          <span key={shot.id}>
+        {shots.map((shot, i) => (
+          <span
+            key={i === shots.length - 1 && !reduceMotion ? `${shot.id}-${lastShotAt}` : shot.id}
+            className={
+              !reduceMotion && i === shots.length - 1 && lastShotAt > 0
+                ? styles.seriesItemEnter
+                : undefined
+            }
+          >
             SHOT {String(shot.id).padStart(2, '0')} · <b>{shot.score.toFixed(1)}</b>
           </span>
         ))}

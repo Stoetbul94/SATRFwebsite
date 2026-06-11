@@ -43,6 +43,7 @@
   padding: 112px clamp(1.25rem, 4vw, 3rem) 92px;
   max-width: 1500px;
   margin: 0 auto;
+  overflow: visible;
 }
 
 @media (max-width: 980px) {
@@ -181,6 +182,18 @@
   width: 100%;
   min-height: clamp(320px, 42vh, 520px);
   cursor: pointer;
+  overflow: visible;
+}
+
+.canvasBleed {
+  position: absolute;
+  inset: -14%;
+}
+
+.canvasBleed canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .monitorRangeLive {
@@ -198,7 +211,7 @@
 .monitor::before {
   content: '';
   position: absolute;
-  inset: -12%;
+  inset: -22%;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(
@@ -218,7 +231,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1.1rem;
+  padding: 1.1rem 1.1rem 0.85rem;
   font-family: var(--font-hero-mono), 'IBM Plex Mono', monospace;
   font-size: 0.66rem;
   letter-spacing: 0.18em;
@@ -274,6 +287,37 @@
 .scoreTen {
   color: #e8bc4f;
   text-shadow: 0 0 34px rgba(232, 188, 79, 0.55);
+}
+
+.scorePop {
+  animation: scorePop 0.45s ease-out;
+}
+
+@keyframes scorePop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.seriesItemEnter {
+  animation: seriesItemEnter 0.4s ease-out;
+}
+
+@keyframes seriesItemEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .series {
@@ -424,7 +468,9 @@
 @media (prefers-reduced-motion: reduce) {
   .eyebrowDot,
   .monitorLive::before,
-  .tickerTrack {
+  .tickerTrack,
+  .scorePop,
+  .seriesItemEnter {
     animation: none !important;
   }
   .reveal {

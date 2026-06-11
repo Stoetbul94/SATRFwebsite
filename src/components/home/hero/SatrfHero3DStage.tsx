@@ -35,7 +35,9 @@ function MonitorShell() {
       className={`${styles.monitor} ${isTargetMode ? styles.monitorRangeLive : ''} ${styles.reveal} ${styles.revealD3}`}
       aria-label="Interactive 3D SATRF emblem that transforms into an electronic scoring target — click to take a shot"
     >
-      <SatrfHeroScene />
+      <div className={styles.canvasBleed}>
+        <SatrfHeroScene />
+      </div>
       <HeroHud />
     </div>
   );

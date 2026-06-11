@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { HERO_COLORS, TARGET_RADIUS } from './heroTheme';
+import { EMBLEM_FIT, HERO_COLORS, TARGET_RADIUS } from './heroTheme';
 import { useHeroScene } from './HeroSceneContext';
 
 const RADIUS = TARGET_RADIUS;
@@ -72,7 +72,7 @@ function GlbEmblemInner() {
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     clone.position.sub(center);
-    const s = (RADIUS * 2 * 0.98) / Math.max(size.x, size.y, 0.001);
+    const s = (RADIUS * 2 * EMBLEM_FIT) / Math.max(size.x, size.y, 0.001);
     clone.scale.setScalar(s);
     groupRef.current.clear();
     groupRef.current.add(clone);

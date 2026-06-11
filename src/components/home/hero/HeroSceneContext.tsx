@@ -24,13 +24,14 @@ export interface HeroSceneState {
   phaseLive: string;
   phaseInfo: string;
   flashAt: { x: string; y: string } | null;
+  lastShotAt: number;
   reduceMotion: boolean;
   glbFailed: boolean;
   setGlbFailed: (v: boolean) => void;
   setPhase: (p: HeroPhase) => void;
   setHintHidden: (v: boolean) => void;
   triggerFlash: (x?: string, y?: string) => void;
-  placeShot: (localX: number, localY: number) => void;
+  placeShot: (localX: number, localY: number) => number;
   toggleTargetMode: () => void;
   skipToTarget: () => void;
 }
@@ -50,6 +51,7 @@ export function HeroSceneProvider({
   const [shots, setShots] = useState<ShotRecord[]>([]);
   const [hintHidden, setHintHidden] = useState(false);
   const [flashAt, setFlashAt] = useState<{ x: string; y: string } | null>(null);
+  const [lastShotAt, setLastShotAt] = useState(0);
   const [glbFailed, setGlbFailed] = useState(false);
   const shotNoRef = useRef(0);
 
@@ -68,15 +70,22 @@ export function HeroSceneProvider({
     window.setTimeout(() => setFlashAt(null), 400);
   }, []);
 
-  const placeShot = useCallback((localX: number, localY: number) => {
-    const dist = Math.hypot(localX, localY);
-    const score = scoreForDistance(dist);
-    shotNoRef.current += 1;
-    const label = formatShotLabel(shotNoRef.current, score);
-    setLastScore(score.toFixed(1));
-    setIsTenPlus(score >= 10.0);
-    setShots((prev) => [...prev.slice(-4), { id: shotNoRef.current, score, label }]);
-  }, []);
+  const placeShot = useCallback(
+    (localX: number, localY: number) => {
+      const dist = Math.hypot(localX, localY);
+      const score = scoreForDistance(dist);
+      shotNoRef.current += 1;
+      const label = formatShotLabel(shotNoRef.current, score);
+      setLastScore(score.toFixed(1));
+      setIsTenPlus(score >= 10.0);
+      setShots((prev) => [...prev.slice(-4), { id: shotNoRef.current, score, label }]);
+      if (!reduceMotion) {
+        setLastShotAt(Date.now());
+      }
+      return score;
+    },
+    [reduceMotion],
+  );
 
   const skipToTarget = useCallback(() => {
     if (reduceMotion) {
@@ -107,6 +116,7 @@ export function HeroSceneProvider({
       phaseLive,
       phaseInfo,
       flashAt,
+      lastShotAt,
       reduceMotion,
       glbFailed,
       setGlbFailed,
@@ -128,6 +138,7 @@ export function HeroSceneProvider({
       phaseLive,
       phaseInfo,
       flashAt,
+      lastShotAt,
       reduceMotion,
       glbFailed,
       triggerFlash,

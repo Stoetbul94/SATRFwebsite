@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { HERO_COLORS, TARGET_RADIUS } from './heroTheme';
+import { HERO_CAMERA_Z, HERO_COLORS, TARGET_RADIUS } from './heroTheme';
 import { useHeroScene } from './HeroSceneContext';
 import EmblemModel from './EmblemModel';
 import IssfTarget from './IssfTarget';
+import type { ShotRippleData } from './ShotRipple';
+import type { ShotTracerData } from './ShotTracer';
 
 const RADIUS = TARGET_RADIUS;
 const EMBLEM_MS = 8000;
@@ -44,25 +46,41 @@ function SceneContent() {
   const emblemSpinRef = useRef(0);
   const tiltRef = useRef({ x: 0, y: 0 });
   const [shots, setShots] = useState<{ x: number; y: number; id: number }[]>([]);
+  const [ripples, setRipples] = useState<ShotRippleData[]>([]);
+  const [tracers, setTracers] = useState<ShotTracerData[]>([]);
+  const [lastImpactAt, setLastImpactAt] = useState(0);
   const [showEmblem, setShowEmblem] = useState(true);
   const [showTarget, setShowTarget] = useState(false);
 
   const { camera, gl } = useThree();
 
   useEffect(() => {
-    camera.position.set(0, 0, 7.4);
+    camera.position.set(0, 0, HERO_CAMERA_Z);
   }, [camera]);
 
   const addShot = useCallback(
-    (localX: number, localY: number) => {
+    (localX: number, localY: number, options?: { userClick?: boolean }) => {
       const dist = Math.hypot(localX, localY);
       if (dist > RADIUS * 1.02) return;
-      placeShot(localX, localY);
-      setShots((prev) => [...prev.slice(-9), { x: localX, y: localY, id: Date.now() }]);
-      impulseRef.current = 0.06;
+      const score = placeShot(localX, localY);
+      const shotId = Date.now();
+      setShots((prev) => [...prev.slice(-9), { x: localX, y: localY, id: shotId }]);
+      impulseRef.current = score >= 10 ? 0.1 : 0.06;
       shotNoRef.current += 1;
+
+      if (!reduceMotion) {
+        const now = performance.now();
+        setRipples((prev) => [
+          ...prev,
+          { id: shotId, x: localX, y: localY, score, bornAt: now },
+        ]);
+        setLastImpactAt(now);
+        if (options?.userClick) {
+          setTracers((prev) => [...prev, { id: shotId, x: localX, y: localY, bornAt: now }]);
+        }
+      }
     },
-    [placeShot],
+    [placeShot, reduceMotion],
   );
 
   const gauss = () => (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
@@ -135,7 +153,7 @@ function SceneContent() {
       if (!hit || !targetRef.current) return;
 
       const local = targetRef.current.worldToLocal(hit.point.clone());
-      addShot(local.x, local.y);
+      addShot(local.x, local.y, { userClick: true });
       triggerFlash(
         `${((e.clientX - rect.left) / rect.width) * 100}%`,
         `${((e.clientY - rect.top) / rect.height) * 100}%`,
@@ -268,7 +286,17 @@ function SceneContent() {
 
       <group ref={containerRef}>
         <EmblemModel groupRef={emblemRef} visible={showEmblem} />
-        <IssfTarget groupRef={targetRef} visible={showTarget} shots={shots} />
+        <IssfTarget
+          groupRef={targetRef}
+          visible={showTarget}
+          shots={shots}
+          ripples={ripples}
+          tracers={tracers}
+          lastImpactAt={lastImpactAt}
+          reduceMotion={reduceMotion}
+          onRippleComplete={(id) => setRipples((prev) => prev.filter((r) => r.id !== id))}
+          onTracerComplete={(id) => setTracers((prev) => prev.filter((t) => t.id !== id))}
+        />
       </group>
 
       <points ref={particlesRef}>
@@ -284,7 +312,7 @@ function SceneContent() {
 export default function SatrfHeroScene() {
   return (
     <Canvas
-      camera={{ fov: 34, near: 0.1, far: 100, position: [0, 0, 7.4] }}
+      camera={{ fov: 34, near: 0.1, far: 100, position: [0, 0, HERO_CAMERA_Z] }}
       gl={{ antialias: true, alpha: true }}
       dpr={[1, 2]}
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
