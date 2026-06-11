@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Box, HStack, Text, type BoxProps } from '@chakra-ui/react';
+import { Box, HStack, type BoxProps } from '@chakra-ui/react';
+import SatrfWordmark from '@/components/brand/SatrfWordmark';
 
 interface SatrfNavEmblemProps extends BoxProps {
   showWordmark?: boolean;
@@ -33,17 +34,11 @@ export default function SatrfNavEmblem({ showWordmark = true, ...props }: SatrfN
           />
         </Box>
         {showWordmark && (
-          <Text
+          <SatrfWordmark
+            tone="light"
             display={{ base: 'none', sm: 'block' }}
-            fontFamily="wordmark"
-            fontWeight="800"
             fontSize={{ base: 'lg', md: 'xl' }}
-            letterSpacing="0.12em"
-            color="white"
-            textShadow="0 1px 2px rgba(0,0,0,0.25)"
-          >
-            SATRF
-          </Text>
+          />
         )}
       </HStack>
     </Box>

@@ -17,6 +17,7 @@ import {
 import { motion } from 'framer-motion';
 import { FiArrowLeft } from 'react-icons/fi';
 import FlagStripe from '@/components/brand/FlagStripe';
+import SatrfWordmark from '@/components/brand/SatrfWordmark';
 import TargetRingMotif from '@/components/brand/TargetRingMotif';
 
 const MotionBox = motion(Box);
@@ -69,17 +70,13 @@ function BrandPanel({ compact = false }: { compact?: boolean }) {
             objectFit: 'contain',
           }}
         />
-        <Heading
+        <SatrfWordmark
+          tone="light"
           as="p"
-          fontFamily="heading"
+          display="block"
           fontSize={compact ? 'xl' : { base: '2xl', lg: '3xl' }}
-          fontWeight="800"
-          letterSpacing="0.14em"
           mt={compact ? 3 : 6}
-          color="white"
-        >
-          SATRF
-        </Heading>
+        />
         <Text
           mt={compact ? 2 : 4}
           fontSize={compact ? 'sm' : { base: 'md', lg: 'lg' }}

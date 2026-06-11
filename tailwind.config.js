@@ -39,7 +39,7 @@ module.exports = {
       fontFamily: {
         sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
         heading: ['var(--font-montserrat)', 'Montserrat', 'sans-serif'],
-        wordmark: ['var(--font-orbitron)', 'Orbitron', 'sans-serif'],
+        wordmark: ['var(--font-michroma)', 'Michroma', 'sans-serif'],
       },
       spacing: {
         '18': '4.5rem',
