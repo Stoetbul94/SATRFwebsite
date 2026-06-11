@@ -12,7 +12,7 @@ export default function SatrfHero() {
       <div className={styles.rangeFloor} aria-hidden />
       <div className={styles.heroGrid}>
         <HeroCopy />
-        <div className={styles.heroStageCol}>
+        <div className={styles.heroStageLayer}>
           <SatrfHero3DStage />
         </div>
       </div>

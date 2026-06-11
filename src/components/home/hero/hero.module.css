@@ -47,15 +47,45 @@
 
 .heroCopy {
   position: relative;
-  z-index: 3;
+  z-index: 2;
   min-width: 0;
+  grid-column: 1;
 }
 
-.heroStageCol {
-  position: relative;
+.heroCopy::before {
+  content: '';
+  position: absolute;
+  inset: -1.5rem -35% -1.5rem -1.5rem;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    rgba(7, 13, 30, 0.94) 0%,
+    rgba(7, 13, 30, 0.72) 50%,
+    transparent 85%
+  );
+}
+
+.heroStageLayer {
+  position: absolute;
+  top: 50%;
+  right: clamp(1.25rem, 4vw, 3rem);
   z-index: 1;
-  min-width: 0;
-  overflow: hidden;
+  width: min(58vw, 720px);
+  aspect-ratio: 1 / 1.08;
+  min-height: clamp(380px, 48vh, 600px);
+  transform: translateY(-50%);
+  overflow: visible;
+}
+
+@media (min-width: 981px) {
+  .heroGrid {
+    min-height: clamp(480px, 55vh, 640px);
+  }
+
+  .heroCopy {
+    max-width: 52%;
+  }
 }
 
 @media (max-width: 980px) {
@@ -63,6 +93,25 @@
     grid-template-columns: 1fr;
     padding-top: 100px;
     gap: 2.5rem;
+  }
+
+  .heroStageLayer {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-width: 520px;
+    min-height: clamp(320px, 42vh, 520px);
+    margin: 0 auto;
+    transform: none;
+  }
+
+  .heroCopy {
+    max-width: none;
+  }
+
+  .heroCopy::before {
+    display: none;
   }
 }
 
@@ -199,10 +248,7 @@
 
 .canvasBleed {
   position: absolute;
-  top: -14%;
-  right: -14%;
-  bottom: -14%;
-  left: 0;
+  inset: -14%;
 }
 
 .canvasBleed canvas {
@@ -226,10 +272,7 @@
 .monitor::before {
   content: '';
   position: absolute;
-  top: -22%;
-  right: -22%;
-  bottom: -22%;
-  left: 0;
+  inset: -22%;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(
