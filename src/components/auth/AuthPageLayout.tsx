@@ -70,13 +70,14 @@ function BrandPanel({ compact = false }: { compact?: boolean }) {
             objectFit: 'contain',
           }}
         />
-        <SatrfWordmark
-          tone="light"
+        <Box
           as="p"
           display="block"
           fontSize={compact ? 'xl' : { base: '2xl', lg: '3xl' }}
           mt={compact ? 3 : 6}
-        />
+        >
+          <SatrfWordmark tone="light" />
+        </Box>
         <Text
           mt={compact ? 2 : 4}
           fontSize={compact ? 'sm' : { base: 'md', lg: 'lg' }}

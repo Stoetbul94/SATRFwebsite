@@ -1,8 +1,8 @@
 'use client';
 
-import { Flex, type FlexProps } from '@chakra-ui/react';
+import { Box, type BoxProps } from '@chakra-ui/react';
 
-interface FlagStripeProps extends FlexProps {
+interface FlagStripeProps extends BoxProps {
   /** Stripe thickness in px */
   thickness?: number;
 }
@@ -10,18 +10,18 @@ interface FlagStripeProps extends FlexProps {
 /** Straight, full-width SA flag-colour divider (four even horizontal segments). */
 export default function FlagStripe({ thickness = 4, ...props }: FlagStripeProps) {
   return (
-    <Flex
-      role="presentation"
+    <Box
       aria-hidden
+      display="flex"
       h={`${thickness}px`}
       w="100%"
       overflow="hidden"
       {...props}
     >
-      <Flex flex={1} bg="satrf.flagRed" />
-      <Flex flex={1} bg="satrf.flagGreen" />
-      <Flex flex={1} bg="satrf.flagGold" />
-      <Flex flex={1} bg="satrf.flagBlue" />
-    </Flex>
+      <Box flex={1} bg="satrf.flagRed" />
+      <Box flex={1} bg="satrf.flagGreen" />
+      <Box flex={1} bg="satrf.flagGold" />
+      <Box flex={1} bg="satrf.flagBlue" />
+    </Box>
   );
 }

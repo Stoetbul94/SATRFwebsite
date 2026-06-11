@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
-import HeroSection from '@/components/home/HeroSection';
+import SatrfHero from '@/components/home/hero/SatrfHero';
 import OlympicCountdown from '@/components/OlympicCountdown';
 import { eventsAPI, dashboardAPI } from '@/lib/api';
 import type { Event, DashboardStats } from '@/lib/api';
@@ -72,15 +72,56 @@ export default function Home() {
   return (
     <Layout>
       <Head>
-        <title>South African Target Rifle Federation - SATRF</title>
-        <meta name="description" content="The official national governing body for target rifle shooting in South Africa. Join SATRF for competitions, training, and elite shooting sports." />
-        <meta property="og:title" content="South African Target Rifle Federation - SATRF" />
-        <meta property="og:description" content="The official national governing body for target rifle shooting in South Africa." />
+        <title>SATRF – South African Target Rifle Federation | ISSF Target Rifle Shooting, Clubs &amp; Membership</title>
+        <meta
+          name="description"
+          content="Join SATRF — target rifle shooting South Africa. Beginner coaching, smallbore, prone and 300m rifle clubs in every province. Join a shooting club and compete on the Olympic pathway."
+        />
+        <link rel="canonical" href="https://satrf.org.za/" />
         <meta property="og:type" content="website" />
-        <meta name="keywords" content="target rifle, shooting sports, South Africa, SATRF, ISSF, competitive shooting" />
+        <meta property="og:site_name" content="SATRF — South African Target Rifle Federation" />
+        <meta property="og:title" content="The home of ISSF target rifle shooting in South Africa" />
+        <meta
+          property="og:description"
+          content="Become a SATRF member: learn target shooting with beginner-friendly coaches, find a rifle club in your province, and compete on the national Olympic pathway."
+        />
+        <meta property="og:url" content="https://satrf.org.za/" />
+        <meta property="og:image" content="https://satrf.org.za/brand/satrf-brand-banner.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="theme-color" content="#070D1E" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'SportsOrganization',
+              name: 'South African Target Rifle Federation',
+              alternateName: 'SATRF',
+              sport: 'ISSF Target Rifle Shooting',
+              url: 'https://satrf.org.za/',
+              logo: 'https://satrf.org.za/brand/satrf-emblem-transparent.png',
+              description:
+                'National federation for ISSF target rifle shooting in South Africa: membership, beginner coaching, club development, national competitions and Olympic-pathway athlete rankings.',
+              memberOf: {
+                '@type': 'SportsOrganization',
+                name: 'International Shooting Sport Federation (ISSF)',
+              },
+              areaServed: [
+                'Gauteng',
+                'Western Cape',
+                'KwaZulu-Natal',
+                'North West',
+                'Free State',
+                'Eastern Cape',
+                'Mpumalanga',
+                'Limpopo',
+                'Northern Cape',
+              ].map((name) => ({ '@type': 'State', name })),
+            }),
+          }}
+        />
       </Head>
-      {/* New Hero Section */}
-      <HeroSection />
+      <SatrfHero />
 
       {/* Olympic Countdown Section */}
       <OlympicCountdown />

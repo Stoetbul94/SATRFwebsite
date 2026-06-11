@@ -1,13 +1,13 @@
-import { Box, Flex, Heading, Text, type FlexProps } from '@chakra-ui/react';
+import { Box, Flex, Heading, Text } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 
-interface AdminPageHeaderProps extends FlexProps {
+interface AdminPageHeaderProps {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
 }
 
-export default function AdminPageHeader({ title, subtitle, actions, ...props }: AdminPageHeaderProps) {
+export default function AdminPageHeader({ title, subtitle, actions }: AdminPageHeaderProps) {
   return (
     <Flex
       direction={{ base: 'column', sm: 'row' }}
@@ -15,7 +15,6 @@ export default function AdminPageHeader({ title, subtitle, actions, ...props }: 
       justify="space-between"
       gap={4}
       mb={6}
-      {...props}
     >
       <Box minW={0}>
         <Heading size="lg" mb={subtitle ? 1 : 0}>
