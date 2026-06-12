@@ -238,6 +238,23 @@ export function validateScoreInput(
 
   input.positions?.forEach((block) => {
     if (block.aggregate && input.discipline === 'three_position_50m') {
+      const filledSeries = block.series.filter((s) => (s.decimal ?? 0) > 0 || (s.integer ?? 0) > 0);
+      if (filledSeries.length > 1) {
+        errors.push({
+          path: `positions.${block.position}`,
+          message: `${POSITION_LABELS[block.position]} aggregate entry must have at most one series with data`,
+        });
+      }
+      if (filledSeries.length > 1) {
+        filledSeries.forEach((s) => {
+          if ((s.decimal ?? 0) > maxSeriesDecimal) {
+            errors.push({
+              path: `positions.${block.position}`,
+              message: `${POSITION_LABELS[block.position]} series decimal must be ≤ ${maxSeriesDecimal} when multiple series are present`,
+            });
+          }
+        });
+      }
       const dec = block.series.reduce((s, x) => s + (x.decimal ?? 0), 0);
       const int = block.series.reduce((s, x) => s + (x.integer ?? 0), 0);
       if (strict && dec <= 0) {

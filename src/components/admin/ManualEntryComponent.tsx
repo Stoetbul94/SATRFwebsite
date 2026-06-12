@@ -27,9 +27,15 @@ import {
 import { FiPlus, FiTrash2, FiSave } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
 import { isE2eAdminBypassActive } from '@/lib/e2eBypass';
-import { DISCIPLINES, CATEGORIES, POSITION_LABELS, SHOTS_PER_SERIES } from '@/lib/issf';
+import {
+  DISCIPLINES,
+  CATEGORIES,
+  POSITION_LABELS,
+  SHOTS_PER_SERIES,
+  MAX_5SHOT_SERIES_DECIMAL,
+  MAX_DECIMAL_PER_POSITION_3P,
+} from '@/lib/issf';
 import type { Category, Discipline, Position, ScoreStage } from '@/types/scores';
-import { MAX_5SHOT_SERIES_DECIMAL } from '@/lib/issf';
 
 interface ManualEntryComponentProps {
   onImportSuccess: (result: any) => void;
@@ -93,6 +99,8 @@ function emptySeries(): SeriesEntry {
   return { decimal: '', integer: '' };
 }
 
+type PositionEntryMode = 'series' | 'total';
+
 function makePositionSeries(discipline: Discipline): Record<Position, SeriesEntry[]> {
   const spec = DISCIPLINES[discipline];
   const map = {} as Record<Position, SeriesEntry[]>;
@@ -100,6 +108,18 @@ function makePositionSeries(discipline: Discipline): Record<Position, SeriesEntr
     map[pos] = Array.from({ length: spec.seriesPerPosition }, emptySeries);
   });
   return map;
+}
+
+function makePositionEntryMode(discipline: Discipline): Record<Position, PositionEntryMode> {
+  const map = {} as Record<Position, PositionEntryMode>;
+  DISCIPLINES[discipline].positions.forEach((pos) => {
+    map[pos] = 'series';
+  });
+  return map;
+}
+
+function isThreePQual(discipline: Discipline, stage: ScoreStage): boolean {
+  return discipline === 'three_position_50m' && stage === 'qualification';
 }
 
 export default function ManualEntryComponent({
@@ -126,6 +146,9 @@ export default function ManualEntryComponent({
   const [veteran, setVeteran] = useState(false);
   const [seriesByPosition, setSeriesByPosition] = useState<Record<Position, SeriesEntry[]>>(
     makePositionSeries('prone_50m')
+  );
+  const [positionEntryMode, setPositionEntryMode] = useState<Record<Position, PositionEntryMode>>(
+    makePositionEntryMode('prone_50m')
   );
 
   const [staged, setStaged] = useState<StagedScore[]>([]);
@@ -224,13 +247,17 @@ export default function ManualEntryComponent({
 
   const positionTotals = useMemo(() => {
     const totals: Partial<Record<Position, number>> = {};
+    const threePQual = isThreePQual(discipline, stage);
     spec.positions.forEach((pos) => {
-      totals[pos] = round1(
-        (seriesByPosition[pos] ?? []).reduce((sum, s) => sum + parseDecimalValue(s.decimal), 0)
-      );
+      const entries = seriesByPosition[pos] ?? [];
+      if (threePQual && positionEntryMode[pos] === 'total') {
+        totals[pos] = round1(parseDecimalValue(entries[0]?.decimal ?? ''));
+      } else {
+        totals[pos] = round1(entries.reduce((sum, s) => sum + parseDecimalValue(s.decimal), 0));
+      }
     });
     return totals;
-  }, [seriesByPosition, spec.positions]);
+  }, [seriesByPosition, positionEntryMode, discipline, stage, spec.positions]);
 
   const grandTotal = useMemo(
     () => round1(Object.values(positionTotals).reduce((a, b) => a + (b || 0), 0)),
@@ -249,6 +276,7 @@ export default function ManualEntryComponent({
     setFinalRank('');
     setElimShots(['', '', '', '', '']);
     setSeriesByPosition(makePositionSeries(d));
+    setPositionEntryMode(makePositionEntryMode(d));
   };
 
   const changeStage = (next: ScoreStage) => {
@@ -257,10 +285,13 @@ export default function ManualEntryComponent({
     setElimShots(['', '', '', '', '']);
     if (next === '3p_final') {
       setSeriesByPosition(makePositionSeries('three_position_50m'));
+      setPositionEntryMode(makePositionEntryMode('three_position_50m'));
     } else if (next === 'prone_final') {
       setSeriesByPosition(makePositionSeries('prone_50m'));
+      setPositionEntryMode(makePositionEntryMode('prone_50m'));
     } else {
       setSeriesByPosition(makePositionSeries(discipline));
+      setPositionEntryMode(makePositionEntryMode(discipline));
     }
   };
 
@@ -278,17 +309,84 @@ export default function ManualEntryComponent({
     setClub('');
     setVeteran(false);
     setSeriesByPosition(makePositionSeries(discipline));
+    setPositionEntryMode(makePositionEntryMode(discipline));
+  };
+
+  const changePositionEntryMode = (pos: Position, next: PositionEntryMode) => {
+    if (positionEntryMode[pos] === next) return;
+
+    const entries = seriesByPosition[pos] ?? [];
+    const hasSeriesData = entries.some(
+      (s, i) =>
+        (positionEntryMode[pos] === 'series' && i < 2 && parseDecimalValue(s.decimal) > 0) ||
+        (positionEntryMode[pos] === 'series' && i < 2 && parseInt(s.integer, 10) > 0)
+    );
+    const hasTotalData =
+      positionEntryMode[pos] === 'total' &&
+      (parseDecimalValue(entries[0]?.decimal ?? '') > 0 || parseInt(entries[0]?.integer ?? '', 10) > 0);
+
+    if (next === 'total' && hasSeriesData) {
+      const ok = window.confirm(
+        `Switch ${POSITION_LABELS[pos]} to total-only? Series scores will be replaced by the position total.`
+      );
+      if (!ok) return;
+      const decSum = round1(entries.reduce((sum, s) => sum + parseDecimalValue(s.decimal), 0));
+      const intSum = entries.reduce((sum, s) => sum + (parseInt(s.integer, 10) || 0), 0);
+      setSeriesByPosition((prev) => ({
+        ...prev,
+        [pos]: [
+          {
+            decimal: decSum > 0 ? String(decSum) : '',
+            integer: intSum > 0 ? String(intSum) : '',
+          },
+          emptySeries(),
+        ],
+      }));
+    } else if (next === 'series' && hasTotalData) {
+      const ok = window.confirm(
+        `Switch ${POSITION_LABELS[pos]} to series entry? The position total will be cleared.`
+      );
+      if (!ok) return;
+      setSeriesByPosition((prev) => ({
+        ...prev,
+        [pos]: [emptySeries(), emptySeries()],
+      }));
+    } else if (next === 'series') {
+      setSeriesByPosition((prev) => ({
+        ...prev,
+        [pos]: [emptySeries(), emptySeries()],
+      }));
+    }
+
+    setPositionEntryMode((prev) => ({ ...prev, [pos]: next }));
   };
 
   const buildInput = () => {
-    const positions = spec.positions.map((pos) => ({
-      position: pos,
-      series: seriesByPosition[pos].map((s, i) => ({
-        seriesNumber: i + 1,
-        decimal: parseDecimalValue(s.decimal),
-        integer: parseInt(s.integer, 10) || 0,
-      })),
-    }));
+    const threePQual = isThreePQual(discipline, stage);
+    const positions = spec.positions.map((pos) => {
+      if (threePQual && positionEntryMode[pos] === 'total') {
+        const s = seriesByPosition[pos][0];
+        return {
+          position: pos,
+          aggregate: true,
+          series: [
+            {
+              seriesNumber: 1,
+              decimal: parseDecimalValue(s.decimal),
+              integer: parseInt(s.integer, 10) || 0,
+            },
+          ],
+        };
+      }
+      return {
+        position: pos,
+        series: seriesByPosition[pos].map((s, i) => ({
+          seriesNumber: i + 1,
+          decimal: parseDecimalValue(s.decimal),
+          integer: parseInt(s.integer, 10) || 0,
+        })),
+      };
+    });
     const parsedElim = elimShots.map((s) => parseDecimalValue(s)).filter((v) => v > 0);
     const rank = parseInt(finalRank, 10);
 
@@ -318,9 +416,34 @@ export default function ManualEntryComponent({
     if (!eventName.trim()) return 'Event name is required';
     if (!shooterName.trim()) return 'Select a member or enter shooter name (guest)';
     if (stage === 'qualification' && !club.trim()) return 'Club is required';
-    const anyScore = spec.positions.some((pos) =>
-      seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0)
-    );
+
+    const threePQual = isThreePQual(discipline, stage);
+    for (const pos of spec.positions) {
+      if (threePQual && positionEntryMode[pos] === 'total') {
+        const dec = parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '');
+        const intVal = parseInt(seriesByPosition[pos][0]?.integer ?? '', 10) || 0;
+        if (dec > 0 && dec > MAX_DECIMAL_PER_POSITION_3P) {
+          return `${POSITION_LABELS[pos]} decimal must be ≤ ${MAX_DECIMAL_PER_POSITION_3P}`;
+        }
+        if (intVal > 200) {
+          return `${POSITION_LABELS[pos]} ring total must be ≤ 200`;
+        }
+        continue;
+      }
+      for (const s of seriesByPosition[pos]) {
+        const dec = parseDecimalValue(s.decimal);
+        if (dec > 0 && dec > (stage === '3p_final' ? MAX_5SHOT_SERIES_DECIMAL : 109)) {
+          return `${POSITION_LABELS[pos]} series decimal exceeds maximum`;
+        }
+      }
+    }
+
+    const anyScore = spec.positions.some((pos) => {
+      if (threePQual && positionEntryMode[pos] === 'total') {
+        return parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '') > 0;
+      }
+      return seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0);
+    });
     const anyElim = elimShots.some((s) => parseDecimalValue(s) > 0);
     if (stage === '3p_final') {
       if (!anyScore && !anyElim) return 'Enter position series and/or elimination shots';
@@ -534,44 +657,101 @@ export default function ManualEntryComponent({
       </SimpleGrid>
 
       {/* Series inputs per position */}
-      {spec.positions.map((pos) => (
-        <Box key={pos} borderWidth="1px" borderRadius="md" p={4}>
-          <HStack justify="space-between" mb={3}>
-            <Heading size="sm">{POSITION_LABELS[pos]}</Heading>
-            <Badge colorScheme="blue">Subtotal: {positionTotals[pos]?.toFixed(1)}</Badge>
-          </HStack>
-          <SimpleGrid columns={{ base: 2, md: spec.seriesPerPosition }} spacing={3}>
-            {seriesByPosition[pos].map((s, i) => (
-              <Box key={i}>
-                <Text fontSize="xs" color="gray.500" mb={1}>
-                  Series {i + 1} (max{' '}
-                  {stage === '3p_final' ? MAX_5SHOT_SERIES_DECIMAL : (SHOTS_PER_SERIES * 10.9).toFixed(1)})
-                </Text>
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="109"
-                  placeholder="decimal"
-                  value={s.decimal}
-                  onChange={(e) => updateSeries(pos, i, 'decimal', e.target.value)}
-                  size="sm"
-                  mb={1}
-                />
-                <Input
-                  type="number"
-                  step="1"
-                  min="0"
-                  placeholder="ring (opt)"
-                  value={s.integer}
-                  onChange={(e) => updateSeries(pos, i, 'integer', e.target.value)}
-                  size="sm"
-                />
-              </Box>
-            ))}
-          </SimpleGrid>
-        </Box>
-      ))}
+      {spec.positions.map((pos) => {
+        const showTotalToggle = isThreePQual(discipline, stage);
+        const isTotalMode = showTotalToggle && positionEntryMode[pos] === 'total';
+        return (
+          <Box key={pos} borderWidth="1px" borderRadius="md" p={4}>
+            <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
+              <Heading size="sm">{POSITION_LABELS[pos]}</Heading>
+              <HStack spacing={2}>
+                {showTotalToggle && (
+                  <HStack spacing={0}>
+                    <Button
+                      size="xs"
+                      variant={positionEntryMode[pos] === 'series' ? 'satrf' : 'satrfOutline'}
+                      onClick={() => changePositionEntryMode(pos, 'series')}
+                      borderRightRadius={0}
+                    >
+                      Series
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant={positionEntryMode[pos] === 'total' ? 'satrf' : 'satrfOutline'}
+                      onClick={() => changePositionEntryMode(pos, 'total')}
+                      borderLeftRadius={0}
+                    >
+                      Total only
+                    </Button>
+                  </HStack>
+                )}
+                <Badge colorScheme="blue">Subtotal: {positionTotals[pos]?.toFixed(1)}</Badge>
+              </HStack>
+            </HStack>
+            {isTotalMode ? (
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} maxW="md">
+                <Box>
+                  <Text fontSize="xs" color="gray.500" mb={1}>
+                    Decimal total (max {MAX_DECIMAL_PER_POSITION_3P})
+                  </Text>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max={MAX_DECIMAL_PER_POSITION_3P}
+                    placeholder="decimal"
+                    value={seriesByPosition[pos][0]?.decimal ?? ''}
+                    onChange={(e) => updateSeries(pos, 0, 'decimal', e.target.value)}
+                    size="sm"
+                    mb={1}
+                  />
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="200"
+                    placeholder="ring total (opt)"
+                    value={seriesByPosition[pos][0]?.integer ?? ''}
+                    onChange={(e) => updateSeries(pos, 0, 'integer', e.target.value)}
+                    size="sm"
+                  />
+                </Box>
+              </SimpleGrid>
+            ) : (
+              <SimpleGrid columns={{ base: 2, md: spec.seriesPerPosition }} spacing={3}>
+                {seriesByPosition[pos].map((s, i) => (
+                  <Box key={i}>
+                    <Text fontSize="xs" color="gray.500" mb={1}>
+                      Series {i + 1} (max{' '}
+                      {stage === '3p_final' ? MAX_5SHOT_SERIES_DECIMAL : (SHOTS_PER_SERIES * 10.9).toFixed(1)})
+                    </Text>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="109"
+                      placeholder="decimal"
+                      value={s.decimal}
+                      onChange={(e) => updateSeries(pos, i, 'decimal', e.target.value)}
+                      size="sm"
+                      mb={1}
+                    />
+                    <Input
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="ring (opt)"
+                      value={s.integer}
+                      onChange={(e) => updateSeries(pos, i, 'integer', e.target.value)}
+                      size="sm"
+                    />
+                  </Box>
+                ))}
+              </SimpleGrid>
+            )}
+          </Box>
+        );
+      })}
 
       {stage === '3p_final' && (
         <Box borderWidth="1px" borderRadius="md" p={4}>

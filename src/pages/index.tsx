@@ -12,62 +12,62 @@ import type { Event, DashboardStats } from '@/lib/api';
 
 export default function Home() {
   const [stats, setStats] = useState<DashboardStats>({
-    members: 1250,
-    events: 12,
-    scores: 'Updated',
-    news: 'Latest'
+    members: 0,
+    events: 0,
+    scores: 'Real time',
+    news: 'Latest',
   });
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
+    let cancelled = false;
+
+    const fetchData = async (isInitial = false) => {
       try {
-        console.log('Attempting to fetch dashboard stats...');
-        // Fetch dashboard stats
-        const statsData = await dashboardAPI.getStats();
-        console.log('Stats data received:', statsData);
+        const [statsData, eventsData] = await Promise.all([
+          dashboardAPI.getStats(),
+          eventsAPI.getAll({ status: 'open' }),
+        ]);
+
+        if (cancelled) return;
+
         setStats(statsData);
 
-        // Fetch upcoming events
-        const eventsData = await eventsAPI.getAll({ status: 'open' });
-        // Handle both array and paginated response formats
-        const eventsArray = Array.isArray(eventsData) 
-          ? eventsData 
-          : (eventsData.data || []);
-        setUpcomingEvents(eventsArray.slice(0, 3)); // Show first 3 events
+        const eventsArray = Array.isArray(eventsData)
+          ? eventsData
+          : eventsData.data || [];
+        setUpcomingEvents(eventsArray.slice(0, 3));
       } catch (error) {
         console.error('Error fetching home page data:', error);
-        console.log('Setting fallback data...');
-        // Use fallback data if API fails - this allows the page to work without backend
-        setStats({
-          members: 1250,
-          events: 12,
-          scores: 'Updated',
-          news: 'Latest'
-        });
-        setUpcomingEvents([]);
-        // Small delay to ensure fallback data is visible
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!cancelled) {
+          setUpcomingEvents([]);
+        }
       } finally {
-        console.log('Setting loading to false, current stats:', stats);
-        setLoading(false);
+        if (!cancelled && isInitial) {
+          setLoading(false);
+        }
       }
     };
 
-    // Add a fallback in case the async function fails completely
-    fetchData().catch((error) => {
-      console.error('Critical error in fetchData:', error);
-      // Ensure fallback data is set even if the main try-catch fails
-      setStats({
-        members: 1250,
-        events: 12,
-        scores: 'Updated',
-        news: 'Latest'
-      });
-      setUpcomingEvents([]);
-      setLoading(false);
-    });
+    void fetchData(true);
+
+    const intervalId = window.setInterval(() => {
+      void fetchData(false);
+    }, 60_000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchData(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   return (
@@ -157,11 +157,11 @@ export default function Home() {
               <div className="bg-satrf-lightBlue rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <FiTarget className="text-white text-2xl" />
               </div>
-              <div className="text-3xl font-bold text-satrf-navy mb-2">
+              <div className="text-2xl sm:text-3xl font-bold text-satrf-navy mb-2 leading-tight">
                 {loading ? '...' : stats.scores}
               </div>
-              <div className="text-gray-600 font-medium">Scores Daily</div>
-              <div className="text-sm text-gray-500">Real-time tracking</div>
+              <div className="text-gray-600 font-medium">Event Scores</div>
+              <div className="text-sm text-gray-500">Updated in real time after each event</div>
             </div>
 
             <div className="text-center">
