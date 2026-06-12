@@ -1,80 +1,78 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import type { DashboardStats } from '@/lib/api';
 
-/**
- * Next.js API Route: /api/dashboard/stats
- * 
- * This route provides public dashboard statistics for the homepage.
- * It can either:
- * 1. Return cached/static stats
- * 2. Proxy to backend API if available
- * 3. Aggregate data from multiple sources
- * 
- * ROOT CAUSE FIX: Created this route to provide the missing /dashboard/stats endpoint
- * that the homepage is trying to call. This prevents the Network Error.
- */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+function parseFirestoreDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const toDate = (value as { toDate?: () => Date }).toDate;
+    if (typeof toDate === 'function') return toDate.call(value);
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+function effectiveMemberStatus(data: Record<string, unknown>): string {
+  if (typeof data.status === 'string' && data.status) return data.status;
+  return data.isActive === false ? 'suspended' : 'active';
+}
+
+function isInCurrentMonth(date: Date, now = new Date()): boolean {
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth()
+  );
+}
+
+const FALLBACK_STATS: DashboardStats = {
+  members: 0,
+  events: 0,
+  scores: 'Real time',
+  news: 'Latest',
+};
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+
   try {
-    // Option 1: Return static/cached stats (fast, no backend dependency)
-    // This is suitable for homepage public stats
-    const publicStats = {
-      members: 1250,
-      events: 12,
-      scores: 'Updated',
+    const db = getAdminDb();
+    const now = new Date();
+
+    const [usersSnapshot, eventsSnapshot] = await Promise.all([
+      db.collection('users').get(),
+      db.collection('events').get(),
+    ]);
+
+    const members = usersSnapshot.docs.filter((doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      if (data.isTestUser === true || data.isTestAccount === true) return false;
+      return effectiveMemberStatus(data) === 'active';
+    }).length;
+
+    const events = eventsSnapshot.docs.filter((doc) => {
+      const data = doc.data() as Record<string, unknown>;
+      if (data.isTestEvent === true) return false;
+      const eventDate = parseFirestoreDate(data.date);
+      return eventDate ? isInCurrentMonth(eventDate, now) : false;
+    }).length;
+
+    const stats: DashboardStats = {
+      members,
+      events,
+      scores: 'Real time',
       news: 'Latest',
     };
 
-    // Option 2: If you want to fetch from backend, uncomment below:
-    /*
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
-    const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
-    
-    // Try to fetch from backend (if available)
-    try {
-      const backendResponse = await fetch(`${API_BASE_URL}/${API_VERSION}/users/dashboard`, {
-        headers: {
-          // Add auth if needed, or make it a public endpoint
-        },
-      });
-      
-      if (backendResponse.ok) {
-        const backendData = await backendResponse.json();
-        // Transform backend data to match DashboardStats interface
-        return res.status(200).json({
-          members: backendData.profile?.totalMembers || publicStats.members,
-          events: backendData.upcomingEvents?.length || publicStats.events,
-          scores: 'Updated',
-          news: 'Latest',
-        });
-      }
-    } catch (backendError) {
-      // Fallback to static stats if backend unavailable
-      console.warn('Backend unavailable, using static stats:', backendError);
-    }
-    */
-
-    // Return static stats (or transformed backend data)
-    return res.status(200).json(publicStats);
+    return res.status(200).json(stats);
   } catch (error) {
     console.error('Dashboard stats API error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    return res.status(200).json(FALLBACK_STATS);
   }
 }
-
-
-
-
-
-
-
-
-
