@@ -12,6 +12,7 @@ import {
 } from '@chakra-ui/react';
 import FlagStripe from '@/components/brand/FlagStripe';
 import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
+import SocialLinks from '@/components/layout/SocialLinks';
 
 export default function Footer() {
   const linkColor = 'whiteAlpha.700';
@@ -29,10 +30,11 @@ export default function Footer() {
             <Text textStyle="eyebrow" mb={2} color="satrf.gold.400">
               Precision · Focus · Excellence
             </Text>
-            <Text color={linkColor} fontSize="sm" lineHeight="relaxed" maxW="md">
+            <Text color={linkColor} fontSize="sm" lineHeight="relaxed" maxW="md" mb={4}>
               The South African Target Rifle Federation promotes excellence in precision shooting
               and provides a platform for competitive target rifle shooting across South Africa.
             </Text>
+            <SocialLinks color={linkColor} hoverColor="white" />
           </GridItem>
 
           <GridItem>

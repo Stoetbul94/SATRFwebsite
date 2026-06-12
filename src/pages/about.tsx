@@ -9,7 +9,8 @@ import {
   Link,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaFacebook, FaTwitter, FaInstagram } from 'react-icons/fa';
+import { FaEnvelope, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
+import SocialLinks from '@/components/layout/SocialLinks';
 import Layout from '@/components/layout/Layout';
 import Image from 'next/image';
 import Head from 'next/head';
@@ -129,17 +130,9 @@ export default function About() {
                   Pretoria, South Africa
                 </Text>
               </HStack>
-              <HStack spacing={4} mt={4}>
-                <Link href="https://facebook.com/satrf" isExternal>
-                  <Icon as={FaFacebook} w={6} h={6} color="blue.500" />
-                </Link>
-                <Link href="https://twitter.com/satrf" isExternal>
-                  <Icon as={FaTwitter} w={6} h={6} color="blue.400" />
-                </Link>
-                <Link href="https://instagram.com/satrf" isExternal>
-                  <Icon as={FaInstagram} w={6} h={6} color="pink.500" />
-                </Link>
-              </HStack>
+              <Box mt={4}>
+                <SocialLinks size={6} color="blue.500" hoverColor="satrf.gold.500" />
+              </Box>
             </VStack>
           </Box>
         </VStack>
