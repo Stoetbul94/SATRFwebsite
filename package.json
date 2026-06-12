@@ -31,6 +31,7 @@
     "test:e2e:coaching": "node scripts/run-e2e-tests.js --suite coaching",
     "test:e2e:leaderboard": "node scripts/run-e2e-tests.js --suite leaderboard",
     "test:e2e:rules": "node scripts/run-e2e-tests.js --suite rules",
+    "sync:issf-rules": "node scripts/scrape-issf-rules.mjs && node scripts/generate-issf-rules-data.mjs",
     "test:e2e:donate": "node scripts/run-e2e-tests.js --suite donate",
     "test:e2e:mobile": "node scripts/run-e2e-tests.js --mobile",
     "test:e2e:headed": "node scripts/run-e2e-tests.js --headed",
