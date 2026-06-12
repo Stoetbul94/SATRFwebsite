@@ -28,7 +28,7 @@ export default function ScoreDetailPanel({ row, isOpen }: ScoreDetailPanelProps)
               {row.series.map((s, i) => (
                 <Box key={i} textAlign="center" py={1} px={1} borderRadius="sm" bg={shotCellBg} fontSize="xs">
                   <Text color="gray.500">S{s.seriesNumber}</Text>
-                  <Text fontWeight="medium">{s.decimal.toFixed(1)}</Text>
+                  <Text fontWeight="medium">{s.missing ? '—' : s.decimal.toFixed(1)}</Text>
                 </Box>
               ))}
             </SimpleGrid>
@@ -81,7 +81,7 @@ export default function ScoreDetailPanel({ row, isOpen }: ScoreDetailPanelProps)
                 <Text fontSize="xs" color="gray.500">
                   S{s.seriesNumber}
                 </Text>
-                <Text fontWeight="semibold">{s.decimal.toFixed(1)}</Text>
+                <Text fontWeight="semibold">{s.missing ? '—' : s.decimal.toFixed(1)}</Text>
               </Box>
             ))}
           </SimpleGrid>
