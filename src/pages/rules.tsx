@@ -35,6 +35,7 @@ import {
   issfSourceUrl,
   type IssfRuleDocument,
 } from '@/data/issf-rules';
+import { useToolboxEnabled } from '@/contexts/ToolboxEnabledContext';
 
 function displayTitle(title: string) {
   return title.replace(/\.(pdf|docx|xlsx|zip)$/i, '');
@@ -60,6 +61,7 @@ function pdfHref(doc: IssfRuleDocument) {
 }
 
 export default function RulesPage() {
+  const toolboxEnabled = useToolboxEnabled();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -104,6 +106,16 @@ export default function RulesPage() {
             title="ISSF Rules & Documentation"
             subtitle="Official ISSF rules and regulations mirrored from issf-sports.org — effective 1 January 2026. Download PDFs locally or view the source pages on ISSF."
           />
+
+          {toolboxEnabled && (
+            <Text fontSize="sm" color="text.muted">
+              Need a quick answer on rules or anti-doping?{' '}
+              <Link href="/toolbox/range-officer" style={{ fontWeight: 600, color: 'var(--chakra-colors-brand)' }}>
+                Ask the Range Officer
+              </Link>
+              .
+            </Text>
+          )}
 
           <Card>
             <CardBody>

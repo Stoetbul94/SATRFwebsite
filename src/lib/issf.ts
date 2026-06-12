@@ -17,6 +17,7 @@ import type {
 export const SHOTS_PER_SERIES = 10;
 /** Max decimal for a 5-shot series in 3P final (5 × 10.9). */
 export const MAX_5SHOT_SERIES_DECIMAL = 54.5;
+export const MAX_DECIMAL_PER_POSITION_3P_FINAL = MAX_5SHOT_SERIES_DECIMAL * 2;
 export const MAX_SHOT_DECIMAL = 10.9;
 export const MAX_SHOT_INTEGER = 10;
 export const MAX_DECIMAL_PER_POSITION_3P = 218.0;
@@ -132,18 +133,36 @@ function validate3pFinal(input: ScoreInput, strict: boolean): ValidationResult {
   }
 
   if (usesSeries) {
-    const filledSeries = positionBlocks.flatMap((b) =>
-      b.series.filter((s) => (s.decimal ?? 0) > 0)
-    );
-    if (strict && filledSeries.length < 6) {
-      errors.push({
-        path: 'positions',
-        message: '3P final requires all 6 position series (Kn/Pr/St × 2)',
-      });
-    } else if (!strict && filledSeries.length < 6) {
-      warnings.push({ path: 'positions', message: 'Fewer than 6 position series recorded' });
-    }
+    let filledSlots = 0;
     positionBlocks.forEach((block) => {
+      if (block.aggregate) {
+        const filledSeries = block.series.filter((s) => (s.decimal ?? 0) > 0 || (s.integer ?? 0) > 0);
+        if (filledSeries.length > 1) {
+          errors.push({
+            path: `positions.${block.position}`,
+            message: `${POSITION_LABELS[block.position]} total-only entry must have at most one series with data`,
+          });
+        }
+        const dec = block.series.reduce((sum, s) => sum + (s.decimal ?? 0), 0);
+        const int = block.series.reduce((sum, s) => sum + (s.integer ?? 0), 0);
+        if (dec > MAX_DECIMAL_PER_POSITION_3P_FINAL) {
+          errors.push({
+            path: `positions.${block.position}`,
+            message: `${POSITION_LABELS[block.position]} decimal must be ≤ ${MAX_DECIMAL_PER_POSITION_3P_FINAL}`,
+          });
+        }
+        if (int > 100) {
+          errors.push({
+            path: `positions.${block.position}`,
+            message: `${POSITION_LABELS[block.position]} ring total must be ≤ 100`,
+          });
+        }
+        if (filledSeries.length > 0) filledSlots += 2;
+        return;
+      }
+
+      const filledSeries = block.series.filter((s) => (s.decimal ?? 0) > 0);
+      filledSlots += filledSeries.length;
       block.series.forEach((s, i) => {
         const dec = s.decimal ?? 0;
         if (dec > MAX_5SHOT_SERIES_DECIMAL) {
@@ -154,6 +173,15 @@ function validate3pFinal(input: ScoreInput, strict: boolean): ValidationResult {
         }
       });
     });
+
+    if (strict && filledSlots < 6) {
+      errors.push({
+        path: 'positions',
+        message: '3P final requires all 6 position series (Kn/Pr/St × 2) or equivalent position totals',
+      });
+    } else if (!strict && filledSlots < 6) {
+      warnings.push({ path: 'positions', message: 'Fewer than 6 position series recorded' });
+    }
   } else {
     if (strict && elimShots.length < 30) {
       errors.push({ path: 'finalShots', message: '3P final requires at least 30 shots (K+P+standing series)' });
@@ -385,6 +413,7 @@ export function buildScore(
         decimalTotal,
         integerTotal: series.reduce((sum, s) => sum + s.integer, 0),
         innerTens: 0,
+        aggregate: block.aggregate,
       };
     });
 
@@ -395,10 +424,10 @@ export function buildScore(
         ? round1(seriesTotal + elimTotal)
         : round1(elimShots.reduce((a, b) => a + b, 0));
 
-    const seriesShots = positionBlocks.reduce(
-      (sum, p) => sum + p.series.filter((s) => s.decimal > 0).length * 5,
-      0
-    );
+    const seriesShots = positionBlocks.reduce((sum, p) => {
+      if (p.aggregate) return sum + 10;
+      return sum + p.series.filter((s) => s.decimal > 0).length * 5;
+    }, 0);
     const totalShots = positionBlocks.length > 0 ? seriesShots + elimShots.length : elimShots.length;
 
     let eliminatedAtShot = input.eliminatedAtShot ?? null;
@@ -511,12 +540,14 @@ export interface EventResultSeries {
   seriesNumber: number;
   decimal: number;
   integer?: number;
+  missing?: boolean;
 }
 
 export interface EventResultPosition {
   position: string;
   decimalTotal: number;
   integerTotal?: number;
+  aggregate?: boolean;
 }
 
 export interface EventResultRow {
@@ -578,14 +609,31 @@ export function scoreToEventResultRow(score: ScoreDoc, place: number): EventResu
         position: p.position,
         decimalTotal: p.decimalTotal,
         integerTotal: p.integerTotal,
+        aggregate: p.aggregate,
       }));
-      row.series = score.positions.flatMap((p) =>
-        p.series.map((s) => ({
-          seriesNumber: s.seriesNumber,
+      row.series = score.positions.flatMap((p, posIdx) => {
+        const base = posIdx * 2 + 1;
+        if (p.aggregate) {
+          const filled = p.series.find((s) => (s.decimal ?? 0) > 0) ?? p.series[0];
+          return [
+            {
+              seriesNumber: base,
+              decimal: filled?.decimal ?? 0,
+              integer: filled?.integer,
+            },
+            {
+              seriesNumber: base + 1,
+              decimal: 0,
+              missing: true,
+            },
+          ];
+        }
+        return p.series.map((s, i) => ({
+          seriesNumber: base + i,
           decimal: s.decimal,
           integer: s.integer,
-        }))
-      );
+        }));
+      });
     }
     return row;
   }

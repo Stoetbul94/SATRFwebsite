@@ -34,6 +34,7 @@ import {
   SHOTS_PER_SERIES,
   MAX_5SHOT_SERIES_DECIMAL,
   MAX_DECIMAL_PER_POSITION_3P,
+  MAX_DECIMAL_PER_POSITION_3P_FINAL,
 } from '@/lib/issf';
 import type { Category, Discipline, Position, ScoreStage } from '@/types/scores';
 
@@ -120,6 +121,14 @@ function makePositionEntryMode(discipline: Discipline): Record<Position, Positio
 
 function isThreePQual(discipline: Discipline, stage: ScoreStage): boolean {
   return discipline === 'three_position_50m' && stage === 'qualification';
+}
+
+function isThreePFinal(discipline: Discipline, stage: ScoreStage): boolean {
+  return discipline === 'three_position_50m' && stage === '3p_final';
+}
+
+function supportsPositionTotalEntry(discipline: Discipline, stage: ScoreStage): boolean {
+  return isThreePQual(discipline, stage) || isThreePFinal(discipline, stage);
 }
 
 export default function ManualEntryComponent({
@@ -247,10 +256,10 @@ export default function ManualEntryComponent({
 
   const positionTotals = useMemo(() => {
     const totals: Partial<Record<Position, number>> = {};
-    const threePQual = isThreePQual(discipline, stage);
+    const totalEntrySupported = supportsPositionTotalEntry(discipline, stage);
     spec.positions.forEach((pos) => {
       const entries = seriesByPosition[pos] ?? [];
-      if (threePQual && positionEntryMode[pos] === 'total') {
+      if (totalEntrySupported && positionEntryMode[pos] === 'total') {
         totals[pos] = round1(parseDecimalValue(entries[0]?.decimal ?? ''));
       } else {
         totals[pos] = round1(entries.reduce((sum, s) => sum + parseDecimalValue(s.decimal), 0));
@@ -362,9 +371,9 @@ export default function ManualEntryComponent({
   };
 
   const buildInput = () => {
-    const threePQual = isThreePQual(discipline, stage);
+    const totalEntrySupported = supportsPositionTotalEntry(discipline, stage);
     const positions = spec.positions.map((pos) => {
-      if (threePQual && positionEntryMode[pos] === 'total') {
+      if (totalEntrySupported && positionEntryMode[pos] === 'total') {
         const s = seriesByPosition[pos][0];
         return {
           position: pos,
@@ -417,16 +426,20 @@ export default function ManualEntryComponent({
     if (!shooterName.trim()) return 'Select a member or enter shooter name (guest)';
     if (stage === 'qualification' && !club.trim()) return 'Club is required';
 
-    const threePQual = isThreePQual(discipline, stage);
+    const totalEntrySupported = supportsPositionTotalEntry(discipline, stage);
     for (const pos of spec.positions) {
-      if (threePQual && positionEntryMode[pos] === 'total') {
+      if (totalEntrySupported && positionEntryMode[pos] === 'total') {
         const dec = parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '');
         const intVal = parseInt(seriesByPosition[pos][0]?.integer ?? '', 10) || 0;
-        if (dec > 0 && dec > MAX_DECIMAL_PER_POSITION_3P) {
-          return `${POSITION_LABELS[pos]} decimal must be ≤ ${MAX_DECIMAL_PER_POSITION_3P}`;
+        const maxDec = isThreePFinal(discipline, stage)
+          ? MAX_DECIMAL_PER_POSITION_3P_FINAL
+          : MAX_DECIMAL_PER_POSITION_3P;
+        const maxInt = isThreePFinal(discipline, stage) ? 100 : 200;
+        if (dec > 0 && dec > maxDec) {
+          return `${POSITION_LABELS[pos]} decimal must be ≤ ${maxDec}`;
         }
-        if (intVal > 200) {
-          return `${POSITION_LABELS[pos]} ring total must be ≤ 200`;
+        if (intVal > maxInt) {
+          return `${POSITION_LABELS[pos]} ring total must be ≤ ${maxInt}`;
         }
         continue;
       }
@@ -439,7 +452,7 @@ export default function ManualEntryComponent({
     }
 
     const anyScore = spec.positions.some((pos) => {
-      if (threePQual && positionEntryMode[pos] === 'total') {
+      if (totalEntrySupported && positionEntryMode[pos] === 'total') {
         return parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '') > 0;
       }
       return seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0);
@@ -658,8 +671,13 @@ export default function ManualEntryComponent({
 
       {/* Series inputs per position */}
       {spec.positions.map((pos) => {
-        const showTotalToggle = isThreePQual(discipline, stage);
+        const showTotalToggle = supportsPositionTotalEntry(discipline, stage);
         const isTotalMode = showTotalToggle && positionEntryMode[pos] === 'total';
+        const totalMax = isThreePFinal(discipline, stage)
+          ? MAX_DECIMAL_PER_POSITION_3P_FINAL
+          : MAX_DECIMAL_PER_POSITION_3P;
+        const ringMax = isThreePFinal(discipline, stage) ? 100 : 200;
+        const seriesMax = stage === '3p_final' ? MAX_5SHOT_SERIES_DECIMAL : 109;
         return (
           <Box key={pos} borderWidth="1px" borderRadius="md" p={4}>
             <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
@@ -692,13 +710,13 @@ export default function ManualEntryComponent({
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} maxW="md">
                 <Box>
                   <Text fontSize="xs" color="gray.500" mb={1}>
-                    Decimal total (max {MAX_DECIMAL_PER_POSITION_3P})
+                    Decimal total (max {totalMax})
                   </Text>
                   <Input
                     type="number"
                     step="0.1"
                     min="0"
-                    max={MAX_DECIMAL_PER_POSITION_3P}
+                    max={totalMax}
                     placeholder="decimal"
                     value={seriesByPosition[pos][0]?.decimal ?? ''}
                     onChange={(e) => updateSeries(pos, 0, 'decimal', e.target.value)}
@@ -709,7 +727,7 @@ export default function ManualEntryComponent({
                     type="number"
                     step="1"
                     min="0"
-                    max="200"
+                    max={ringMax}
                     placeholder="ring total (opt)"
                     value={seriesByPosition[pos][0]?.integer ?? ''}
                     onChange={(e) => updateSeries(pos, 0, 'integer', e.target.value)}
@@ -729,7 +747,7 @@ export default function ManualEntryComponent({
                       type="number"
                       step="0.1"
                       min="0"
-                      max="109"
+                      max={seriesMax}
                       placeholder="decimal"
                       value={s.decimal}
                       onChange={(e) => updateSeries(pos, i, 'decimal', e.target.value)}
