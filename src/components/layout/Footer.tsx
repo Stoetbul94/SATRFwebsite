@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Box,
   Container,
@@ -97,6 +98,30 @@ export default function Footer() {
                 </Text>
               </Link>
             </HStack>
+          </Flex>
+
+          <Flex
+            justify="center"
+            align="center"
+            gap={3}
+            mt={6}
+            pt={6}
+            borderTop="1px"
+            borderColor="whiteAlpha.100"
+          >
+            <Text color={linkColor} fontSize="xs">
+              Designed by
+            </Text>
+            <Image
+              src="/brand/tech-aim-logo.png"
+              alt="Tech Aim Websites"
+              width={160}
+              height={48}
+              className="h-9 w-auto object-contain"
+            />
+            <Text color="whiteAlpha.800" fontSize="xs" fontWeight="semibold">
+              Tech Aim Websites
+            </Text>
           </Flex>
         </Box>
       </Container>
