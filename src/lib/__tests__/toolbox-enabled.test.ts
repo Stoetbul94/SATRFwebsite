@@ -1,5 +1,5 @@
-import { isToolboxEnabled, isToolInteractive } from '@/lib/toolbox/enabled';
 import { getToolById } from '@/lib/toolbox/registry';
+import { isToolInteractive } from '@/lib/toolbox/enabled';
 
 jest.mock('@/lib/toolbox/rateLimit', () => ({
   checkToolboxRateLimit: jest.fn(),
@@ -18,24 +18,24 @@ describe('toolbox enabled flag', () => {
     jest.resetModules();
   });
 
-  it('returns false when ANTHROPIC_API_KEY is unset', () => {
+  it('returns false when ANTHROPIC_API_KEY is unset', async () => {
     delete process.env.ANTHROPIC_API_KEY;
     jest.resetModules();
-    const { isToolboxEnabled: enabled } = require('@/lib/toolbox/enabled');
+    const { isToolboxEnabled: enabled } = await import('@/lib/toolbox/enabled');
     expect(enabled()).toBe(false);
   });
 
-  it('returns false when ANTHROPIC_API_KEY is blank', () => {
+  it('returns false when ANTHROPIC_API_KEY is blank', async () => {
     process.env.ANTHROPIC_API_KEY = '   ';
     jest.resetModules();
-    const { isToolboxEnabled: enabled } = require('@/lib/toolbox/enabled');
+    const { isToolboxEnabled: enabled } = await import('@/lib/toolbox/enabled');
     expect(enabled()).toBe(false);
   });
 
-  it('returns true when ANTHROPIC_API_KEY is set', () => {
+  it('returns true when ANTHROPIC_API_KEY is set', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-test-key';
     jest.resetModules();
-    const { isToolboxEnabled: enabled, isToolInteractive: interactive } = require('@/lib/toolbox/enabled');
+    const { isToolboxEnabled: enabled, isToolInteractive: interactive } = await import('@/lib/toolbox/enabled');
     expect(enabled()).toBe(true);
     const rangeOfficer = getToolById('range-officer')!;
     expect(interactive(true, rangeOfficer)).toBe(true);
