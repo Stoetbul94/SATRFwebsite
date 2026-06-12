@@ -1,4 +1,11 @@
-export const SATRF_SOCIAL_LINKS = [
+export type SocialLink = {
+  id: 'facebook' | 'instagram';
+  label: string;
+  href: string;
+  handle?: string;
+};
+
+export const SATRF_SOCIAL_LINKS: readonly SocialLink[] = [
   {
     id: 'facebook',
     label: 'Facebook',
@@ -10,4 +17,4 @@ export const SATRF_SOCIAL_LINKS = [
     href: 'https://www.instagram.com/satrfshooting/',
     handle: '@satrfshooting',
   },
-] as const;
+];
