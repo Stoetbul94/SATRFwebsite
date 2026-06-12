@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import {
@@ -15,90 +15,76 @@ import {
   VStack,
   Icon,
   Heading,
+  Badge,
 } from '@chakra-ui/react';
-import { FiDownload, FiExternalLink, FiSearch, FiFileText, FiShield, FiTarget, FiAlertTriangle } from 'react-icons/fi';
+import {
+  FiDownload,
+  FiExternalLink,
+  FiSearch,
+  FiFileText,
+  FiShield,
+  FiTarget,
+  FiAlertTriangle,
+} from 'react-icons/fi';
 import Layout from '../components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
+import {
+  issfRuleCategories,
+  issfRuleDocuments,
+  issfSourceUrl,
+  type IssfRuleDocument,
+} from '@/data/issf-rules';
 
-interface RuleDocument {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  webUrl?: string;
-  pdfUrl?: string;
-  icon: React.ElementType;
+function displayTitle(title: string) {
+  return title.replace(/\.(pdf|docx|xlsx|zip)$/i, '');
 }
 
-const ruleDocuments: RuleDocument[] = [
-  {
-    id: 'general-technical',
-    title: 'General Technical Rules',
-    description:
-      'Comprehensive technical regulations governing all ISSF shooting sports competitions and equipment standards.',
-    category: 'technical',
-    webUrl: 'https://www.issf-sports.org/rules/general-technical-rules',
-    pdfUrl:
-      'https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=458&file=ISSF_-Technical-Rules-Rule_Book_2023_Approved_Version.pdf',
-    icon: FiFileText,
-  },
-  {
-    id: 'rifle-rules',
-    title: 'Rifle Rules',
-    description:
-      'Specific regulations for rifle shooting events, including position requirements, scoring, and competition formats.',
-    category: 'rifle',
-    webUrl: 'https://www.issf-sports.org/rules/rifle',
-    pdfUrl:
-      'https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=460&file=ISSF_Rifle-Rules_Book_2023_Approved_Version.pdf',
-    icon: FiTarget,
-  },
-  {
-    id: 'anti-doping',
-    title: 'Anti-Doping Regulations',
-    description:
-      'Official anti-doping policies and procedures to ensure fair competition and athlete health protection.',
-    category: 'doping',
-    webUrl: 'https://www.issf-sports.org/rules/anti-doping',
-    pdfUrl:
-      'https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=457&file=ISSF_Doping-Rules-Rule_Book_2023_Approved_Version.pdf',
-    icon: FiShield,
-  },
-  {
-    id: 'disciplinary',
-    title: 'Disciplinary Regulations',
-    description:
-      'Rules and procedures for handling violations, appeals, and disciplinary actions in shooting sports.',
-    category: 'disciplinary',
-    webUrl: 'https://www.issf-sports.org/rules/disciplinary-regulations',
-    icon: FiAlertTriangle,
-  },
-];
+function categoryIcon(category: string) {
+  switch (category) {
+    case 'rifle':
+      return FiTarget;
+    case 'integrity':
+    case 'safeguarding':
+    case 'doping':
+      return FiShield;
+    case 'disciplinary':
+      return FiAlertTriangle;
+    default:
+      return FiFileText;
+  }
+}
 
-const categories = [
-  { id: 'all', name: 'All Documents' },
-  { id: 'technical', name: 'Technical Rules' },
-  { id: 'rifle', name: 'Rifle Rules' },
-  { id: 'doping', name: 'Anti-Doping' },
-  { id: 'disciplinary', name: 'Disciplinary' },
-];
+function pdfHref(doc: IssfRuleDocument) {
+  return doc.localPath ?? doc.pdfUrl;
+}
 
 export default function RulesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const filteredDocuments = ruleDocuments.filter((doc) => {
+  const categories = useMemo(
+    () =>
+      issfRuleCategories.filter(
+        (cat) =>
+          cat.id === 'all' || issfRuleDocuments.some((doc) => doc.category === cat.id),
+      ),
+    [],
+  );
+
+  const filteredDocuments = issfRuleDocuments.filter((doc) => {
+    const label = displayTitle(doc.title).toLowerCase();
     const matchesSearch =
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.description.toLowerCase().includes(searchTerm.toLowerCase());
+      label.includes(searchTerm.toLowerCase()) ||
+      doc.section.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const handleDownloadAll = () => {
-    ruleDocuments.filter((d) => d.pdfUrl).forEach((doc) => {
-      if (doc.pdfUrl) window.open(doc.pdfUrl, '_blank', 'noopener,noreferrer');
+    issfRuleDocuments.forEach((doc) => {
+      const href = pdfHref(doc);
+      if (href) window.open(href, '_blank', 'noopener,noreferrer');
     });
   };
 
@@ -108,7 +94,7 @@ export default function RulesPage() {
         <title>ISSF Rules & Documentation - SATRF</title>
         <meta
           name="description"
-          content="Access official ISSF shooting sport rules, technical regulations, anti-doping policies, and disciplinary procedures."
+          content="Official ISSF rules for 2026: rule book, integrity, safeguarding, disciplinary regulations, eligibility, forms, and rifle guides — mirrored for SATRF members."
         />
       </Head>
       <PublicPageShell>
@@ -116,11 +102,27 @@ export default function RulesPage() {
           <PublicPageHeader
             eyebrow="Governance"
             title="ISSF Rules & Documentation"
-            subtitle="Official ISSF rules and regulations essential for fair, safe competitive shooting in South Africa."
+            subtitle="Official ISSF rules and regulations mirrored from issf-sports.org — effective 1 January 2026. Download PDFs locally or view the source pages on ISSF."
           />
 
           <Card>
             <CardBody>
+              <HStack justify="center" mb={4} flexWrap="wrap" gap={2}>
+                <Button
+                  as="a"
+                  href={issfSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="sm"
+                  variant="satrfOutline"
+                  leftIcon={<FiExternalLink />}
+                >
+                  View on ISSF
+                </Button>
+                <Badge colorScheme="green" fontSize="xs" px={2} py={1}>
+                  {issfRuleDocuments.length} documents available
+                </Badge>
+              </HStack>
               <InputGroup maxW="md" mx="auto" mb={6}>
                 <InputLeftElement pointerEvents="none">
                   <Icon as={FiSearch} color="text.muted" />
@@ -157,14 +159,18 @@ export default function RulesPage() {
             {filteredDocuments.map((doc) => (
               <Card key={doc.id} h="100%">
                 <CardBody>
-                  <HStack mb={3}>
-                    <Icon as={doc.icon} boxSize={6} color="brand" />
-                    <Heading size="md">{doc.title}</Heading>
+                  <HStack mb={2} align="flex-start">
+                    <Icon as={categoryIcon(doc.category)} boxSize={6} color="brand" mt={0.5} />
+                    <Box flex="1" minW={0}>
+                      <Heading size="sm" lineHeight="short">
+                        {displayTitle(doc.title)}
+                      </Heading>
+                      <Text fontSize="xs" color="text.muted" mt={1}>
+                        {doc.section}
+                      </Text>
+                    </Box>
                   </HStack>
-                  <Text color="text.muted" mb={6} fontSize="sm" lineHeight="tall">
-                    {doc.description}
-                  </Text>
-                  <HStack spacing={2} flexWrap="wrap">
+                  <HStack spacing={2} flexWrap="wrap" mt={4}>
                     {doc.webUrl && (
                       <Button
                         as="a"
@@ -175,20 +181,21 @@ export default function RulesPage() {
                         variant="satrf"
                         leftIcon={<FiExternalLink />}
                       >
-                        View Online
+                        View on ISSF
                       </Button>
                     )}
-                    {doc.pdfUrl && (
+                    {pdfHref(doc) && (
                       <Button
                         as="a"
-                        href={doc.pdfUrl}
+                        href={pdfHref(doc)}
                         target="_blank"
                         rel="noopener noreferrer"
                         size="sm"
                         variant="satrfOutline"
                         leftIcon={<FiDownload />}
+                        download={doc.localPath ? displayTitle(doc.title) : undefined}
                       >
-                        Download PDF
+                        {doc.localPath ? 'Download PDF' : 'Open PDF'}
                       </Button>
                     )}
                   </HStack>
@@ -218,10 +225,22 @@ export default function RulesPage() {
               </Heading>
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
                 {[
-                  ['Rule Updates', 'ISSF rules are updated periodically. Refer to the official ISSF website for the latest regulations.'],
-                  ['Competition Requirements', 'All SATRF competitions follow ISSF rules. Familiarize yourself with these documents before competing.'],
-                  ['Anti-Doping Compliance', 'All athletes must comply with anti-doping regulations for participation in competitive events.'],
-                  ['Contact Support', 'For rule interpretation questions, contact SATRF officials or consult official ISSF documentation.'],
+                  [
+                    'Rule Updates',
+                    'ISSF published the 2026 Rule Book (effective 1 January 2026). PDFs on this page are mirrored from the official ISSF rules portal.',
+                  ],
+                  [
+                    'Competition Requirements',
+                    'All SATRF competitions follow ISSF rules. Familiarize yourself with these documents before competing.',
+                  ],
+                  [
+                    'Local Copies',
+                    'PDFs are hosted on satrf.org.za for faster access. Always confirm the latest version on issf-sports.org/rules if in doubt.',
+                  ],
+                  [
+                    'Contact Support',
+                    'For rule interpretation questions, contact SATRF officials or consult official ISSF documentation.',
+                  ],
                 ].map(([title, body]) => (
                   <Box key={title}>
                     <Text fontWeight="semibold" mb={1}>
