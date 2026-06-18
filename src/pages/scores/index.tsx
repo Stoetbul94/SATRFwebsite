@@ -25,7 +25,10 @@ import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
 import { DISCIPLINES, CATEGORIES } from '@/lib/issf';
+import { formatEventsCell } from '@/lib/rankingsDisplay';
 import type { Discipline } from '@/types/scores';
+import RankingsClubCell from '@/components/scores/RankingsClubCell';
+import RankingsScorePair from '@/components/scores/RankingsScorePair';
 
 interface RankRow {
   rank: number;
@@ -37,6 +40,10 @@ interface RankRow {
   average: number;
   best: number;
   eventCount: number;
+  averageRings?: number | null;
+  bestRings?: number | null;
+  seasonEventTotal?: number | null;
+  province?: string | null;
 }
 
 export default function Scores() {
@@ -184,16 +191,18 @@ export default function Scores() {
                             <Td fontWeight="medium" color="text.primary">
                               {r.shooterName}
                             </Td>
-                            <Td color="text.muted">{r.club}</Td>
+                            <Td>
+                              <RankingsClubCell club={r.club} province={r.province} />
+                            </Td>
                             <Td textTransform="capitalize">{r.category}</Td>
-                            <Td isNumeric fontWeight="semibold" color="accent">
-                              {r.average.toFixed(1)}
+                            <Td isNumeric>
+                              <RankingsScorePair decimal={r.average} rings={r.averageRings} />
+                            </Td>
+                            <Td isNumeric>
+                              <RankingsScorePair decimal={r.best} rings={r.bestRings} />
                             </Td>
                             <Td isNumeric color="text.muted">
-                              {r.best.toFixed(1)}
-                            </Td>
-                            <Td isNumeric color="text.muted">
-                              {r.eventCount}
+                              {formatEventsCell(r.eventCount, r.seasonEventTotal)}
                             </Td>
                           </Tr>
                         ))

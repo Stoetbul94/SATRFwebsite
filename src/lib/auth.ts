@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { toIsoString } from '@/lib/firestoreSerialize';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
@@ -536,9 +537,9 @@ export function mapUserDoc(uid: string, data: any): UserProfile {
     emergencyPhone: data.emergencyPhone,
     isActive: data.isActive !== false,
     emailConfirmed: data.emailConfirmed || false,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
-    lastLoginAt: data.lastLoginAt,
+    createdAt: toIsoString(data.createdAt ?? data.created_at) ?? '',
+    updatedAt: toIsoString(data.updatedAt ?? data.updated_at) ?? undefined,
+    lastLoginAt: toIsoString(data.lastLoginAt ?? data.last_login_at) ?? undefined,
     loginCount: data.loginCount || 0,
   };
 }

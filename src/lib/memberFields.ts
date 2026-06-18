@@ -15,6 +15,26 @@ export const SA_PROVINCES = [
 
 export type SaProvince = (typeof SA_PROVINCES)[number];
 
+export const PROVINCE_ABBREV: Record<SaProvince, string> = {
+  'Eastern Cape': 'EC',
+  'Free State': 'FS',
+  Gauteng: 'GP',
+  'KwaZulu-Natal': 'KZN',
+  Limpopo: 'LP',
+  Mpumalanga: 'MP',
+  'North West': 'NW',
+  'Northern Cape': 'NC',
+  'Western Cape': 'WC',
+  'Other/National': 'NAT',
+};
+
+export function provinceAbbrev(province?: string | null): string | null {
+  if (!province?.trim()) return null;
+  const trimmed = province.trim();
+  if (isValidProvince(trimmed)) return PROVINCE_ABBREV[trimmed];
+  return null;
+}
+
 export const SHOOTING_DISCIPLINES = [
   { id: 'prone', label: 'Prone' },
   { id: 'f-class', label: 'F-Class' },

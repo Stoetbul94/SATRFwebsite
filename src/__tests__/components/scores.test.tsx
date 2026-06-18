@@ -6,13 +6,17 @@ const mockRows = [
   {
     rank: 1,
     userId: '1',
-    shooterName: 'John Smith',
-    club: 'SATRF Club',
-    category: 'senior',
+    shooterName: 'Arnold Bailie',
+    club: 'Modderbee',
+    category: 'open',
     discipline: 'prone_50m',
-    average: 95.5,
-    best: 98.0,
-    eventCount: 3,
+    average: 578.6,
+    best: 578.6,
+    averageRings: 550,
+    bestRings: 550,
+    eventCount: 1,
+    seasonEventTotal: 4,
+    province: 'North West',
   },
   {
     rank: 2,
@@ -47,7 +51,7 @@ describe('Scores Component', () => {
     ).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(screen.getByText(/John Smith/i)).toBeInTheDocument()
+      expect(screen.getByText(/Arnold Bailie/i)).toBeInTheDocument()
     })
   })
 
@@ -68,11 +72,28 @@ describe('Scores Component', () => {
     })
   })
 
+  it('renders paired decimal and ring scores when rings available', async () => {
+    render(<Scores />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/578\.6/).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText(/\(550\)/).length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('renders events as competed / total when season total provided', async () => {
+    render(<Scores />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1 / 4')).toBeInTheDocument()
+    })
+  })
+
   it('filters rows by search query', async () => {
     render(<Scores />)
 
     await waitFor(() => {
-      expect(screen.getByText(/John Smith/i)).toBeInTheDocument()
+      expect(screen.getByText(/Arnold Bailie/i)).toBeInTheDocument()
     })
 
     fireEvent.change(screen.getByPlaceholderText(/Search by name or club/i), {
@@ -80,6 +101,6 @@ describe('Scores Component', () => {
     })
 
     expect(screen.getByText(/Sarah Johnson/i)).toBeInTheDocument()
-    expect(screen.queryByText(/John Smith/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Arnold Bailie/i)).not.toBeInTheDocument()
   })
 })
