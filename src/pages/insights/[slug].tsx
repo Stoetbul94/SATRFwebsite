@@ -17,15 +17,28 @@ import { getPublishedInsightBySlug } from '@/lib/insightsServer';
 interface InsightPageProps {
   item: FiringLineItem;
   bodyMarkdown: string;
+  ogImage: string;
+  pageUrl: string;
 }
 
-export default function InsightArticlePage({ item, bodyMarkdown }: InsightPageProps) {
+const SITE_URL = 'https://satrf.org.za';
+
+export default function InsightArticlePage({ item, bodyMarkdown, ogImage, pageUrl }: InsightPageProps) {
   return (
     <Layout>
       <Head>
         <title>{item.title} | SATRF Insights</title>
         <meta name="description" content={item.summary} />
-        <link rel="canonical" href={`https://satrf.org.za/insights/${item.slug}`} />
+        <link rel="canonical" href={pageUrl} />
+        <meta property="og:type" content="article" />
+        <meta property="og:title" content={item.title} />
+        <meta property="og:description" content={item.summary} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:image" content={ogImage} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={item.title} />
+        <meta name="twitter:description" content={item.summary} />
+        <meta name="twitter:image" content={ogImage} />
       </Head>
 
       <article className="bg-white">
@@ -76,6 +89,10 @@ export default function InsightArticlePage({ item, bodyMarkdown }: InsightPagePr
 
 export const getServerSideProps: GetServerSideProps<InsightPageProps> = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
+  const pageUrl = `${SITE_URL}/insights/${slug}`;
+
+  const toOgImage = (image: string) =>
+    image.startsWith('http') ? image : `${SITE_URL}${image.startsWith('/') ? image : `/${image}`}`;
 
   try {
     const db = getAdminDb();
@@ -87,6 +104,8 @@ export const getServerSideProps: GetServerSideProps<InsightPageProps> = async ({
         props: {
           item,
           bodyMarkdown: doc.bodyMarkdown || item.summary,
+          ogImage: toOgImage(item.image),
+          pageUrl,
         },
       };
     }
@@ -100,6 +119,8 @@ export const getServerSideProps: GetServerSideProps<InsightPageProps> = async ({
       props: {
         item: fallback,
         bodyMarkdown: fallback.summary,
+        ogImage: toOgImage(fallback.image),
+        pageUrl,
       },
     };
   }

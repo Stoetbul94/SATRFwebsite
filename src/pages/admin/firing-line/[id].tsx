@@ -8,6 +8,8 @@ import {
   Checkbox,
   FormControl,
   FormLabel,
+  Grid,
+  GridItem,
   HStack,
   Input,
   Select,
@@ -18,10 +20,11 @@ import {
   Image,
   Progress,
 } from '@chakra-ui/react';
-import { FiArrowLeft, FiImage, FiSave } from 'react-icons/fi';
+import { FiArrowLeft, FiExternalLink, FiImage, FiSave } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
+import InsightMarkdown from '@/components/insights/InsightMarkdown';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { useContentEditorRoute } from '@/hooks/useContentEditorRoute';
 import { auth } from '@/lib/firebase';
@@ -274,6 +277,32 @@ export default function AdminFiringLineEditor() {
     }
   };
 
+  const handlePreviewDraft = async () => {
+    const idToUse = await ensureDocId();
+    if (!idToUse) {
+      toast({ title: 'Save failed', description: 'Could not create draft for preview.', status: 'error', duration: 4000 });
+      return;
+    }
+
+    // Persist current form state before preview
+    const token = await getToken();
+    if (token) {
+      await fetch(`/api/admin/insights/${idToUse}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...form,
+          slug: slugifyTitle(form.slug || form.title),
+        }),
+      }).catch(() => undefined);
+    }
+
+    window.open(`/insights/preview/${idToUse}`, '_blank', 'noopener,noreferrer');
+  };
+
   if (authLoading || loading) {
     return (
       <AdminLayout>
@@ -297,6 +326,15 @@ export default function AdminFiringLineEditor() {
           <HStack spacing={2}>
             <Button as={Link} href="/admin/firing-line" leftIcon={<FiArrowLeft />} variant="ghost" size="sm">
               Back
+            </Button>
+            <Button
+              leftIcon={<FiExternalLink />}
+              variant="outline"
+              size="sm"
+              onClick={handlePreviewDraft}
+              isDisabled={!form.title.trim()}
+            >
+              Preview
             </Button>
             <Button
               leftIcon={<FiSave />}
@@ -420,17 +458,47 @@ export default function AdminFiringLineEditor() {
                 Insert image / chart
               </Button>
             </HStack>
-            <Textarea
-              ref={bodyRef}
-              value={form.bodyMarkdown}
-              onChange={(e) => updateField('bodyMarkdown', e.target.value)}
-              rows={16}
-              fontFamily="mono"
-              fontSize="sm"
-            />
-            <Text fontSize="xs" color="text.muted" mt={1}>
-              Use **bold**, headings with #, and upload PNG/JPG graphs via Insert image.
-            </Text>
+            <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={4}>
+              <GridItem>
+                <Textarea
+                  ref={bodyRef}
+                  value={form.bodyMarkdown}
+                  onChange={(e) => updateField('bodyMarkdown', e.target.value)}
+                  rows={20}
+                  fontFamily="mono"
+                  fontSize="sm"
+                />
+                <Text fontSize="xs" color="text.muted" mt={1}>
+                  Use **bold**, headings with #, and upload PNG/JPG graphs via Insert image.
+                </Text>
+              </GridItem>
+              <GridItem>
+                <Text fontSize="xs" fontWeight="semibold" color="text.muted" mb={2} textTransform="uppercase">
+                  Preview
+                </Text>
+                <Box
+                  borderWidth="1px"
+                  borderColor="border.default"
+                  borderRadius="md"
+                  p={4}
+                  minH="320px"
+                  maxH="480px"
+                  overflowY="auto"
+                  bg="bg.canvas"
+                >
+                  {form.bodyMarkdown.trim() ? (
+                    <InsightMarkdown
+                      content={form.bodyMarkdown}
+                      className="prose prose-sm prose-gray max-w-none"
+                    />
+                  ) : (
+                    <Text fontSize="sm" color="text.muted">
+                      Start writing to see a live preview.
+                    </Text>
+                  )}
+                </Box>
+              </GridItem>
+            </Grid>
           </FormControl>
 
           <Checkbox
@@ -440,12 +508,18 @@ export default function AdminFiringLineEditor() {
             Feature on homepage (replaces current featured article)
           </Checkbox>
 
-          {form.status === 'published' && form.slug && (
+          {form.slug && (
             <Text fontSize="sm">
-              Public URL:{' '}
-              <Link href={`/insights/${form.slug}`} target="_blank" style={{ color: '#3182ce' }}>
-                /insights/{form.slug}
-              </Link>
+              {form.status === 'published' ? 'Public URL: ' : 'Preview URL (after save): '}
+              {form.status === 'published' ? (
+                <Link href={`/insights/${form.slug}`} target="_blank" style={{ color: '#3182ce' }}>
+                  /insights/{form.slug}
+                </Link>
+              ) : (
+                <Text as="span" color="text.muted">
+                  Use Preview button above
+                </Text>
+              )}
             </Text>
           )}
         </VStack>

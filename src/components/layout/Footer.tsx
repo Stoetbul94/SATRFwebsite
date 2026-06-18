@@ -47,6 +47,7 @@ export default function Footer() {
                   ['/about', 'About SATRF'],
                   ['/events', 'Events'],
                   ['/scores', 'Scores'],
+                  ['/insights', 'From the Firing Line'],
                   ['/leaderboard', 'Leaderboard'],
                   ['/media', 'Media'],
                 ].map(([href, label]) => (
