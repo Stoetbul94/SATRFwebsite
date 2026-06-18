@@ -40,8 +40,9 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - favicon.ico, apple-touch-icon.png (favicon files)
+     * - images/ (static images including /images/favicon.png)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|apple-touch-icon.png|images/).*)',
   ],
 }; 
