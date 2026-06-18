@@ -34,7 +34,7 @@ export const STATIC_FIRING_LINE_ITEMS: FiringLineItem[] = [
     summary:
       'Conversations from the firing line — coaching, competition and the future of target rifle shooting in South Africa.',
     readTime: 'Watch playlist',
-    image: '/images/affiliates/TeamSa.jpg',
+    image: '/images/inner-tens-podcast.png',
     href: 'https://www.youtube.com/playlist?list=PL1c6eGWLy7nsraMVFZkfhHOq8EdCPJObf',
     external: true,
   },
