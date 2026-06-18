@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      { source: '/favicon.ico', destination: '/images/favicon.png' },
+      { source: '/apple-touch-icon.png', destination: '/images/favicon.png' },
+    ];
+  },
   images: {
     // Migrate from deprecated images.domains to images.remotePatterns
     remotePatterns: [
