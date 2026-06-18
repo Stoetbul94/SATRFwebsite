@@ -24,6 +24,7 @@ import {
   FiExternalLink,
   FiGrid,
   FiUser,
+  FiEdit,
 } from 'react-icons/fi';
 import { isAdminAthlete } from '@/lib/userAthlete';
 import FlagStripe from '@/components/brand/FlagStripe';
@@ -31,7 +32,9 @@ import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
+import { useFiringLineEditorPermission } from '@/hooks/useFiringLineEditorPermission';
 import { auth } from '@/lib/firebase';
+import type { IconType } from 'react-icons';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -41,7 +44,12 @@ interface AdminLayoutProps {
   description?: string;
 }
 
-const adminNavItems = [
+const adminNavItems: {
+  href: string;
+  label: string;
+  icon: IconType;
+  requiresFiringLineEditor?: boolean;
+}[] = [
   { href: '/admin/dashboard', label: 'Statistics', icon: FiBarChart2 },
   { href: '/admin/users', label: 'Members', icon: FiUsers },
   { href: '/admin/events', label: 'Events', icon: FiCalendar },
@@ -49,6 +57,12 @@ const adminNavItems = [
   { href: '/admin/scores/import', label: 'Import Scores', icon: FiUpload },
   { href: '/admin/rankings', label: 'Rankings', icon: FiTrendingUp },
   { href: '/admin/audit', label: 'Audit Log', icon: FiFileText },
+  {
+    href: '/admin/firing-line',
+    label: 'Firing Line',
+    icon: FiEdit,
+    requiresFiringLineEditor: true,
+  },
 ];
 
 const getToken = async (): Promise<string | null> => {
@@ -61,7 +75,12 @@ export default function AdminLayout({ children, title, description }: AdminLayou
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isAdmin, isLoading } = useAdminRoute();
+  const { firingLineEditor } = useFiringLineEditorPermission();
   const [pendingMembers, setPendingMembers] = useState(0);
+
+  const visibleNavItems = adminNavItems.filter(
+    (item) => !item.requiresFiringLineEditor || firingLineEditor
+  );
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -145,7 +164,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
           </Box>
 
           <VStack align="stretch" spacing={0.5} flex={1}>
-            {adminNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive =
                 router.pathname === item.href ||

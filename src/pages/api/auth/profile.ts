@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb, verifyRequestUser } from '@/lib/firebaseAdmin';
 import { mapUserDoc, type UserProfileUpdate } from '@/lib/auth';
+import { isContentEditorEmail } from '@/lib/contentEditor';
 import {
   deriveAgeCategory,
   isValidProvince,
@@ -81,7 +82,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         profile = { ...profile, role: 'admin', status: 'active', isActive: true };
       }
 
-      return res.status(200).json({ profile });
+      return res.status(200).json({
+        profile,
+        permissions: {
+          firingLineEditor: isContentEditorEmail(verified.email),
+        },
+      });
     } catch (error: any) {
       console.error('profile GET error:', error);
       return res.status(500).json({ error: 'Internal server error', details: error.message });
