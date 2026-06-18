@@ -19,6 +19,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminLoadingPanel from '@/components/admin/AdminLoadingPanel';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
+import { useFiringLineEditorPermission } from '@/hooks/useFiringLineEditorPermission';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 
@@ -39,6 +40,7 @@ const getToken = async (): Promise<string | null> => {
 export default function AdminDashboard() {
   useProtectedRoute();
   const { isAdmin, isLoading } = useAdminRoute();
+  const { firingLineEditor } = useFiringLineEditorPermission();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -86,6 +88,9 @@ export default function AdminDashboard() {
     { label: 'Import Scores', href: '/admin/scores/import', variant: 'satrfOutline' as const },
     { label: 'Manage Scores', href: '/admin/scores', variant: 'satrfOutline' as const },
     { label: 'Create Event', href: '/admin/events', variant: 'satrf' as const },
+    ...(firingLineEditor
+      ? [{ label: 'Manage Firing Line', href: '/admin/firing-line', variant: 'satrfOutline' as const }]
+      : []),
   ];
 
   return (

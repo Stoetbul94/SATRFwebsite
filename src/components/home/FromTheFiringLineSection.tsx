@@ -1,9 +1,13 @@
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
+  FIRING_LINE_ITEMS,
   FIRING_LINE_TYPE_LABELS,
+  STATIC_FIRING_LINE_ITEMS,
   getFeaturedItem,
   getSecondaryItems,
+  mergeFiringLineItems,
   type FiringLineItem,
 } from '@/lib/firingLineContent';
 
@@ -13,6 +17,23 @@ const TYPE_BADGE_STYLES: Record<FiringLineItem['type'], string> = {
   coaching: 'bg-[#1a365d] text-white',
   event: 'bg-gray-600 text-white',
 };
+
+function CardSkeleton({ featured }: { featured?: boolean }) {
+  return (
+    <div
+      className={`animate-pulse rounded-xl border border-gray-100 bg-white shadow-md ${
+        featured ? 'h-full min-h-[320px]' : 'h-full min-h-[200px]'
+      }`}
+    >
+      <div className={`bg-gray-200 ${featured ? 'aspect-[16/10]' : 'aspect-video'}`} />
+      <div className="space-y-3 p-5">
+        <div className="h-3 w-16 rounded bg-gray-200" />
+        <div className="h-5 w-3/4 rounded bg-gray-200" />
+        <div className="h-4 w-full rounded bg-gray-200" />
+      </div>
+    </div>
+  );
+}
 
 function FiringLineCard({
   item,
@@ -40,6 +61,7 @@ function FiringLineCard({
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           sizes={featured ? '(min-width: 1024px) 50vw, 100vw' : '(min-width: 1024px) 25vw, 100vw'}
+          unoptimized={item.image.startsWith('http')}
         />
         <span
           className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${TYPE_BADGE_STYLES[item.type]}`}
@@ -84,8 +106,33 @@ function FiringLineCard({
 }
 
 export default function FromTheFiringLineSection() {
-  const featured = getFeaturedItem();
-  const secondary = getSecondaryItems();
+  const [items, setItems] = useState<FiringLineItem[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/insights?limit=10');
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        const published = (data.items ?? []) as FiringLineItem[];
+        const merged = mergeFiringLineItems(published, STATIC_FIRING_LINE_ITEMS);
+        if (!cancelled) setItems(merged.slice(0, 4));
+      } catch {
+        if (!cancelled) setItems(FIRING_LINE_ITEMS.slice(0, 4));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const displayItems = items ?? [];
+  const loading = items === null;
+  const featured = displayItems.length ? getFeaturedItem(displayItems) : null;
+  const secondary = displayItems.length ? getSecondaryItems(displayItems) : [];
 
   return (
     <section className="bg-gray-50 py-16 sm:py-20" aria-labelledby="firing-line-heading">
@@ -105,11 +152,15 @@ export default function FromTheFiringLineSection() {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:grid-rows-3 lg:gap-8">
           <div className="md:col-span-2 lg:col-span-2 lg:row-span-3">
-            <FiringLineCard item={featured} featured />
+            {loading || !featured ? (
+              <CardSkeleton featured />
+            ) : (
+              <FiringLineCard item={featured} featured />
+            )}
           </div>
-          {secondary.map((item) => (
-            <div key={item.id} className="lg:col-span-1">
-              <FiringLineCard item={item} />
+          {(loading ? [0, 1, 2] : secondary).map((item, index) => (
+            <div key={loading ? `sk-${index}` : (item as FiringLineItem).id} className="lg:col-span-1">
+              {loading ? <CardSkeleton /> : <FiringLineCard item={item as FiringLineItem} />}
             </div>
           ))}
         </div>

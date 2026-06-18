@@ -1,40 +1,25 @@
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { GetStaticPaths, GetStaticProps } from 'next';
+import type { GetServerSideProps } from 'next';
 import Layout from '@/components/layout/Layout';
+import InsightMarkdown from '@/components/insights/InsightMarkdown';
 import {
   FIRING_LINE_TYPE_LABELS,
-  getArticleSlugs,
   getFiringLineItemBySlug,
+  FIRING_LINE_ITEMS,
+  mapInsightDocToItem,
   type FiringLineItem,
 } from '@/lib/firingLineContent';
-
-const PLACEHOLDER_BODY: Record<string, string[]> = {
-  'understanding-3-position-rifle': [
-    'Three-position rifle combines kneeling, prone and standing — each with its own stability challenges and sighting rhythm. At 50m, athletes shoot a defined series in each position before totals decide qualification standing.',
-    'Kneeling rewards a solid support triangle and controlled breathing. Prone is the steadiest platform for precision. Standing demands balance, core strength and a repeatable natural point of aim.',
-    'SATRF national events follow ISSF qualification formats. Use this guide as a starting point before your first 3P match or when helping new club members understand the discipline.',
-  ],
-  'strong-prone-position': [
-    'A strong prone position starts with a natural alignment to the target — rifle, spine and legs working together so the sight picture returns after each shot without muscling the rifle.',
-    'Contact points matter: chest support, elbow placement and head position should feel relaxed, not strained. Small adjustments beat big resets once you are on the line.',
-    'Repeatability wins matches. Build a checklist for training: position, sight picture, follow-through — then trust it in competition.',
-  ],
-  'f-class-long-range-precision': [
-    'F-Class extends precision shooting with specialized rifle setups and emphasis on reading wind and mirage over multiple distances.',
-    'Equipment consistency — stock fit, trigger, and ammunition — frees attention for downrange conditions. Log your sight settings and learn how your rifle responds in different light.',
-    'Whether you are moving from short-range target rifle or joining a club F-Class day, start with fundamentals and add complexity as your group size tightens.',
-  ],
-};
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getPublishedInsightBySlug } from '@/lib/insightsServer';
 
 interface InsightPageProps {
   item: FiringLineItem;
+  bodyMarkdown: string;
 }
 
-export default function InsightArticlePage({ item }: InsightPageProps) {
-  const paragraphs = item.slug ? PLACEHOLDER_BODY[item.slug] ?? [item.summary] : [item.summary];
-
+export default function InsightArticlePage({ item, bodyMarkdown }: InsightPageProps) {
   return (
     <Layout>
       <Head>
@@ -52,6 +37,7 @@ export default function InsightArticlePage({ item }: InsightPageProps) {
             className="object-cover"
             priority
             sizes="100vw"
+            unoptimized={item.image.startsWith('http')}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#1a365d]/80 via-transparent to-transparent" />
         </div>
@@ -72,11 +58,7 @@ export default function InsightArticlePage({ item }: InsightPageProps) {
           <h1 className="mb-4 text-3xl font-bold text-[#1a365d] sm:text-4xl">{item.title}</h1>
           <p className="mb-8 text-lg text-gray-600">{item.summary}</p>
 
-          <div className="prose prose-gray max-w-none space-y-4 text-gray-700">
-            {paragraphs.map((paragraph) => (
-              <p key={paragraph.slice(0, 32)}>{paragraph}</p>
-            ))}
-          </div>
+          <InsightMarkdown content={bodyMarkdown} className="prose prose-gray max-w-none text-gray-700" />
 
           <div className="mt-10 flex flex-wrap gap-4 border-t border-gray-200 pt-8 text-sm font-medium">
             <Link href="/insights" className="text-[#3182ce] hover:text-[#1a365d]">
@@ -92,18 +74,35 @@ export default function InsightArticlePage({ item }: InsightPageProps) {
   );
 }
 
-export const getStaticPaths: GetStaticPaths = async () => {
-  const paths = getArticleSlugs().map((slug) => ({ params: { slug } }));
-  return { paths, fallback: false };
-};
-
-export const getStaticProps: GetStaticProps<InsightPageProps> = async ({ params }) => {
+export const getServerSideProps: GetServerSideProps<InsightPageProps> = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
-  const item = getFiringLineItemBySlug(slug);
 
-  if (!item || !item.slug) {
-    return { notFound: true };
+  try {
+    const db = getAdminDb();
+    const doc = await getPublishedInsightBySlug(db, slug);
+
+    if (doc) {
+      const item = mapInsightDocToItem(doc);
+      return {
+        props: {
+          item,
+          bodyMarkdown: doc.bodyMarkdown || item.summary,
+        },
+      };
+    }
+  } catch (error) {
+    console.error('insight page load error:', error);
   }
 
-  return { props: { item } };
+  const fallback = getFiringLineItemBySlug(slug, FIRING_LINE_ITEMS);
+  if (fallback?.slug) {
+    return {
+      props: {
+        item: fallback,
+        bodyMarkdown: fallback.summary,
+      },
+    };
+  }
+
+  return { notFound: true };
 };

@@ -1,3 +1,5 @@
+import type { InsightDocument } from '@/lib/insightsServer';
+
 export type FiringLineContentType = 'article' | 'podcast' | 'coaching' | 'event';
 
 export interface FiringLineItem {
@@ -12,6 +14,7 @@ export interface FiringLineItem {
   external?: boolean;
   featured?: boolean;
   slug?: string;
+  bodyMarkdown?: string;
 }
 
 export const FIRING_LINE_TYPE_LABELS: Record<FiringLineContentType, string> = {
@@ -21,6 +24,23 @@ export const FIRING_LINE_TYPE_LABELS: Record<FiringLineContentType, string> = {
   event: 'Event Update',
 };
 
+/** Static items not managed via CMS (e.g. Inner Tens podcast). */
+export const STATIC_FIRING_LINE_ITEMS: FiringLineItem[] = [
+  {
+    id: 'inner-tens-podcast',
+    type: 'podcast',
+    category: 'Inner Tens',
+    title: 'Inner Tens Podcast',
+    summary:
+      'Conversations from the firing line — coaching, competition and the future of target rifle shooting in South Africa.',
+    readTime: 'Watch playlist',
+    image: '/images/affiliates/TeamSa.jpg',
+    href: 'https://www.youtube.com/playlist?list=PL1c6eGWLy7nsraMVFZkfhHOq8EdCPJObf',
+    external: true,
+  },
+];
+
+/** @deprecated Use STATIC_FIRING_LINE_ITEMS + Firestore insights */
 export const FIRING_LINE_ITEMS: FiringLineItem[] = [
   {
     id: 'understanding-3p',
@@ -34,18 +54,7 @@ export const FIRING_LINE_ITEMS: FiringLineItem[] = [
     slug: 'understanding-3-position-rifle',
     featured: true,
   },
-  {
-    id: 'inner-tens-podcast',
-    type: 'podcast',
-    category: 'Inner Tens',
-    title: 'Inner Tens Podcast',
-    summary:
-      'Conversations from the firing line — coaching, competition and the future of target rifle shooting in South Africa.',
-    readTime: 'Watch playlist',
-    image: '/images/affiliates/TeamSa.jpg',
-    href: 'https://www.youtube.com/playlist?list=PL1c6eGWLy7nsraMVFZkfhHOq8EdCPJObf',
-    external: true,
-  },
+  ...STATIC_FIRING_LINE_ITEMS,
   {
     id: 'strong-prone',
     type: 'article',
@@ -70,23 +79,61 @@ export const FIRING_LINE_ITEMS: FiringLineItem[] = [
   },
 ];
 
-export function getFiringLineItemBySlug(slug: string): FiringLineItem | undefined {
-  return FIRING_LINE_ITEMS.find((item) => item.slug === slug);
+const FALLBACK_IMAGE = '/images/sport-collage-satrf.png';
+
+export function mapInsightDocToItem(doc: InsightDocument): FiringLineItem {
+  return {
+    id: doc.id,
+    type: doc.type,
+    category: doc.category,
+    title: doc.title,
+    summary: doc.summary,
+    readTime: doc.readTime,
+    image: doc.coverImageUrl || FALLBACK_IMAGE,
+    href: doc.external && doc.href ? doc.href : `/insights/${doc.slug}`,
+    external: doc.external,
+    featured: doc.featured,
+    slug: doc.slug,
+    bodyMarkdown: doc.bodyMarkdown,
+  };
 }
 
-export function getArticleSlugs(): string[] {
-  return FIRING_LINE_ITEMS.filter((item) => item.slug).map((item) => item.slug as string);
+export function mergeFiringLineItems(
+  published: FiringLineItem[],
+  staticItems: FiringLineItem[] = STATIC_FIRING_LINE_ITEMS
+): FiringLineItem[] {
+  const articles = published.filter((item) => item.type === 'article' || !item.external);
+  const podcast = staticItems.filter((item) => item.type === 'podcast');
+  const featured = articles.find((item) => item.featured) ?? articles[0];
+  const restArticles = articles.filter((item) => item.id !== featured?.id);
+
+  const merged: FiringLineItem[] = [];
+  if (featured) merged.push(featured);
+  if (podcast[0]) merged.push(podcast[0]);
+  restArticles.forEach((item) => {
+    if (!merged.some((m) => m.id === item.id)) merged.push(item);
+  });
+
+  return merged;
 }
 
-export function getArticleItems(): FiringLineItem[] {
-  return FIRING_LINE_ITEMS.filter((item) => item.type === 'article');
+export function getFeaturedItem(items: FiringLineItem[]): FiringLineItem {
+  return items.find((item) => item.featured) ?? items[0];
 }
 
-export function getFeaturedItem(): FiringLineItem {
-  return FIRING_LINE_ITEMS.find((item) => item.featured) ?? FIRING_LINE_ITEMS[0];
+export function getSecondaryItems(items: FiringLineItem[]): FiringLineItem[] {
+  const featured = getFeaturedItem(items);
+  return items.filter((item) => item.id !== featured.id);
 }
 
-export function getSecondaryItems(): FiringLineItem[] {
-  const featured = getFeaturedItem();
-  return FIRING_LINE_ITEMS.filter((item) => item.id !== featured.id);
+export function getFiringLineItemBySlug(slug: string, items: FiringLineItem[]): FiringLineItem | undefined {
+  return items.find((item) => item.slug === slug);
+}
+
+export function getArticleSlugs(items: FiringLineItem[]): string[] {
+  return items.filter((item) => item.slug && !item.external).map((item) => item.slug as string);
+}
+
+export function getArticleItems(items: FiringLineItem[]): FiringLineItem[] {
+  return items.filter((item) => item.type === 'article');
 }

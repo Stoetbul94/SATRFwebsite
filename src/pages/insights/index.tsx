@@ -1,10 +1,42 @@
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
 import { FiringLineCard } from '@/components/home/FromTheFiringLineSection';
-import { FIRING_LINE_ITEMS } from '@/lib/firingLineContent';
+import {
+  FIRING_LINE_ITEMS,
+  STATIC_FIRING_LINE_ITEMS,
+  mergeFiringLineItems,
+  type FiringLineItem,
+} from '@/lib/firingLineContent';
 
 export default function InsightsIndexPage() {
+  const [items, setItems] = useState<FiringLineItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/insights?limit=50');
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        const published = (data.items ?? []) as FiringLineItem[];
+        const merged = mergeFiringLineItems(published, STATIC_FIRING_LINE_ITEMS);
+        if (!cancelled) setItems(merged);
+      } catch {
+        if (!cancelled) setItems(FIRING_LINE_ITEMS);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <Layout>
       <Head>
@@ -30,11 +62,15 @@ export default function InsightsIndexPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 lg:gap-8">
-            {FIRING_LINE_ITEMS.map((item) => (
-              <FiringLineCard key={item.id} item={item} featured={item.featured} />
-            ))}
-          </div>
+          {loading ? (
+            <p className="text-center text-gray-500">Loading insights…</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 lg:gap-8">
+              {items.map((item) => (
+                <FiringLineCard key={item.id} item={item} featured={item.featured} />
+              ))}
+            </div>
+          )}
 
           <p className="mt-10 text-center">
             <Link href="/" className="text-sm font-medium text-[#3182ce] hover:text-[#1a365d]">
