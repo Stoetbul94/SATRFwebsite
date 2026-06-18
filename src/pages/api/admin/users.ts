@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
+import { toIsoString } from '@/lib/firestoreSerialize';
 
 export default async function handler(
   req: NextApiRequest,
@@ -50,40 +51,26 @@ export default async function handler(
       }
 
       const db = getFirestore();
-      
-      // Try to fetch users with orderBy, but fallback to simple query if index doesn't exist
-      let snapshot;
-      try {
-        snapshot = await db.collection('users')
-          .orderBy('createdAt', 'desc')
-          .limit(1000)
-          .get();
-      } catch (orderByError: any) {
-        // If orderBy fails (likely missing index), try without orderBy
-        console.warn('orderBy failed, fetching without order:', orderByError.message);
-        snapshot = await db.collection('users')
-          .limit(1000)
-          .get();
-      }
-      
-      const users = snapshot.docs.map(doc => {
+
+      // Unfiltered fetch — orderBy('createdAt') excludes docs missing that field.
+      const snapshot = await db.collection('users').limit(1000).get();
+
+      const users = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
-          // Ensure createdAt exists for display
-          createdAt: data.createdAt || data.created_at || new Date().toISOString(),
+          createdAt: toIsoString(data.createdAt ?? data.created_at),
+          updatedAt: toIsoString(data.updatedAt ?? data.updated_at),
+          lastLoginAt: toIsoString(data.lastLoginAt ?? data.last_login_at),
         };
       });
 
-      // Sort manually if orderBy didn't work
-      if (users.length > 0 && !users[0].createdAt) {
-        users.sort((a, b) => {
-          const dateA = new Date(a.createdAt || 0).getTime();
-          const dateB = new Date(b.createdAt || 0).getTime();
-          return dateB - dateA; // Descending
-        });
-      }
+      users.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
 
       console.log(`Fetched ${users.length} users from Firestore`);
       return res.status(200).json({ users });
@@ -95,5 +82,3 @@ export default async function handler(
 
   return res.status(405).json({ error: 'Method not allowed' });
 }
-
-

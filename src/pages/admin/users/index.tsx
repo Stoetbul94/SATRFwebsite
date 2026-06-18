@@ -49,6 +49,7 @@ import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { UserProfile } from '@/lib/auth';
+import { formatIsoDate } from '@/lib/firestoreSerialize';
 
 type StatusFilter = 'pending' | 'active' | 'all';
 
@@ -301,7 +302,7 @@ export default function AdminUsers() {
                     </Td>
                     <Td>{getRoleBadge(user)}</Td>
                     <Td><AdminStatusBadge status={s} /></Td>
-                    <Td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</Td>
+                    <Td>{formatIsoDate(user.createdAt)}</Td>
                     <Td>
                       <HStack spacing={1}>
                         {s === 'pending' && (
