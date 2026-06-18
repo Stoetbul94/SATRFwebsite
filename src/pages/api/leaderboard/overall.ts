@@ -131,7 +131,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     sortRankRows(rows);
 
-    const userIds = [...new Set(rows.map((r) => r.userId).filter((id): id is string => Boolean(id)))];
+    const userIds = Array.from(
+      new Set(rows.map((r) => r.userId).filter((id): id is string => Boolean(id)))
+    );
     if (userIds.length > 0) {
       const provinceByUserId = new Map<string, string>();
       await Promise.all(
