@@ -6,6 +6,7 @@ import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react
 import Layout from '@/components/layout/Layout';
 import SatrfHero from '@/components/home/hero/SatrfHero';
 import SportCollageSection from '@/components/home/SportCollageSection';
+import FromTheFiringLineSection from '@/components/home/FromTheFiringLineSection';
 import OlympicCountdown from '@/components/OlympicCountdown';
 import { eventsAPI, dashboardAPI } from '@/lib/api';
 import type { Event, DashboardStats } from '@/lib/api';
@@ -301,6 +302,8 @@ export default function Home() {
       </section>
 
       <SportCollageSection />
+
+      <FromTheFiringLineSection />
 
       {/* Call to Action Section */}
       <section className="py-16 bg-satrf-navy text-white">
