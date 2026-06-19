@@ -13,6 +13,7 @@ import type {
   ScoringType,
   ShotSeries,
 } from '@/types/scores';
+import { scoreMatchesCategoryFilter, normalizeScoreCategoryFlags } from '@/lib/scoreVeteran';
 
 export const SHOTS_PER_SERIES = 10;
 /** Max decimal for a 5-shot series in 3P final (5 × 10.9). */
@@ -397,6 +398,7 @@ export function buildScore(
   const spec = getDisciplineSpec(input.discipline);
   const now = meta.now ?? new Date().toISOString();
   const stage: ScoreStage = input.stage ?? 'qualification';
+  const { category, isVeteran } = normalizeScoreCategoryFlags(input);
 
   if (stage === '3p_final') {
     const elimShots = (input.finalShots ?? []).map((s) => round1(s));
@@ -439,7 +441,8 @@ export function buildScore(
       userId: input.userId ?? null,
       shooterName: input.shooterName.trim(),
       club: input.club?.trim() ?? '',
-      category: input.category,
+      category,
+      isVeteran,
       eventId: input.eventId ?? '',
       eventName: input.eventName,
       date: input.date,
@@ -502,7 +505,8 @@ export function buildScore(
     userId: input.userId ?? null,
     shooterName: input.shooterName.trim(),
     club: input.club.trim(),
-    category: input.category,
+    category,
+    isVeteran,
     eventId: input.eventId ?? '',
     eventName: input.eventName,
     date: input.date,
@@ -556,6 +560,7 @@ export interface EventResultRow {
   shooterName: string;
   club: string;
   category: Category;
+  isVeteran?: boolean;
   stage: ScoreStage;
   decimalTotal: number;
   integerTotal?: number;
@@ -594,6 +599,7 @@ export function scoreToEventResultRow(score: ScoreDoc, place: number): EventResu
     shooterName: score.shooterName,
     club: score.club,
     category: score.category,
+    isVeteran: score.isVeteran === true,
     stage,
     decimalTotal: score.decimalTotal,
     integerTotal: score.integerTotal,
@@ -709,7 +715,7 @@ export function buildEventResultBoard(
     filtered = filtered.filter((d) => d.status === 'official');
   }
   if (category !== 'all') {
-    filtered = filtered.filter((d) => d.category === category);
+    filtered = filtered.filter((d) => scoreMatchesCategoryFilter(d, category));
   }
 
   const qualDocs = filtered.filter((d) => (d.stage ?? 'qualification') === 'qualification');

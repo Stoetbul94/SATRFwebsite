@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { rank3pFinalists, rankProneFinalists } from '@/lib/issf';
-import type { Discipline, Score } from '@/types/scores';
+import { scoreMatchesCategoryFilter } from '@/lib/scoreVeteran';
+import type { Category, Discipline, Score } from '@/types/scores';
 
 /**
  * GET /api/leaderboard/finals
@@ -16,6 +17,7 @@ interface FinalsRankRow {
   shooterName: string;
   club: string;
   category: string;
+  isVeteran?: boolean;
   discipline: string;
   decimalTotal: number;
   finalRank: number | null;
@@ -57,14 +59,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .where('stage', '==', stage)
       .where('status', '==', 'official');
 
-    if (category && category !== 'all') {
-      query = query.where('category', '==', category);
+    const categoryFilter =
+      category && category !== 'all' ? (category as Category) : undefined;
+    if (categoryFilter && categoryFilter !== 'veteran') {
+      query = query.where('category', '==', categoryFilter);
     }
 
     const snapshot = await query.get();
     const scores = snapshot.docs
       .map((d) => ({ ...(d.data() as Score), id: d.id }))
-      .filter((s) => !(s as Score & { deleted?: boolean }).deleted);
+      .filter((s) => !(s as Score & { deleted?: boolean }).deleted)
+      .filter((s) =>
+        categoryFilter ? scoreMatchesCategoryFilter(s, categoryFilter) : true
+      );
 
     if (scores.length === 0) {
       return res.status(200).json({
@@ -93,6 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       shooterName: s.shooterName,
       club: s.club,
       category: s.category,
+      isVeteran: s.isVeteran === true,
       discipline,
       decimalTotal: s.decimalTotal,
       finalRank: s.finalRank ?? rankMap.get(s.id) ?? null,

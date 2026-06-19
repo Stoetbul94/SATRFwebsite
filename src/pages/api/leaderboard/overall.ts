@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { parseEventDisciplines } from '@/lib/eventDisciplines';
 import { aggregateShooterRings, round1, sortRankRows } from '@/lib/rankingsDisplay';
-import type { Discipline, Score } from '@/types/scores';
+import { scoreMatchesCategoryFilter } from '@/lib/scoreVeteran';
+import type { Category, Discipline, Score } from '@/types/scores';
 
 /**
  * GET /api/leaderboard/overall
@@ -20,6 +21,7 @@ interface RankRow {
   shooterName: string;
   club: string;
   category: string;
+  isVeteran?: boolean;
   discipline: string;
   average: number;
   best: number;
@@ -77,8 +79,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .where('discipline', '==', discipline);
 
     query = query.where('status', '==', 'official');
-    if (category && category !== 'all') {
-      query = query.where('category', '==', category);
+    const categoryFilter =
+      category && category !== 'all' ? (category as Category) : undefined;
+    if (categoryFilter && categoryFilter !== 'veteran') {
+      query = query.where('category', '==', categoryFilter);
     }
 
     const [snapshot, eventsSnapshot] = await Promise.all([
@@ -89,7 +93,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const scores = snapshot.docs
       .map((d) => d.data() as Score & { deleted?: boolean; stage?: string })
       .filter((s) => !s.deleted)
-      .filter((s) => !s.stage || s.stage === 'qualification');
+      .filter((s) => !s.stage || s.stage === 'qualification')
+      .filter((s) =>
+        categoryFilter ? scoreMatchesCategoryFilter(s, categoryFilter) : true
+      );
 
     const seasonEventTotal = countSeasonEventsForDiscipline(
       eventsSnapshot.docs,
@@ -118,6 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         shooterName: latest.shooterName,
         club: latest.club,
         category: latest.category,
+        isVeteran: latest.isVeteran === true,
         discipline,
         average,
         best: round1(best),

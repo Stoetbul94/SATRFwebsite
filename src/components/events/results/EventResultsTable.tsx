@@ -115,6 +115,11 @@ function ResultRowExpand({
               Provisional
             </Badge>
           )}
+          {row.isVeteran && (
+            <Badge ml={2} size="sm" colorScheme="yellow">
+              Veteran
+            </Badge>
+          )}
           <Box mt={1}>
             <FinalEliminationChip row={row} />
           </Box>
@@ -122,6 +127,11 @@ function ResultRowExpand({
         <Td display={{ base: 'none', sm: 'table-cell' }}>{row.club}</Td>
         <Td display={{ base: 'none', md: 'table-cell' }} textTransform="capitalize">
           {row.category}
+          {row.isVeteran && (
+            <Badge ml={1} size="sm" colorScheme="yellow">
+              Vet
+            </Badge>
+          )}
         </Td>
         {showSeriesColumns &&
           [0, 1, 2, 3, 4, 5].map((i) => (
@@ -211,6 +221,9 @@ function MobileResultCard({
             </Text>
             <HStack mt={1} spacing={2} flexWrap="wrap">
               <Badge textTransform="capitalize">{row.category}</Badge>
+              {row.isVeteran && (
+                <Badge colorScheme="yellow">Veteran</Badge>
+              )}
               {row.isProvisional && <Badge colorScheme="yellow">Provisional</Badge>}
               <FinalEliminationChip row={row} />
             </HStack>

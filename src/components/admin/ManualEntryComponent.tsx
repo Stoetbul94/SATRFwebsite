@@ -73,6 +73,7 @@ interface MemberOption {
   firstName: string;
   lastName: string;
   club: string;
+  membershipType?: string;
   status?: string;
 }
 
@@ -183,6 +184,7 @@ export default function ManualEntryComponent({
           lastName?: string;
           email?: string;
           club?: string;
+          membershipType?: string;
           status?: string;
           role?: string;
           isActive?: boolean;
@@ -197,6 +199,7 @@ export default function ManualEntryComponent({
             firstName: u.firstName || '',
             lastName: u.lastName || '',
             club: u.club || '',
+            membershipType: u.membershipType,
             status: u.status,
             label: `${u.firstName || ''} ${u.lastName || ''}`.trim() + (u.club ? ` (${u.club})` : ''),
           }))
@@ -245,12 +248,14 @@ export default function ManualEntryComponent({
     if (value === GUEST_MEMBER) {
       setShooterName('');
       setClub('');
+      setVeteran(false);
       return;
     }
     const m = members.find((x) => x.id === value);
     if (m) {
       setShooterName(`${m.firstName} ${m.lastName}`.trim());
       setClub(m.club);
+      setVeteran(m.membershipType === 'veteran');
     }
   };
 
@@ -403,7 +408,8 @@ export default function ManualEntryComponent({
       userId: selectedMemberId && selectedMemberId !== GUEST_MEMBER ? selectedMemberId : null,
       shooterName: shooterName.trim(),
       club: club.trim(),
-      category,
+      category: category === 'veteran' ? 'open' : category,
+      ...(veteran || category === 'veteran' ? { isVeteran: true } : {}),
       eventId: selectedEventId && selectedEventId !== CUSTOM_EVENT ? selectedEventId : '',
       eventName: eventName.trim(),
       date,
@@ -481,7 +487,7 @@ export default function ManualEntryComponent({
         shooterName: input.shooterName,
         club: input.club,
         category: input.category,
-        veteran,
+        veteran: veteran || input.isVeteran === true,
         discipline,
         decimalTotal: grandTotal,
       },
@@ -655,7 +661,7 @@ export default function ManualEntryComponent({
         <FormControl>
           <FormLabel>Category</FormLabel>
           <Select value={category} onChange={(e) => setCategory(e.target.value as Category)}>
-            {CATEGORIES.map((c) => (
+            {CATEGORIES.filter((c) => c.id !== 'veteran').map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
@@ -843,7 +849,16 @@ export default function ManualEntryComponent({
                 <Tr key={row.id}>
                   <Td>{row.shooterName}</Td>
                   <Td>{row.club}</Td>
-                  <Td>{row.category}</Td>
+                  <Td>
+                    <HStack spacing={1}>
+                      <Text textTransform="capitalize">{row.category}</Text>
+                      {row.veteran && (
+                        <Badge colorScheme="yellow" fontSize="0.65em">
+                          Veteran
+                        </Badge>
+                      )}
+                    </HStack>
+                  </Td>
                   <Td>{DISCIPLINES[row.discipline].label}</Td>
                   <Td isNumeric>{row.decimalTotal.toFixed(1)}</Td>
                   <Td>

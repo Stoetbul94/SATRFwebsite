@@ -3,6 +3,7 @@ import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
 import type { ScoreInput, Score } from '@/types/scores';
+import { enrichScoreInput, type MemberLookup } from '@/lib/scoreMemberEnrich';
 
 /**
  * /api/admin/scores
@@ -26,39 +27,6 @@ function sanitizeForFirestore<T>(value: T): T {
     if (val !== undefined) out[key] = sanitizeForFirestore(val);
   }
   return out as T;
-}
-
-async function findMemberUid(
-  db: FirebaseFirestore.Firestore,
-  shooterName: string,
-  club: string,
-  cache: Map<string, string | null>
-): Promise<string | null> {
-  const key = `${shooterName.toLowerCase()}|${club.toLowerCase()}`;
-  if (cache.has(key)) return cache.get(key)!;
-
-  try {
-    const parts = shooterName.trim().split(/\s+/);
-    let uid: string | null = null;
-    if (parts.length >= 2) {
-      const firstName = parts[0];
-      const lastName = parts.slice(1).join(' ');
-      const snap = await db
-        .collection('users')
-        .where('firstName', '==', firstName)
-        .where('lastName', '==', lastName)
-        .where('club', '==', club)
-        .limit(1)
-        .get();
-      if (!snap.empty) uid = snap.docs[0].id;
-    }
-    cache.set(key, uid);
-    return uid;
-  } catch (err) {
-    console.warn('findMemberUid failed (missing index or no match):', err);
-    cache.set(key, null);
-    return null;
-  }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -129,15 +97,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const cache = new Map<string, string | null>();
+      const memberCache = new Map<string, MemberLookup | null>();
       const batch = db.batch();
       const created: { id: string; score: Omit<Score, 'id'> }[] = [];
 
       for (const input of inputs) {
-        let userId = input.userId?.trim() ? input.userId : null;
-        if (!userId && input.shooterName?.trim()) {
-          userId = await findMemberUid(db, input.shooterName, input.club, cache);
-        }
-        const score = buildScore({ ...input, userId }, { createdBy: adminUid || 'admin' });
+        const enriched = await enrichScoreInput(db, input, cache, memberCache);
+        const score = buildScore(enriched, { createdBy: adminUid || 'admin' });
         const ref = db.collection('scores').doc();
         batch.set(ref, sanitizeForFirestore(score));
         created.push({ id: ref.id, score });

@@ -36,6 +36,7 @@ interface RankRow {
   shooterName: string;
   club: string;
   category: string;
+  isVeteran?: boolean;
   discipline: string;
   average: number;
   best: number;
@@ -194,7 +195,14 @@ export default function Scores() {
                             <Td>
                               <RankingsClubCell club={r.club} province={r.province} />
                             </Td>
-                            <Td textTransform="capitalize">{r.category}</Td>
+                            <Td textTransform="capitalize">
+                              {r.category}
+                              {r.isVeteran && (
+                                <Badge ml={1} colorScheme="yellow" fontSize="0.65em">
+                                  Vet
+                                </Badge>
+                              )}
+                            </Td>
                             <Td isNumeric>
                               <RankingsScorePair decimal={r.average} rings={r.averageRings} />
                             </Td>

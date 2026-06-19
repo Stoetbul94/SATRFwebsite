@@ -45,6 +45,8 @@ export interface Score {
   shooterName: string;
   club: string;
   category: Category;
+  /** Competes in Open for rankings; used for veteran prizes (Option B). */
+  isVeteran?: boolean;
 
   eventId: string;
   eventName: string;
@@ -93,6 +95,7 @@ export interface ScoreInput {
   shooterName: string;
   club: string;
   category: Category;
+  isVeteran?: boolean;
   eventId?: string;
   eventName: string;
   date: string;

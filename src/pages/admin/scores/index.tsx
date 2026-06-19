@@ -241,7 +241,14 @@ export default function AdminScores() {
                   </Td>
                   <Td>{score.club || '-'}</Td>
                   <Td>{disciplineLabel(score.discipline)}</Td>
-                  <Td textTransform="capitalize">{score.category}</Td>
+                  <Td textTransform="capitalize">
+                    {score.category}
+                    {score.isVeteran && (
+                      <Badge ml={1} colorScheme="yellow" fontSize="0.65em">
+                        Vet
+                      </Badge>
+                    )}
+                  </Td>
                   <Td isNumeric fontWeight="semibold">{score.decimalTotal?.toFixed(1)}</Td>
                   <Td isNumeric>{score.innerTens || 0}</Td>
                   <Td><AdminStatusBadge status={score.status} /></Td>
