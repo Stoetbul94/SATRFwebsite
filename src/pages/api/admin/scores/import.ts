@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
 import type { ScoreInput, Score } from '@/types/scores';
 import { enrichScoreInput, type MemberLookup } from '@/lib/scoreMemberEnrich';
+import { findReplaceableScores, softDeleteScores } from '@/lib/scoreReplace';
 
 function sanitizeForFirestore<T>(value: T): T {
   if (value === undefined) return value;
@@ -149,6 +150,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    let totalReplaced = 0;
+    for (const input of enriched) {
+      const replaceIds = await findReplaceableScores(db, input);
+      totalReplaced += await softDeleteScores(db, replaceIds, adminUid || 'admin');
+    }
+
     const batch = db.batch();
     const created: { id: string; score: Omit<Score, 'id'> }[] = [];
 
@@ -164,7 +171,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({
       success: true,
-      message: `Successfully imported ${created.length} score(s)`,
+      message:
+        totalReplaced > 0
+          ? `Replaced ${totalReplaced} existing score(s); imported ${created.length} new score(s)`
+          : `Successfully imported ${created.length} score(s)`,
+      replaced: totalReplaced,
       imported: created.length,
       ids: created.map((c) => c.id),
       summary: { total: scores.length, valid: created.length, invalid: 0 },

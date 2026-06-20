@@ -42,6 +42,7 @@ import type {
   ThreePImportMode,
 } from '@/lib/pdfImport/types';
 import { parsed3pPdfToScoreInput, parsedPdfToScoreInput } from '@/lib/pdfImport/toScoreInput';
+import { is3pImportReady, threePImportReadyLabel } from '@/lib/pdfImport/is3pImportReady';
 
 interface PdfImportComponentProps {
   onImportSuccess: (result: unknown) => void;
@@ -69,6 +70,60 @@ const getToken = async (): Promise<string | null> => {
   if (fresh) return fresh;
   return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 };
+
+function formatApiError(result: Record<string, unknown>): string {
+  const parts: string[] = [];
+  if (typeof result.error === 'string') parts.push(result.error);
+  const details = result.details;
+  if (Array.isArray(details)) {
+    for (const entry of details) {
+      if (entry && typeof entry === 'object' && Array.isArray((entry as { issues?: unknown[] }).issues)) {
+        for (const issue of (entry as { issues: { message?: string }[] }).issues) {
+          if (issue?.message) parts.push(issue.message);
+        }
+      }
+    }
+  } else if (typeof details === 'string') {
+    parts.push(details);
+  }
+  return parts.filter(Boolean).join(' — ') || 'Failed to save score';
+}
+
+function PdfSaveChecklist({
+  hasMember,
+  hasEvent,
+  pdfReady,
+  is3pTab,
+  threePMode,
+}: {
+  hasMember: boolean;
+  hasEvent: boolean;
+  pdfReady: boolean;
+  is3pTab: boolean;
+  threePMode: ThreePImportMode;
+}) {
+  const items = [
+    { label: 'Member selected', ok: hasMember },
+    { label: 'Event selected', ok: hasEvent },
+    {
+      label: is3pTab ? '3P PDF analysed' : 'PDF analysed (6 series)',
+      ok: pdfReady,
+    },
+    ...(is3pTab
+      ? [{ label: threePImportReadyLabel(threePMode), ok: pdfReady }]
+      : []),
+  ];
+
+  return (
+    <Box fontSize="sm" color="gray.600" mt={2}>
+      {items.map((item) => (
+        <Text key={item.label} color={item.ok ? 'green.600' : 'gray.500'}>
+          {item.ok ? '✓' : '○'} {item.label}
+        </Text>
+      ))}
+    </Box>
+  );
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -314,10 +369,7 @@ function ThreePUploadPanel({
     }
   };
 
-  const ready =
-    parsed &&
-    parsed.positionTotals.length >= 3 &&
-    parsed.series.length >= 6;
+  const ready = is3pImportReady(parsed, importMode);
 
   return (
     <VStack align="stretch" spacing={4}>
@@ -452,7 +504,7 @@ function ThreePUploadPanel({
 
           {!ready && (
             <Badge colorScheme="orange" mt={2}>
-              Need 3 position totals and 6 series for full 3P qualification import
+              {threePImportReadyLabel(importMode)}
             </Badge>
           )}
         </Box>
@@ -542,15 +594,14 @@ export default function PdfImportComponent({
   const activeProneParsed = activePdfTab === 0 ? summaryParsed : activePdfTab === 1 ? targetParsed : null;
   const is3pTab = activePdfTab === 2;
 
-  const threePReady =
-    threePParsed &&
-    threePParsed.positionTotals.length >= 3 &&
-    threePParsed.series.length >= 6;
+  const threePReady = is3pImportReady(threePParsed, threePImportMode);
+
+  const proneReady = Boolean(activeProneParsed && activeProneParsed.series.length >= 6);
 
   const canSave =
     selectedMemberId &&
     selectedEventId &&
-    (is3pTab ? threePReady : activeProneParsed && activeProneParsed.series.length >= 6);
+    (is3pTab ? threePReady : proneReady);
 
   const onEventSelect = (id: string) => {
     setSelectedEventId(id);
@@ -572,10 +623,12 @@ export default function PdfImportComponent({
     }
     if (is3pTab) {
       if (!threePReady || !threePParsed) {
-        onImportError('Analyse a 3P PDF with position totals and 6 series first');
+        onImportError(
+          `Analyse a 3P PDF first — ${threePImportReadyLabel(threePImportMode).toLowerCase()}`
+        );
         return;
       }
-    } else if (!activeProneParsed || activeProneParsed.series.length < 6) {
+    } else if (!proneReady || !activeProneParsed) {
       onImportError('Analyse a PDF with all 6 series first');
       return;
     }
@@ -611,14 +664,21 @@ export default function PdfImportComponent({
 
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(result.error || 'Failed to save score');
+        throw new Error(formatApiError(result));
       }
+
+      const replaced = typeof result.replaced === 'number' ? result.replaced : 0;
+      const message =
+        typeof result.message === 'string'
+          ? result.message
+          : is3pTab
+            ? `Saved 3P qualification (${threePParsed!.decimalTotal}) for ${shooterName}`
+            : `Saved prone score (${activeProneParsed!.decimalTotal}) for ${shooterName}`;
+
       onImportSuccess({
         success: true,
-        message: is3pTab
-          ? `Saved 3P qualification (${threePParsed!.decimalTotal}) for ${shooterName}`
-          : `Saved prone score (${activeProneParsed!.decimalTotal}) for ${shooterName}`,
-        details: { imported: 1, errors: 0 },
+        message,
+        details: { imported: 1, errors: 0, replaced },
         ...result,
       });
 
@@ -733,6 +793,16 @@ export default function PdfImportComponent({
           ? `Save 3P qualification (${threePImportMode === 'position_aggregate' ? 'position totals' : '6 series'})`
           : `Save score from ${activePdfTab === 0 ? 'summary' : 'target'} PDF`}
       </Button>
+
+      {!canSave && (
+        <PdfSaveChecklist
+          hasMember={Boolean(selectedMemberId)}
+          hasEvent={Boolean(selectedEventId)}
+          pdfReady={is3pTab ? threePReady : proneReady}
+          is3pTab={is3pTab}
+          threePMode={threePImportMode}
+        />
+      )}
     </VStack>
   );
 }

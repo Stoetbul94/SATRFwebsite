@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
 import type { ScoreInput, Score } from '@/types/scores';
 import { enrichScoreInput, type MemberLookup } from '@/lib/scoreMemberEnrich';
+import { findReplaceableScores, softDeleteScores } from '@/lib/scoreReplace';
 
 /**
  * /api/admin/scores
@@ -98,11 +99,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const cache = new Map<string, string | null>();
       const memberCache = new Map<string, MemberLookup | null>();
+
+      const enrichedInputs: ScoreInput[] = [];
+      for (const input of inputs) {
+        enrichedInputs.push(await enrichScoreInput(db, input, cache, memberCache));
+      }
+
+      let totalReplaced = 0;
+      for (const enriched of enrichedInputs) {
+        const replaceIds = await findReplaceableScores(db, enriched);
+        totalReplaced += await softDeleteScores(db, replaceIds, adminUid || 'admin');
+      }
+
       const batch = db.batch();
       const created: { id: string; score: Omit<Score, 'id'> }[] = [];
 
-      for (const input of inputs) {
-        const enriched = await enrichScoreInput(db, input, cache, memberCache);
+      for (const enriched of enrichedInputs) {
         const score = buildScore(enriched, { createdBy: adminUid || 'admin' });
         const ref = db.collection('scores').doc();
         batch.set(ref, sanitizeForFirestore(score));
@@ -147,7 +159,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       return res.status(201).json({
         success: true,
-        message: `Saved ${created.length} score(s)`,
+        message:
+          totalReplaced > 0
+            ? `Replaced ${totalReplaced} existing score(s); saved ${created.length} new score(s)`
+            : `Saved ${created.length} score(s)`,
+        replaced: totalReplaced,
         ids: created.map((c) => c.id),
       });
     } catch (error: any) {
