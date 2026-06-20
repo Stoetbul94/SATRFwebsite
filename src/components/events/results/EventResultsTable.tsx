@@ -522,7 +522,7 @@ export default function EventResultsTable({
         </Center>
       ) : (
         <>
-          <EventPodium rows={podiumRows} />
+          <EventPodium rows={podiumRows} discipline={activeDiscipline} />
           {data && (
             <>
               {data.hasFinal && data.final && data.final.length > 0 && (
