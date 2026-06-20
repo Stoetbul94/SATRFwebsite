@@ -57,6 +57,51 @@ describe('buildEventResultBoard', () => {
     expect(board.qualification.map((r) => r.place)).toEqual([1, 2, 3]);
   });
 
+  it('breaks 3P qualification ties by standing decimal when totals match', () => {
+    const threePPositions = (
+      kneeling: number,
+      prone: number,
+      standing: number
+    ) => [
+      { position: 'kneeling' as const, series: [], decimalTotal: kneeling, integerTotal: 0 },
+      { position: 'prone' as const, series: [], decimalTotal: prone, integerTotal: 0 },
+      { position: 'standing' as const, series: [], decimalTotal: standing, integerTotal: 0 },
+    ];
+
+    const docs = [
+      baseScore({
+        id: 'first',
+        discipline: 'three_position_50m',
+        shooterName: 'Bernard Laferla',
+        decimalTotal: 558.8,
+        positions: threePPositions(187.9, 201.3, 169.6),
+      }),
+      baseScore({
+        id: 'arnold',
+        discipline: 'three_position_50m',
+        shooterName: 'Arnold Admin',
+        decimalTotal: 551.7,
+        positions: threePPositions(189.6, 198.7, 163.4),
+      }),
+      baseScore({
+        id: 'chantelle',
+        discipline: 'three_position_50m',
+        shooterName: 'Chantelle Botha',
+        category: 'ladies',
+        decimalTotal: 551.7,
+        positions: threePPositions(187.9, 201.3, 162.5),
+      }),
+    ];
+
+    const board = buildEventResultBoard(docs, 'three_position_50m');
+    expect(board.qualification.map((r) => r.shooterName)).toEqual([
+      'Bernard Laferla',
+      'Arnold Admin',
+      'Chantelle Botha',
+    ]);
+    expect(board.qualification.map((r) => r.place)).toEqual([1, 2, 3]);
+  });
+
   it('excludes provisional scores for public view', () => {
     const docs = [
       baseScore({ id: 'a', decimalTotal: 650 }),

@@ -1,6 +1,6 @@
 import type { InsightDocument } from '@/lib/insightsServer';
 
-export type FiringLineContentType = 'article' | 'podcast' | 'coaching' | 'event';
+export type FiringLineContentType = 'article' | 'podcast' | 'coaching' | 'event' | 'notice';
 
 export interface FiringLineItem {
   id: string;
@@ -22,10 +22,22 @@ export const FIRING_LINE_TYPE_LABELS: Record<FiringLineContentType, string> = {
   podcast: 'Inner Tens Podcast',
   coaching: 'Coaching Note',
   event: 'Event Update',
+  notice: 'Official Notice',
 };
 
-/** Static items not managed via CMS (e.g. Inner Tens podcast). */
+/** Static items not managed via CMS (e.g. Inner Tens podcast, official notices). */
 export const STATIC_FIRING_LINE_ITEMS: FiringLineItem[] = [
+  {
+    id: 'satrf-governance-clarification',
+    type: 'notice',
+    category: 'Governance',
+    title: 'Official Notice: SATRF Governance Clarification',
+    summary:
+      'Signed communiqué clarifying recognised governance for non-air-rifle ISSF rifle disciplines in South Africa.',
+    readTime: 'Official notice',
+    image: '/images/notices/satrf-governance-communique-page-1.png',
+    href: '/notices/satrf-governance-clarification',
+  },
   {
     id: 'inner-tens-podcast',
     type: 'podcast',
@@ -103,12 +115,16 @@ export function mergeFiringLineItems(
   staticItems: FiringLineItem[] = STATIC_FIRING_LINE_ITEMS
 ): FiringLineItem[] {
   const articles = published.filter((item) => item.type === 'article' || !item.external);
+  const notices = staticItems.filter((item) => item.type === 'notice');
   const podcast = staticItems.filter((item) => item.type === 'podcast');
   const featured = articles.find((item) => item.featured) ?? articles[0];
   const restArticles = articles.filter((item) => item.id !== featured?.id);
 
   const merged: FiringLineItem[] = [];
   if (featured) merged.push(featured);
+  notices.forEach((item) => {
+    if (!merged.some((m) => m.id === item.id)) merged.push(item);
+  });
   if (podcast[0]) merged.push(podcast[0]);
   restArticles.forEach((item) => {
     if (!merged.some((m) => m.id === item.id)) merged.push(item);

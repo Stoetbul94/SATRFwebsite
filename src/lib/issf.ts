@@ -698,6 +698,23 @@ function applyFinalRanks(docs: ScoreDoc[], discipline: Discipline): ScoreDoc[] {
     .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
 }
 
+function positionDecimalTotal(score: ScoreDoc, position: Position): number {
+  return score.positions?.find((p) => p.position === position)?.decimalTotal ?? 0;
+}
+
+/** Qualification sort: total desc; 3P ties broken by last position (standing) decimal. */
+export function compareQualificationScores(a: ScoreDoc, b: ScoreDoc, discipline: Discipline): number {
+  const totalDiff = b.decimalTotal - a.decimalTotal;
+  if (totalDiff !== 0) return totalDiff;
+
+  if (discipline === 'three_position_50m') {
+    const lastPosition = DISCIPLINES.three_position_50m.positions.at(-1)!;
+    return positionDecimalTotal(b, lastPosition) - positionDecimalTotal(a, lastPosition);
+  }
+
+  return 0;
+}
+
 /**
  * Build qualification + final result boards for one event and discipline.
  * Firestore-free — pass pre-fetched score docs.
@@ -721,7 +738,7 @@ export function buildEventResultBoard(
   const qualDocs = filtered.filter((d) => (d.stage ?? 'qualification') === 'qualification');
   const finalDocs = filtered.filter((d) => (d.stage ?? 'qualification') === expectedFinal);
 
-  const qualSorted = [...qualDocs].sort((a, b) => b.decimalTotal - a.decimalTotal);
+  const qualSorted = [...qualDocs].sort((a, b) => compareQualificationScores(a, b, discipline));
   const qualification = qualSorted.map((doc, i) => scoreToEventResultRow(doc, i + 1));
 
   let finalRows: EventResultRow[] | undefined;
