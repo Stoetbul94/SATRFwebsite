@@ -6,6 +6,8 @@ import {
   hasRecordedRings,
   ringTotalForScore,
   sortRankRows,
+  sortRankRowsForDiscipline,
+  formatScorePair,
 } from '@/lib/rankingsDisplay';
 
 function qualScore(
@@ -54,13 +56,13 @@ describe('rankingsDisplay', () => {
       expect(bestRings).toBeNull();
     });
 
-    it('bestRings comes from the score with highest decimal, not highest rings', () => {
+    it('bestRings is the highest ring score across events', () => {
       const scores = [
         qualScore({ decimalTotal: 580, integerTotal: 540 }),
         qualScore({ decimalTotal: 578.6, integerTotal: 550 }),
       ];
       const { bestRings } = aggregateShooterRings(scores);
-      expect(bestRings).toBe(540);
+      expect(bestRings).toBe(550);
     });
   });
 
@@ -92,6 +94,47 @@ describe('rankingsDisplay', () => {
       ]);
       expect(rows[0].averageRings).toBe(545);
       expect(rows[1].averageRings).toBe(520);
+    });
+  });
+
+  describe('sortRankRowsForDiscipline', () => {
+    it('3P sorts by ring average when both have rings', () => {
+      const rows = sortRankRowsForDiscipline(
+        [
+          { average: 560, averageRings: 520, rank: 0 },
+          { average: 550, averageRings: 530, rank: 0 },
+        ],
+        'three_position_50m'
+      );
+      expect(rows[0].averageRings).toBe(530);
+      expect(rows[0].rank).toBe(1);
+    });
+
+    it('3P tiebreaks ring ties by decimal average', () => {
+      const rows = sortRankRowsForDiscipline(
+        [
+          { average: 551.7, averageRings: 524, rank: 0 },
+          { average: 558.8, averageRings: 524, rank: 0 },
+        ],
+        'three_position_50m'
+      );
+      expect(rows[0].average).toBe(558.8);
+    });
+  });
+
+  describe('formatScorePair', () => {
+    it('ringPrimary shows rings first', () => {
+      expect(formatScorePair(551.7, 524, 'ringPrimary')).toEqual({
+        primary: '524',
+        secondary: '551.7',
+      });
+    });
+
+    it('decimalPrimary shows decimal first', () => {
+      expect(formatScorePair(578.6, 550, 'decimalPrimary')).toEqual({
+        primary: '578.6',
+        secondary: '550',
+      });
     });
   });
 

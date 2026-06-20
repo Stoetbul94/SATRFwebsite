@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
-import { isPdfBuffer, parsePronePdfBuffer } from '@/lib/pdfImport/extractText';
+import { isPdfBuffer, parsePdfBuffer } from '@/lib/pdfImport/extractText';
 import type { PdfReportType } from '@/lib/pdfImport/types';
+import { isParse3pPdfResult } from '@/lib/pdfImport/types';
 
 export const config = {
   api: {
@@ -30,8 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const reportType = req.body?.reportType as PdfReportType;
-    if (reportType !== 'summary' && reportType !== 'target') {
-      return res.status(400).json({ error: 'reportType must be "summary" or "target"' });
+    if (reportType !== 'summary' && reportType !== 'target' && reportType !== '3p_match') {
+      return res.status(400).json({
+        error: 'reportType must be "summary", "target", or "3p_match"',
+      });
     }
 
     const pdfBase64 = req.body?.pdfBase64;
@@ -54,7 +57,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const parsed = await parsePronePdfBuffer(buffer, reportType);
+    const parsed = await parsePdfBuffer(buffer, reportType);
+
+    if (isParse3pPdfResult(parsed)) {
+      const hasData = parsed.positionTotals.length >= 3 || parsed.series.length >= 6;
+      if (!hasData) {
+        return res.status(422).json({
+          error: 'Could not read 3P qualification data from PDF',
+          warnings: parsed.warnings,
+          reportType: parsed.reportType,
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        ...parsed,
+        ready:
+          parsed.positionTotals.length >= 3 &&
+          parsed.series.length >= 6,
+      });
+    }
 
     if (parsed.series.length === 0) {
       return res.status(422).json({

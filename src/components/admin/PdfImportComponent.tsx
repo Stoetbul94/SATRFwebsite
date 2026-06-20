@@ -27,13 +27,21 @@ import {
   TabPanel,
   Spinner,
   Divider,
+  Radio,
+  RadioGroup,
+  Stack,
 } from '@chakra-ui/react';
 import { FiSave, FiFileText } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
-import { CATEGORIES } from '@/lib/issf';
+import { CATEGORIES, POSITION_LABELS } from '@/lib/issf';
 import type { Category } from '@/types/scores';
-import type { ParsePronePdfResult, PdfReportType } from '@/lib/pdfImport/types';
-import { parsedPdfToScoreInput } from '@/lib/pdfImport/toScoreInput';
+import type {
+  Parse3pPdfResult,
+  ParsePronePdfResult,
+  PdfReportType,
+  ThreePImportMode,
+} from '@/lib/pdfImport/types';
+import { parsed3pPdfToScoreInput, parsedPdfToScoreInput } from '@/lib/pdfImport/toScoreInput';
 
 interface PdfImportComponentProps {
   onImportSuccess: (result: unknown) => void;
@@ -86,7 +94,7 @@ function PdfUploadPanel({
   onFile,
   onError,
 }: {
-  reportType: PdfReportType;
+  reportType: 'summary' | 'target';
   label: string;
   hint: string;
   parsed: ParsePronePdfResult | null;
@@ -239,6 +247,220 @@ function PdfUploadPanel({
   );
 }
 
+function ThreePUploadPanel({
+  parsed,
+  onParsed,
+  onClear,
+  file,
+  onFile,
+  onError,
+  importMode,
+  onImportMode,
+}: {
+  parsed: Parse3pPdfResult | null;
+  onParsed: (r: Parse3pPdfResult | null) => void;
+  onClear: () => void;
+  file: File | null;
+  onFile: (f: File | null) => void;
+  onError: (msg: string) => void;
+  importMode: ThreePImportMode;
+  onImportMode: (m: ThreePImportMode) => void;
+}) {
+  const [parsing, setParsing] = useState(false);
+
+  const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith('.pdf')) {
+      onError('Please upload a PDF file');
+      onParsed(null);
+      onFile(null);
+      return;
+    }
+    onFile(f);
+    onParsed(null);
+  };
+
+  const handleParse = async () => {
+    if (!file) return;
+    setParsing(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Please log in again');
+
+      const pdfBase64 = await fileToBase64(file);
+      const res = await fetch('/api/admin/scores/parse-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reportType: '3p_match', pdfBase64 }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const parts = [data.error, data.details].filter(Boolean);
+        if (Array.isArray(data.warnings) && data.warnings.length) {
+          parts.push(data.warnings.join(' '));
+        }
+        throw new Error(parts.join(' — ') || 'Failed to parse PDF');
+      }
+      onParsed(data as Parse3pPdfResult);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Failed to parse PDF');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const ready =
+    parsed &&
+    parsed.positionTotals.length >= 3 &&
+    parsed.series.length >= 6;
+
+  return (
+    <VStack align="stretch" spacing={4}>
+      <Alert status="info" borderRadius="md">
+        <AlertIcon />
+        <Box fontSize="sm">
+          <Text fontWeight="semibold">3-Position match report (qualification)</Text>
+          <Text mt={1}>
+            Reads position totals like &quot;Kneeling (Total) : 189.6 (180)&quot; and series lines
+            like &quot;Kneeling S1 … 94.6&quot;. Decimal and ring (integer) scores are both imported.
+          </Text>
+        </Box>
+      </Alert>
+
+      <FormControl>
+        <FormLabel>PDF file</FormLabel>
+        <Input type="file" accept=".pdf" onChange={handleSelect} p={1} />
+      </FormControl>
+
+      {file && (
+        <HStack>
+          <Text fontSize="sm" color="gray.600">
+            {file.name}
+          </Text>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              onFile(null);
+              onParsed(null);
+              onClear();
+            }}
+          >
+            Clear
+          </Button>
+          <Button
+            size="sm"
+            colorScheme="blue"
+            leftIcon={<FiFileText />}
+            onClick={handleParse}
+            isLoading={parsing}
+            isDisabled={parsing}
+          >
+            Analyse PDF
+          </Button>
+        </HStack>
+      )}
+
+      {parsed && (
+        <Box>
+          {parsed.warnings.length > 0 && (
+            <Alert status={ready ? 'info' : 'warning'} borderRadius="md" mb={3}>
+              <AlertIcon />
+              <Box fontSize="sm">
+                {parsed.warnings.map((w, i) => (
+                  <Text key={i}>• {w}</Text>
+                ))}
+              </Box>
+            </Alert>
+          )}
+
+          {parsed.shooterName && (
+            <Text fontSize="sm" color="gray.600" mb={2}>
+              Name on PDF: {parsed.shooterName} (member is still chosen above)
+            </Text>
+          )}
+
+          <Text fontWeight="semibold" fontSize="sm" mb={2}>
+            Position totals (decimal + ring)
+          </Text>
+          <Table size="sm" variant="simple" mb={4}>
+            <Thead>
+              <Tr>
+                <Th>Position</Th>
+                <Th>Decimal</Th>
+                <Th>Ring total</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {parsed.positionTotals.map((p) => (
+                <Tr key={p.position}>
+                  <Td>{POSITION_LABELS[p.position]}</Td>
+                  <Td>{p.decimal}</Td>
+                  <Td>{p.integer}</Td>
+                </Tr>
+              ))}
+              <Tr fontWeight="bold">
+                <Td>Match total</Td>
+                <Td>{parsed.decimalTotal}</Td>
+                <Td>{parsed.integerTotal ?? '—'}</Td>
+              </Tr>
+            </Tbody>
+          </Table>
+
+          <Text fontWeight="semibold" fontSize="sm" mb={2}>
+            Series decimals (6 × 10 shots)
+          </Text>
+          <Table size="sm" variant="simple" mb={4}>
+            <Thead>
+              <Tr>
+                <Th>Series</Th>
+                <Th>Decimal</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {parsed.series.map((s) => (
+                <Tr key={`${s.position}-S${s.seriesNumber}`}>
+                  <Td>
+                    {POSITION_LABELS[s.position]} S{s.seriesNumber}
+                  </Td>
+                  <Td>{s.decimal}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+
+          <FormControl as="fieldset" mb={2}>
+            <FormLabel as="legend" fontSize="sm" fontWeight="semibold">
+              How to save this qualification score
+            </FormLabel>
+            <RadioGroup value={importMode} onChange={(v) => onImportMode(v as ThreePImportMode)}>
+              <Stack spacing={2}>
+                <Radio value="position_aggregate" size="sm">
+                  Position totals — decimal + ring per position (matches manual &quot;Total only&quot;)
+                </Radio>
+                <Radio value="six_series" size="sm">
+                  6 series — decimal per series; ring total split across S1/S2 per position
+                </Radio>
+              </Stack>
+            </RadioGroup>
+          </FormControl>
+
+          {!ready && (
+            <Badge colorScheme="orange" mt={2}>
+              Need 3 position totals and 6 series for full 3P qualification import
+            </Badge>
+          )}
+        </Box>
+      )}
+    </VStack>
+  );
+}
+
 export default function PdfImportComponent({
   onImportSuccess,
   onImportError,
@@ -258,6 +480,9 @@ export default function PdfImportComponent({
   const [targetFile, setTargetFile] = useState<File | null>(null);
   const [summaryParsed, setSummaryParsed] = useState<ParsePronePdfResult | null>(null);
   const [targetParsed, setTargetParsed] = useState<ParsePronePdfResult | null>(null);
+  const [threePFile, setThreePFile] = useState<File | null>(null);
+  const [threePParsed, setThreePParsed] = useState<Parse3pPdfResult | null>(null);
+  const [threePImportMode, setThreePImportMode] = useState<ThreePImportMode>('position_aggregate');
   const [activePdfTab, setActivePdfTab] = useState(0);
   const loadRefs = useCallback(async () => {
     try {
@@ -314,7 +539,18 @@ export default function PdfImportComponent({
   const selectedMember = members.find((m) => m.id === selectedMemberId);
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
-  const activeParsed = activePdfTab === 0 ? summaryParsed : targetParsed;
+  const activeProneParsed = activePdfTab === 0 ? summaryParsed : activePdfTab === 1 ? targetParsed : null;
+  const is3pTab = activePdfTab === 2;
+
+  const threePReady =
+    threePParsed &&
+    threePParsed.positionTotals.length >= 3 &&
+    threePParsed.series.length >= 6;
+
+  const canSave =
+    selectedMemberId &&
+    selectedEventId &&
+    (is3pTab ? threePReady : activeProneParsed && activeProneParsed.series.length >= 6);
 
   const onEventSelect = (id: string) => {
     setSelectedEventId(id);
@@ -334,7 +570,12 @@ export default function PdfImportComponent({
       onImportError('Select an event');
       return;
     }
-    if (!activeParsed || activeParsed.series.length < 6) {
+    if (is3pTab) {
+      if (!threePReady || !threePParsed) {
+        onImportError('Analyse a 3P PDF with position totals and 6 series first');
+        return;
+      }
+    } else if (!activeProneParsed || activeProneParsed.series.length < 6) {
       onImportError('Analyse a PDF with all 6 series first');
       return;
     }
@@ -344,16 +585,20 @@ export default function PdfImportComponent({
       const token = await getToken();
       if (!token) throw new Error('Please log in again');
 
-      const shooterName = `${selectedMember.firstName} ${selectedMember.lastName}`.trim();
-      const input = parsedPdfToScoreInput(activeParsed, {
-        userId: selectedMember.id,
+      const shooterName = `${selectedMember!.firstName} ${selectedMember!.lastName}`.trim();
+      const scoreOpts = {
+        userId: selectedMember!.id,
         shooterName,
-        club: selectedMember.club,
+        club: selectedMember!.club,
         category,
-        eventId: selectedEvent.id,
-        eventName: selectedEvent.title,
+        eventId: selectedEvent!.id,
+        eventName: selectedEvent!.title,
         date,
-      });
+      };
+
+      const input = is3pTab
+        ? parsed3pPdfToScoreInput(threePParsed!, threePImportMode, scoreOpts)
+        : parsedPdfToScoreInput(activeProneParsed!, scoreOpts);
 
       const res = await fetch('/api/admin/scores', {
         method: 'POST',
@@ -370,15 +615,19 @@ export default function PdfImportComponent({
       }
       onImportSuccess({
         success: true,
-        message: `Saved prone score (${activeParsed.decimalTotal}) for ${shooterName}`,
+        message: is3pTab
+          ? `Saved 3P qualification (${threePParsed!.decimalTotal}) for ${shooterName}`
+          : `Saved prone score (${activeProneParsed!.decimalTotal}) for ${shooterName}`,
         details: { imported: 1, errors: 0 },
         ...result,
       });
 
       setSummaryFile(null);
       setTargetFile(null);
+      setThreePFile(null);
       setSummaryParsed(null);
       setTargetParsed(null);
+      setThreePParsed(null);
     } catch (e) {
       onImportError(e instanceof Error ? e.message : 'Save failed');
     } finally {
@@ -424,9 +673,10 @@ export default function PdfImportComponent({
         variant="soft-rounded"
         colorScheme="blue"
       >
-        <TabList>
-          <Tab>Summary report</Tab>
-          <Tab>Target report</Tab>
+        <TabList flexWrap="wrap">
+          <Tab>Prone summary</Tab>
+          <Tab>Prone target</Tab>
+          <Tab>3P match report</Tab>
         </TabList>
         <TabPanels>
           <TabPanel px={0}>
@@ -455,6 +705,18 @@ export default function PdfImportComponent({
               onError={onImportError}
             />
           </TabPanel>
+          <TabPanel px={0}>
+            <ThreePUploadPanel
+              file={threePFile}
+              onFile={setThreePFile}
+              parsed={threePParsed}
+              onParsed={setThreePParsed}
+              onClear={() => setThreePParsed(null)}
+              onError={onImportError}
+              importMode={threePImportMode}
+              onImportMode={setThreePImportMode}
+            />
+          </TabPanel>
         </TabPanels>
       </Tabs>
 
@@ -464,10 +726,12 @@ export default function PdfImportComponent({
         leftIcon={<FiSave />}
         onClick={handleSave}
         isLoading={isLoading}
-        isDisabled={!activeParsed || activeParsed.series.length < 6 || !selectedMemberId || !selectedEventId}
+        isDisabled={!canSave}
         w="full"
       >
-        Save score from {activePdfTab === 0 ? 'summary' : 'target'} PDF
+        {is3pTab
+          ? `Save 3P qualification (${threePImportMode === 'position_aggregate' ? 'position totals' : '6 series'})`
+          : `Save score from ${activePdfTab === 0 ? 'summary' : 'target'} PDF`}
       </Button>
     </VStack>
   );

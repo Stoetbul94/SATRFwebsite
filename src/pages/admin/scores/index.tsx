@@ -9,7 +9,6 @@ import {
   Tr,
   Th,
   Td,
-  Button,
   HStack,
   Input,
   InputGroup,
@@ -17,22 +16,13 @@ import {
   Select,
   useToast,
   Badge,
-  IconButton,
-  useColorModeValue,
-  Spinner,
-  Center,
-  Text,
   Modal,
   ModalOverlay,
   ModalContent,
   ModalHeader,
   ModalBody,
-  ModalFooter,
   ModalCloseButton,
   useDisclosure,
-  FormControl,
-  FormLabel,
-  VStack,
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiSearch } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -42,17 +32,26 @@ import AdminEmptyState from '@/components/admin/AdminEmptyState';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge';
 import AdminIconActions from '@/components/admin/AdminIconActions';
+import ManualEntryComponent from '@/components/admin/ManualEntryComponent';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { DISCIPLINES } from '@/lib/issf';
-import type { Score, ScoreStatus } from '@/types/scores';
+import { formatScorePair } from '@/lib/rankingsDisplay';
+import type { Score } from '@/types/scores';
 
 const getToken = async (): Promise<string | null> => {
   const fresh = await auth.currentUser?.getIdToken().catch(() => null);
   if (fresh) return fresh;
   return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 };
+
+function formatTotalCell(score: Score): string {
+  if (score.discipline === 'three_position_50m' && score.stage === 'qualification' && score.integerTotal > 0) {
+    return `${formatScorePair(score.decimalTotal, score.integerTotal, 'ringPrimary').primary} (${score.decimalTotal.toFixed(1)})`;
+  }
+  return score.decimalTotal?.toFixed(1) ?? '—';
+}
 
 export default function AdminScores() {
   useProtectedRoute();
@@ -62,14 +61,12 @@ export default function AdminScores() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [scores, setScores] = useState<Score[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [disciplineFilter, setDisciplineFilter] = useState<string>('all');
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   const [selectedScore, setSelectedScore] = useState<Score | null>(null);
-  const [editStatus, setEditStatus] = useState<ScoreStatus>('official');
 
   useEffect(() => {
     if (router.query.status) setStatusFilter(router.query.status as string);
@@ -108,30 +105,23 @@ export default function AdminScores() {
 
   const handleEdit = (score: Score) => {
     setSelectedScore(score);
-    setEditStatus(score.status);
     onOpen();
   };
 
-  const handleSave = async () => {
-    if (!selectedScore) return;
-    try {
-      const token = await getToken();
-      if (!token) return;
-      const response = await fetch(`/api/admin/scores/${selectedScore.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: editStatus }),
-      });
-      if (response.ok) {
-        toast({ title: 'Success', description: 'Score updated', status: 'success', duration: 3000 });
-        onClose();
-        fetchScores();
-      } else {
-        throw new Error('Failed to update score');
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update score', status: 'error', duration: 3000 });
-    }
+  const handleEditSuccess = (result: { message?: string }) => {
+    toast({
+      title: 'Success',
+      description: result.message || 'Score updated',
+      status: 'success',
+      duration: 3000,
+    });
+    onClose();
+    setSelectedScore(null);
+    fetchScores();
+  };
+
+  const handleEditError = (error: string) => {
+    toast({ title: 'Error', description: error, status: 'error', duration: 5000 });
   };
 
   const handleDelete = async (scoreId: string) => {
@@ -193,7 +183,9 @@ export default function AdminScores() {
           <Select value={disciplineFilter} onChange={(e) => setDisciplineFilter(e.target.value)} w="220px">
             <option value="all">All Disciplines</option>
             {Object.values(DISCIPLINES).map((d) => (
-              <option key={d.id} value={d.id}>{d.label}</option>
+              <option key={d.id} value={d.id}>
+                {d.label}
+              </option>
             ))}
           </Select>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} w="180px">
@@ -236,21 +228,39 @@ export default function AdminScores() {
                   <Td fontWeight="medium">
                     {score.shooterName}
                     {!score.userId && (
-                      <Badge ml={2} colorScheme="gray" fontSize="0.6em">unlinked</Badge>
+                      <Badge ml={2} colorScheme="gray" fontSize="0.6em">
+                        unlinked
+                      </Badge>
                     )}
                   </Td>
                   <Td>{score.club || '-'}</Td>
                   <Td>{disciplineLabel(score.discipline)}</Td>
-                  <Td textTransform="capitalize">{score.category}</Td>
-                  <Td isNumeric fontWeight="semibold">{score.decimalTotal?.toFixed(1)}</Td>
+                  <Td textTransform="capitalize">
+                    {score.category}
+                    {score.isVeteran && (
+                      <Badge ml={1} colorScheme="yellow" fontSize="0.65em">
+                        Vet
+                      </Badge>
+                    )}
+                  </Td>
+                  <Td isNumeric fontWeight="semibold">
+                    {formatTotalCell(score)}
+                  </Td>
                   <Td isNumeric>{score.innerTens || 0}</Td>
-                  <Td><AdminStatusBadge status={score.status} /></Td>
+                  <Td>
+                    <AdminStatusBadge status={score.status} />
+                  </Td>
                   <Td>{score.date ? new Date(score.date).toLocaleDateString() : '-'}</Td>
                   <Td>
                     <AdminIconActions
                       actions={[
                         { label: 'Edit score', icon: <FiEdit />, onClick: () => handleEdit(score) },
-                        { label: 'Delete score', icon: <FiTrash2 />, colorScheme: 'red', onClick: () => handleDelete(score.id) },
+                        {
+                          label: 'Delete score',
+                          icon: <FiTrash2 />,
+                          colorScheme: 'red',
+                          onClick: () => handleDelete(score.id),
+                        },
                       ]}
                     />
                   </Td>
@@ -261,31 +271,26 @@ export default function AdminScores() {
         </Table>
       </AdminTableCard>
 
-      {/* Edit Modal */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Edit Score</ModalHeader>
+        <ModalContent maxW="960px">
+          <ModalHeader>
+            Edit score — {selectedScore?.shooterName}
+          </ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              <Text>
-                {selectedScore?.shooterName} — {selectedScore && disciplineLabel(selectedScore.discipline)} —{' '}
-                <strong>{selectedScore?.decimalTotal?.toFixed(1)}</strong>
-              </Text>
-              <FormControl>
-                <FormLabel>Status</FormLabel>
-                <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value as ScoreStatus)}>
-                  <option value="official">Official</option>
-                  <option value="provisional">Provisional</option>
-                </Select>
-              </FormControl>
-            </VStack>
+          <ModalBody pb={6}>
+            {selectedScore && (
+              <ManualEntryComponent
+                key={selectedScore.id}
+                editScore={selectedScore}
+                onEditCancel={onClose}
+                onImportSuccess={handleEditSuccess}
+                onImportError={handleEditError}
+                isLoading={saving}
+                setIsLoading={setSaving}
+              />
+            )}
           </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
-            <Button variant="satrf" onClick={handleSave}>Save</Button>
-          </ModalFooter>
         </ModalContent>
       </Modal>
     </AdminLayout>

@@ -16,6 +16,7 @@ const TYPE_BADGE_STYLES: Record<FiringLineItem['type'], string> = {
   podcast: 'bg-[#e53e3e] text-white',
   coaching: 'bg-[#1a365d] text-white',
   event: 'bg-gray-600 text-white',
+  notice: 'bg-[#e53e3e] text-white',
 };
 
 function CardSkeleton({ featured }: { featured?: boolean }) {

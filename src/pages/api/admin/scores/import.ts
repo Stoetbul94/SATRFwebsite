@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
-import type { Score, ScoreInput } from '@/types/scores';
+import type { ScoreInput, Score } from '@/types/scores';
+import { enrichScoreInput, type MemberLookup } from '@/lib/scoreMemberEnrich';
 
 function sanitizeForFirestore<T>(value: T): T {
   if (value === undefined) return value;
@@ -50,72 +51,13 @@ async function findMemberUid(
   }
 }
 
-async function findMemberByName(
-  db: FirebaseFirestore.Firestore,
-  shooterName: string,
-  cache: Map<string, { uid: string | null; club: string; category: string } | null>
-): Promise<{ uid: string | null; club: string; category: string } | null> {
-  const key = shooterName.toLowerCase();
-  if (cache.has(key)) return cache.get(key)!;
-
-  try {
-    const parts = shooterName.trim().split(/\s+/);
-    if (parts.length < 2) {
-      cache.set(key, null);
-      return null;
-    }
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ');
-    const snap = await db
-      .collection('users')
-      .where('firstName', '==', firstName)
-      .where('lastName', '==', lastName)
-      .limit(3)
-      .get();
-    if (snap.empty) {
-      cache.set(key, null);
-      return null;
-    }
-    const doc = snap.docs[0];
-    const d = doc.data();
-    const result = {
-      uid: doc.id,
-      club: (d.club as string) || '',
-      category: (d.category as string) || 'open',
-    };
-    cache.set(key, result);
-    return result;
-  } catch {
-    cache.set(key, null);
-    return null;
-  }
-}
-
 async function enrichInput(
   db: FirebaseFirestore.Firestore,
   input: ScoreInput,
   cache: Map<string, string | null>,
-  nameCache: Map<string, { uid: string | null; club: string; category: string } | null>
+  nameCache: Map<string, MemberLookup | null>
 ): Promise<ScoreInput> {
-  const stage = input.stage ?? 'qualification';
-  let userId = input.userId?.trim() ? input.userId : null;
-  let club = input.club?.trim() ?? '';
-  let category = input.category;
-
-  if (!userId && club) {
-    userId = await findMemberUid(db, input.shooterName, club, cache);
-  }
-
-  if (stage === 'prone_final' || stage === '3p_final') {
-    const member = await findMemberByName(db, input.shooterName, nameCache);
-    if (member) {
-      userId = member.uid;
-      if (!club) club = member.club;
-      if (!category || category === 'open') category = member.category as ScoreInput['category'];
-    }
-  }
-
-  return { ...input, userId, club, category };
+  return enrichScoreInput(db, input, cache, nameCache);
 }
 
 async function assignFinalRanks(
@@ -185,7 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const db = getAdminDb();
     const cache = new Map<string, string | null>();
-    const nameCache = new Map<string, { uid: string | null; club: string; category: string } | null>();
+    const nameCache = new Map<string, MemberLookup | null>();
 
     const enriched: ScoreInput[] = [];
     for (const raw of scores) {

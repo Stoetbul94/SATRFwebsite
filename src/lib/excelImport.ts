@@ -1,5 +1,6 @@
 import type { Category, Discipline, ScoreInput, ScoreStage } from '@/types/scores';
 import { CATEGORIES, DISCIPLINES } from '@/lib/issf';
+import { veteranFlagFromImportData } from '@/lib/scoreMemberEnrich';
 import * as XLSX from 'xlsx';
 
 const CATEGORY_IDS = new Set(CATEGORIES.map((c) => c.id));
@@ -54,6 +55,8 @@ const QUAL_HEADER_MAP: Record<string, string> = {
   shooter: 'shooterName',
   club: 'club',
   category: 'category',
+  veteran: 'veteran',
+  'veteran y/n': 'veteran',
   's1 dec': 'series1',
   's2 dec': 'series2',
   's3 dec': 'series3',
@@ -97,6 +100,8 @@ const PRONE_FINAL_MAP: Record<string, string> = {
   shooter: 'shooterName',
   club: 'club',
   category: 'category',
+  veteran: 'veteran',
+  'veteran y/n': 'veteran',
   s1: 'series1',
   s2: 'series2',
   s3: 'series3',
@@ -117,6 +122,8 @@ const THREE_P_FINAL_MAP: Record<string, string> = {
   shooter: 'shooterName',
   club: 'club',
   category: 'category',
+  veteran: 'veteran',
+  'veteran y/n': 'veteran',
   'kn s1': 'knS1',
   'kn s2': 'knS2',
   'pr s1': 'prS1',
@@ -227,8 +234,17 @@ function parseStatus(raw: unknown): 'official' | 'provisional' {
 }
 
 function parseCategory(raw: unknown): Category {
-  const c = String(raw ?? 'open').trim().toLowerCase() as Category;
-  return CATEGORY_IDS.has(c) ? c : 'open';
+  const c = String(raw ?? 'open').trim().toLowerCase();
+  if (c === 'veteran') return 'open';
+  return CATEGORY_IDS.has(c as Category) ? (c as Category) : 'open';
+}
+
+function categoryFieldsFromRow(data: Record<string, unknown>): Pick<ScoreInput, 'category' | 'isVeteran'> {
+  const category = parseCategory(data.category);
+  const fromCol = veteranFlagFromImportData(data);
+  const isVeteran =
+    fromCol || String(data.category ?? '').trim().toLowerCase() === 'veteran';
+  return isVeteran ? { category, isVeteran: true } : { category };
 }
 
 function sixSeriesInput(
@@ -246,7 +262,7 @@ function sixSeriesInput(
   return {
     shooterName: String(data.shooterName ?? '').trim(),
     club: String(data.club ?? '').trim(),
-    category: parseCategory(data.category),
+    ...categoryFieldsFromRow(data),
     eventId: ctx.eventId,
     eventName: ctx.eventName || String(data.eventName ?? '').trim(),
     date: parseDateCell(data.date) ?? ctx.date,
@@ -315,7 +331,7 @@ function parseQualSheet(
           input = {
             shooterName,
             club: String(data.club ?? '').trim(),
-            category: parseCategory(data.category),
+            ...categoryFieldsFromRow(data),
             eventId: ctx.eventId,
             eventName: ctx.eventName || String(data.eventName ?? '').trim(),
             date: parseDateCell(data.date) ?? ctx.date,
@@ -344,7 +360,7 @@ function parseQualSheet(
           input = {
             shooterName,
             club: String(data.club ?? '').trim(),
-            category: parseCategory(data.category),
+            ...categoryFieldsFromRow(data),
             eventId: ctx.eventId,
             eventName: ctx.eventName || String(data.eventName ?? '').trim(),
             date: parseDateCell(data.date) ?? ctx.date,
@@ -422,7 +438,7 @@ function parseProneFinalSheet(rows: unknown[][], ctx: ExcelImportContext): Parse
     const input: ScoreInput = {
       shooterName,
       club: String(data.club ?? '').trim(),
-      category: parseCategory(data.category),
+      ...categoryFieldsFromRow(data),
       eventId: ctx.eventId,
       eventName: ctx.eventName || String(data.eventName ?? '').trim(),
       date: parseDateCell(data.date) ?? ctx.date,
@@ -494,7 +510,7 @@ function parse3pFinalSheet(rows: unknown[][], ctx: ExcelImportContext): ParsedIm
       const input: ScoreInput = {
         shooterName,
         club: String(data.club ?? '').trim(),
-        category: parseCategory(data.category),
+        ...categoryFieldsFromRow(data),
         eventId: ctx.eventId,
         eventName: ctx.eventName || String(data.eventName ?? '').trim(),
         date: parseDateCell(data.date) ?? ctx.date,
@@ -565,7 +581,7 @@ function parse3pFinalSheet(rows: unknown[][], ctx: ExcelImportContext): ParsedIm
     const input: ScoreInput = {
       shooterName,
       club: String(data.club ?? '').trim(),
-      category: parseCategory(data.category),
+      ...categoryFieldsFromRow(data),
       eventId: ctx.eventId,
       eventName: ctx.eventName || String(data.eventName ?? '').trim(),
       date: parseDateCell(data.date) ?? ctx.date,

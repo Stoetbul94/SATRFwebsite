@@ -29,6 +29,7 @@ import type { EventResultRow } from '@/lib/issf';
 import type { Category, Discipline } from '@/types/scores';
 import EventPodium from './EventPodium';
 import ScoreDetailPanel from './ScoreDetailPanel';
+import QualScoreText from '@/components/scores/QualScoreText';
 
 const MotionTr = motion(Tr);
 const MotionBox = motion(Box);
@@ -90,10 +91,11 @@ function ResultRowExpand({
 }) {
   const hoverBg = useColorModeValue('gray.50', 'gray.700');
   const pos = row.positions ?? [];
-  const kneel = pos.find((p) => p.position === 'kneeling')?.decimalTotal;
-  const prone = pos.find((p) => p.position === 'prone')?.decimalTotal;
-  const stand = pos.find((p) => p.position === 'standing')?.decimalTotal;
+  const kneelPos = pos.find((p) => p.position === 'kneeling');
+  const pronePos = pos.find((p) => p.position === 'prone');
+  const standPos = pos.find((p) => p.position === 'standing');
   const series = row.series ?? [];
+  const scoreVariant = is3pQual ? 'ringPrimary' : 'decimalPrimary';
 
   return (
     <>
@@ -115,6 +117,11 @@ function ResultRowExpand({
               Provisional
             </Badge>
           )}
+          {row.isVeteran && (
+            <Badge ml={2} size="sm" colorScheme="yellow">
+              Veteran
+            </Badge>
+          )}
           <Box mt={1}>
             <FinalEliminationChip row={row} />
           </Box>
@@ -122,6 +129,11 @@ function ResultRowExpand({
         <Td display={{ base: 'none', sm: 'table-cell' }}>{row.club}</Td>
         <Td display={{ base: 'none', md: 'table-cell' }} textTransform="capitalize">
           {row.category}
+          {row.isVeteran && (
+            <Badge ml={1} size="sm" colorScheme="yellow">
+              Vet
+            </Badge>
+          )}
         </Td>
         {showSeriesColumns &&
           [0, 1, 2, 3, 4, 5].map((i) => (
@@ -132,18 +144,47 @@ function ResultRowExpand({
         {is3pQual && (
           <>
             <Td isNumeric display={{ base: 'none', md: 'table-cell' }}>
-              {kneel?.toFixed(1) ?? '—'}
+              {kneelPos ? (
+                <QualScoreText
+                  decimal={kneelPos.decimalTotal}
+                  rings={kneelPos.integerTotal}
+                  variant={scoreVariant}
+                />
+              ) : (
+                '—'
+              )}
             </Td>
             <Td isNumeric display={{ base: 'none', md: 'table-cell' }}>
-              {prone?.toFixed(1) ?? '—'}
+              {pronePos ? (
+                <QualScoreText
+                  decimal={pronePos.decimalTotal}
+                  rings={pronePos.integerTotal}
+                  variant={scoreVariant}
+                />
+              ) : (
+                '—'
+              )}
             </Td>
             <Td isNumeric display={{ base: 'none', md: 'table-cell' }}>
-              {stand?.toFixed(1) ?? '—'}
+              {standPos ? (
+                <QualScoreText
+                  decimal={standPos.decimalTotal}
+                  rings={standPos.integerTotal}
+                  variant={scoreVariant}
+                />
+              ) : (
+                '—'
+              )}
             </Td>
           </>
         )}
         <Td isNumeric fontWeight="bold" color="satrf.lightBlue">
-          {row.decimalTotal.toFixed(1)}
+          <QualScoreText
+            decimal={row.decimalTotal}
+            rings={row.integerTotal}
+            variant={scoreVariant}
+            fontWeight="bold"
+          />
         </Td>
         <Td w="40px">
           <IconButton
@@ -175,12 +216,14 @@ function MobileResultCard({
   onToggle,
   reducedMotion,
   index,
+  is3pQual,
 }: {
   row: EventResultRow;
   isExpanded: boolean;
   onToggle: () => void;
   reducedMotion: boolean;
   index: number;
+  is3pQual: boolean;
 }) {
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -211,14 +254,22 @@ function MobileResultCard({
             </Text>
             <HStack mt={1} spacing={2} flexWrap="wrap">
               <Badge textTransform="capitalize">{row.category}</Badge>
+              {row.isVeteran && (
+                <Badge colorScheme="yellow">Veteran</Badge>
+              )}
               {row.isProvisional && <Badge colorScheme="yellow">Provisional</Badge>}
               <FinalEliminationChip row={row} />
             </HStack>
           </Box>
         </HStack>
-        <Text fontSize="xl" fontWeight="extrabold" color="satrf.lightBlue">
-          {row.decimalTotal.toFixed(1)}
-        </Text>
+        <QualScoreText
+          decimal={row.decimalTotal}
+          rings={row.integerTotal}
+          variant={is3pQual ? 'ringPrimary' : 'decimalPrimary'}
+          fontSize="xl"
+          fontWeight="extrabold"
+          color="satrf.lightBlue"
+        />
       </Flex>
       <ScoreDetailPanel row={row} isOpen={isExpanded} />
     </MotionBox>
@@ -280,6 +331,7 @@ function ResultsBlock({
               onToggle={() => toggle(rowKey(row))}
               reducedMotion={!!reducedMotion}
               index={i}
+              is3pQual={is3pQual}
             />
           ))}
         </VStack>
