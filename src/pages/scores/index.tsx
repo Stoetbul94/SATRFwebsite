@@ -204,10 +204,18 @@ export default function Scores() {
                               )}
                             </Td>
                             <Td isNumeric>
-                              <RankingsScorePair decimal={r.average} rings={r.averageRings} />
+                              <RankingsScorePair
+                                decimal={r.average}
+                                rings={r.averageRings}
+                                variant={discipline === 'three_position_50m' ? 'ringPrimary' : 'decimalPrimary'}
+                              />
                             </Td>
                             <Td isNumeric>
-                              <RankingsScorePair decimal={r.best} rings={r.bestRings} />
+                              <RankingsScorePair
+                                decimal={r.best}
+                                rings={r.bestRings}
+                                variant={discipline === 'three_position_50m' ? 'ringPrimary' : 'decimalPrimary'}
+                              />
                             </Td>
                             <Td isNumeric color="text.muted">
                               {formatEventsCell(r.eventCount, r.seasonEventTotal)}

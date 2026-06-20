@@ -36,25 +36,31 @@ import {
   MAX_DECIMAL_PER_POSITION_3P,
   MAX_DECIMAL_PER_POSITION_3P_FINAL,
 } from '@/lib/issf';
-import type { Category, Discipline, Position, ScoreStage } from '@/types/scores';
+import type { Category, Discipline, Position, Score, ScoreStage, ScoreStatus } from '@/types/scores';
+import {
+  buildScoreInputFromForm,
+  CUSTOM_EVENT,
+  emptySeries,
+  GUEST_MEMBER,
+  isThreePFinal,
+  makePositionEntryMode,
+  makePositionSeries,
+  parseDecimalValue,
+  scoreToFormState,
+  supportsPositionTotalEntry,
+  validateScoreForm,
+  type PositionEntryMode,
+  type SeriesEntry,
+} from '@/lib/scoreFormState';
 
 interface ManualEntryComponentProps {
   onImportSuccess: (result: any) => void;
   onImportError: (error: string) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
-}
-
-interface SeriesEntry {
-  decimal: string; // kept as string for input control
-  integer: string;
-}
-
-/** Accepts "70.9" or "70,9" (common on ZA keyboards). */
-function parseDecimalValue(raw: string): number {
-  const normalized = raw.trim().replace(',', '.');
-  const n = parseFloat(normalized);
-  return Number.isFinite(n) ? n : 0;
+  /** When set, form edits an existing score via PUT instead of creating new ones. */
+  editScore?: Score | null;
+  onEditCancel?: () => void;
 }
 
 interface StagedScore {
@@ -83,61 +89,17 @@ interface EventOption {
   date?: string;
 }
 
-const GUEST_MEMBER = '__guest__';
-const CUSTOM_EVENT = '__custom__';
-
-const getToken = async (): Promise<string | null> => {
-  if (isE2eAdminBypassActive()) {
-    return localStorage.getItem('access_token');
-  }
-  const fresh = await auth.currentUser?.getIdToken().catch(() => null);
-  if (fresh) return fresh;
-  return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-};
-
 const round1 = (n: number) => Math.round(n * 10) / 10;
-
-function emptySeries(): SeriesEntry {
-  return { decimal: '', integer: '' };
-}
-
-type PositionEntryMode = 'series' | 'total';
-
-function makePositionSeries(discipline: Discipline): Record<Position, SeriesEntry[]> {
-  const spec = DISCIPLINES[discipline];
-  const map = {} as Record<Position, SeriesEntry[]>;
-  spec.positions.forEach((pos) => {
-    map[pos] = Array.from({ length: spec.seriesPerPosition }, emptySeries);
-  });
-  return map;
-}
-
-function makePositionEntryMode(discipline: Discipline): Record<Position, PositionEntryMode> {
-  const map = {} as Record<Position, PositionEntryMode>;
-  DISCIPLINES[discipline].positions.forEach((pos) => {
-    map[pos] = 'series';
-  });
-  return map;
-}
-
-function isThreePQual(discipline: Discipline, stage: ScoreStage): boolean {
-  return discipline === 'three_position_50m' && stage === 'qualification';
-}
-
-function isThreePFinal(discipline: Discipline, stage: ScoreStage): boolean {
-  return discipline === 'three_position_50m' && stage === '3p_final';
-}
-
-function supportsPositionTotalEntry(discipline: Discipline, stage: ScoreStage): boolean {
-  return isThreePQual(discipline, stage) || isThreePFinal(discipline, stage);
-}
 
 export default function ManualEntryComponent({
   onImportSuccess,
   onImportError,
   isLoading,
   setIsLoading,
+  editScore,
+  onEditCancel,
 }: ManualEntryComponentProps) {
+  const isEditMode = Boolean(editScore);
   const [discipline, setDiscipline] = useState<Discipline>('prone_50m');
   const [stage, setStage] = useState<ScoreStage>('qualification');
   const [finalRank, setFinalRank] = useState('');
@@ -163,6 +125,36 @@ export default function ManualEntryComponent({
 
   const [staged, setStaged] = useState<StagedScore[]>([]);
   const [stagedInputs, setStagedInputs] = useState<any[]>([]); // ScoreInput[] kept in parallel
+  const [editStatus, setEditStatus] = useState<ScoreStatus>('official');
+
+  const getToken = async (): Promise<string | null> => {
+    if (isE2eAdminBypassActive()) {
+      return localStorage.getItem('access_token');
+    }
+    const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+    if (fresh) return fresh;
+    return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  };
+
+  useEffect(() => {
+    if (!editScore) return;
+    const state = scoreToFormState(editScore);
+    setDiscipline(state.discipline);
+    setStage(state.stage);
+    setSelectedMemberId(state.selectedMemberId);
+    setShooterName(state.shooterName);
+    setClub(state.club);
+    setCategory(state.category);
+    setVeteran(state.veteran);
+    setSelectedEventId(state.selectedEventId);
+    setEventName(state.eventName);
+    setDate(state.date);
+    setSeriesByPosition(state.seriesByPosition);
+    setPositionEntryMode(state.positionEntryMode);
+    setFinalRank(state.finalRank);
+    setElimShots(state.elimShots);
+    setEditStatus(state.status);
+  }, [editScore?.id]);
 
   const spec = DISCIPLINES[discipline];
 
@@ -273,10 +265,29 @@ export default function ManualEntryComponent({
     return totals;
   }, [seriesByPosition, positionEntryMode, discipline, stage, spec.positions]);
 
+  const positionRingTotals = useMemo(() => {
+    const totals: Partial<Record<Position, number>> = {};
+    const totalEntrySupported = supportsPositionTotalEntry(discipline, stage);
+    spec.positions.forEach((pos) => {
+      const entries = seriesByPosition[pos] ?? [];
+      if (totalEntrySupported && positionEntryMode[pos] === 'total') {
+        totals[pos] = parseInt(entries[0]?.integer ?? '', 10) || 0;
+      } else {
+        totals[pos] = entries.reduce((sum, s) => sum + (parseInt(s.integer, 10) || 0), 0);
+      }
+    });
+    return totals;
+  }, [seriesByPosition, positionEntryMode, discipline, stage, spec.positions]);
+
   const grandTotal = useMemo(
     () => round1(Object.values(positionTotals).reduce((a, b) => a + (b || 0), 0)),
     [positionTotals]
   );
+
+  const grandRingTotal = useMemo(() => {
+    const sum = Object.values(positionRingTotals).reduce((a, b) => a + (b || 0), 0);
+    return sum > 0 ? sum : null;
+  }, [positionRingTotals]);
 
   const availableStages = useMemo((): ScoreStage[] => {
     if (discipline === 'three_position_50m') return ['qualification', '3p_final'];
@@ -501,6 +512,64 @@ export default function ManualEntryComponent({
   };
 
   const handleSave = async () => {
+    if (isEditMode && editScore) {
+      const formState = {
+        discipline,
+        stage,
+        selectedMemberId,
+        shooterName,
+        club,
+        category,
+        veteran,
+        selectedEventId,
+        eventName,
+        date,
+        seriesByPosition,
+        positionEntryMode,
+        finalRank,
+        elimShots,
+        status: editStatus,
+      };
+      const localErr = validateScoreForm(formState);
+      if (localErr) {
+        onImportError(localErr);
+        return;
+      }
+      const input = buildScoreInputFromForm(formState, { source: editScore.source });
+      if (editScore.stage === '3p_final' && editScore.eliminatedAtShot != null) {
+        input.eliminatedAtShot = editScore.eliminatedAtShot;
+      }
+      setIsLoading(true);
+      try {
+        const token = await getToken();
+        if (!token) throw new Error('Authentication required. Please log in again.');
+        const response = await fetch(`/api/admin/scores/${editScore.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(input),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const detail =
+            typeof data.details === 'string'
+              ? data.details
+              : data.details
+                ? JSON.stringify(data.details)
+                : '';
+          throw new Error([data.error, detail].filter(Boolean).join(' — ') || 'Failed to update score');
+        }
+        onImportSuccess({
+          success: true,
+          message: data.message || `Updated score for ${input.shooterName}`,
+        });
+      } catch (error) {
+        onImportError(error instanceof Error ? error.message : 'Update failed');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     // Include the current (un-staged) shooter if filled in.
     const inputs = [...stagedInputs];
     const localErr = validateLocal();
@@ -562,7 +631,11 @@ export default function ManualEntryComponent({
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
         <FormControl>
           <FormLabel>Discipline</FormLabel>
-          <Select value={discipline} onChange={(e) => changeDiscipline(e.target.value as Discipline)}>
+          <Select
+            value={discipline}
+            onChange={(e) => changeDiscipline(e.target.value as Discipline)}
+            isDisabled={isEditMode}
+          >
             {Object.values(DISCIPLINES).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.label}
@@ -572,7 +645,11 @@ export default function ManualEntryComponent({
         </FormControl>
         <FormControl>
           <FormLabel>Stage</FormLabel>
-          <Select value={stage} onChange={(e) => changeStage(e.target.value as ScoreStage)}>
+          <Select
+            value={stage}
+            onChange={(e) => changeStage(e.target.value as ScoreStage)}
+            isDisabled={isEditMode}
+          >
             {availableStages.map((s) => (
               <option key={s} value={s}>
                 {s === 'qualification' ? 'Qualification' : s === 'prone_final' ? 'Prone Final' : '3P Final'}
@@ -673,6 +750,15 @@ export default function ManualEntryComponent({
             Veteran
           </Checkbox>
         </FormControl>
+        {isEditMode && (
+          <FormControl>
+            <FormLabel>Status</FormLabel>
+            <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value as ScoreStatus)}>
+              <option value="official">Official</option>
+              <option value="provisional">Provisional</option>
+            </Select>
+          </FormControl>
+        )}
       </SimpleGrid>
 
       {/* Series inputs per position */}
@@ -729,12 +815,15 @@ export default function ManualEntryComponent({
                     size="sm"
                     mb={1}
                   />
+                  <Text fontSize="xs" color="gray.500" mb={1}>
+                    Ring total — whole-number score (max {ringMax})
+                  </Text>
                   <Input
                     type="number"
                     step="1"
                     min="0"
                     max={ringMax}
-                    placeholder="ring total (opt)"
+                    placeholder="e.g. 180"
                     value={seriesByPosition[pos][0]?.integer ?? ''}
                     onChange={(e) => updateSeries(pos, 0, 'integer', e.target.value)}
                     size="sm"
@@ -764,11 +853,15 @@ export default function ManualEntryComponent({
                       type="number"
                       step="1"
                       min="0"
-                      placeholder="ring (opt)"
+                      max={200}
+                      placeholder="ring"
                       value={s.integer}
                       onChange={(e) => updateSeries(pos, i, 'integer', e.target.value)}
                       size="sm"
                     />
+                    <Text fontSize="xs" color="gray.500" mt={1}>
+                      Ring — whole-number shot value (optional)
+                    </Text>
                   </Box>
                 ))}
               </SimpleGrid>
@@ -820,18 +913,25 @@ export default function ManualEntryComponent({
 
       <HStack justify="space-between">
         <Badge fontSize="md" colorScheme="green" px={3} py={1}>
-          {stage === 'qualification' ? 'Qual total' : 'Final total'}: {grandTotal.toFixed(1)}
+          {stage === 'qualification' ? 'Qual total' : 'Final total'}:{' '}
+          {stage === 'qualification' &&
+          discipline === 'three_position_50m' &&
+          grandRingTotal != null
+            ? `${grandRingTotal} (${grandTotal.toFixed(1)})`
+            : grandTotal.toFixed(1)}
           {stage === '3p_final' &&
             elimShots.some((s) => parseDecimalValue(s) > 0) &&
             ` + ${elimShots.reduce((a, s) => a + parseDecimalValue(s), 0).toFixed(1)} elim`}
         </Badge>
-        <Button leftIcon={<FiPlus />} onClick={addToBatch} variant="outline" colorScheme="blue">
-          Add another shooter
-        </Button>
+        {!isEditMode && (
+          <Button leftIcon={<FiPlus />} onClick={addToBatch} variant="outline" colorScheme="blue">
+            Add another shooter
+          </Button>
+        )}
       </HStack>
 
       {/* Staged batch */}
-      {staged.length > 0 && (
+      {!isEditMode && staged.length > 0 && (
         <Box overflowX="auto" borderWidth="1px" borderRadius="md">
           <Table size="sm">
             <Thead>
@@ -878,17 +978,27 @@ export default function ManualEntryComponent({
         </Box>
       )}
 
-      <Button
-        leftIcon={<FiSave />}
-        colorScheme="blue"
-        size="lg"
-        onClick={handleSave}
-        isLoading={isLoading}
-        loadingText="Saving..."
-        w="full"
-      >
-        Save {staged.length + (shooterName.trim() ? 1 : 0)} score(s)
-      </Button>
+      <HStack spacing={3} w="full">
+        {isEditMode && onEditCancel && (
+          <Button variant="ghost" flex={1} onClick={onEditCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button
+          leftIcon={<FiSave />}
+          colorScheme="blue"
+          size="lg"
+          onClick={handleSave}
+          isLoading={isLoading}
+          loadingText="Saving..."
+          flex={1}
+          w={isEditMode ? undefined : 'full'}
+        >
+          {isEditMode
+            ? 'Save changes'
+            : `Save ${staged.length + (shooterName.trim() ? 1 : 0)} score(s)`}
+        </Button>
+      </HStack>
     </VStack>
   );
 }

@@ -1,4 +1,4 @@
-import type { Score } from '@/types/scores';
+import type { Discipline, Score } from '@/types/scores';
 
 export const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -31,14 +31,11 @@ export function aggregateShooterRings(scores: Pick<Score, 'decimalTotal' | 'inte
   }
 
   const averageRings = round1(withRings.reduce((sum, x) => sum + x.rings, 0) / withRings.length);
-
-  const bestDecimal = Math.max(...scores.map((s) => s.decimalTotal));
-  const bestScore = scores.find((s) => s.decimalTotal === bestDecimal) ?? scores[0];
-  const bestRings = ringTotalForScore(bestScore);
+  const bestRings = Math.max(...withRings.map((x) => x.rings));
 
   return {
     averageRings,
-    bestRings: bestRings != null && bestRings > 0 ? bestRings : null,
+    bestRings: bestRings > 0 ? bestRings : null,
   };
 }
 
@@ -56,7 +53,24 @@ export interface SortableRankRow {
 }
 
 export function sortRankRows<T extends SortableRankRow>(rows: T[]): T[] {
+  return sortRankRowsForDiscipline(rows, 'prone_50m');
+}
+
+export function sortRankRowsForDiscipline<T extends SortableRankRow>(
+  rows: T[],
+  discipline: Discipline
+): T[] {
   const sorted = [...rows].sort((a, b) => {
+    if (discipline === 'three_position_50m') {
+      const ringA = a.averageRings ?? 0;
+      const ringB = b.averageRings ?? 0;
+      if (ringA > 0 && ringB > 0) {
+        if (ringB !== ringA) return ringB - ringA;
+        return b.average - a.average;
+      }
+      if (b.average !== a.average) return b.average - a.average;
+      return ringB - ringA;
+    }
     if (b.average !== a.average) return b.average - a.average;
     return (b.averageRings ?? 0) - (a.averageRings ?? 0);
   });
@@ -64,4 +78,24 @@ export function sortRankRows<T extends SortableRankRow>(rows: T[]): T[] {
     r.rank = i + 1;
   });
   return sorted;
+}
+
+export type ScorePairVariant = 'decimalPrimary' | 'ringPrimary';
+
+export function formatScorePair(
+  decimal: number,
+  rings: number | null | undefined,
+  variant: ScorePairVariant = 'decimalPrimary'
+): { primary: string; secondary: string | null } {
+  const showRings = rings != null && rings > 0;
+  if (variant === 'ringPrimary' && showRings) {
+    return {
+      primary: String(Math.round(rings)),
+      secondary: decimal.toFixed(1),
+    };
+  }
+  return {
+    primary: decimal.toFixed(1),
+    secondary: showRings ? String(Math.round(rings)) : null,
+  };
 }

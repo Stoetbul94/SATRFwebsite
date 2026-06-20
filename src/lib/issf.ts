@@ -13,6 +13,7 @@ import type {
   ScoringType,
   ShotSeries,
 } from '@/types/scores';
+import { ringTotalForScore } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter, normalizeScoreCategoryFlags } from '@/lib/scoreVeteran';
 
 export const SHOTS_PER_SERIES = 10;
@@ -702,17 +703,24 @@ function positionDecimalTotal(score: ScoreDoc, position: Position): number {
   return score.positions?.find((p) => p.position === position)?.decimalTotal ?? 0;
 }
 
-/** Qualification sort: total desc; 3P ties broken by last position (standing) decimal. */
+/** Qualification sort: 3P ranks by ring total when both have rings, else decimal; 3P ring ties broken by standing decimal. */
 export function compareQualificationScores(a: ScoreDoc, b: ScoreDoc, discipline: Discipline): number {
-  const totalDiff = b.decimalTotal - a.decimalTotal;
-  if (totalDiff !== 0) return totalDiff;
-
   if (discipline === 'three_position_50m') {
+    const ringA = ringTotalForScore(a) ?? 0;
+    const ringB = ringTotalForScore(b) ?? 0;
+    if (ringA > 0 && ringB > 0) {
+      if (ringB !== ringA) return ringB - ringA;
+      const lastPosition = DISCIPLINES.three_position_50m.positions.at(-1)!;
+      return positionDecimalTotal(b, lastPosition) - positionDecimalTotal(a, lastPosition);
+    }
+    const totalDiff = b.decimalTotal - a.decimalTotal;
+    if (totalDiff !== 0) return totalDiff;
     const lastPosition = DISCIPLINES.three_position_50m.positions.at(-1)!;
     return positionDecimalTotal(b, lastPosition) - positionDecimalTotal(a, lastPosition);
   }
 
-  return 0;
+  const totalDiff = b.decimalTotal - a.decimalTotal;
+  return totalDiff !== 0 ? totalDiff : 0;
 }
 
 /**

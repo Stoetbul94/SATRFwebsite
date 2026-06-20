@@ -1,10 +1,24 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { buildScore, validateScoreInput } from '@/lib/issf';
+import { enrichScoreInput } from '@/lib/scoreMemberEnrich';
+import type { Score, ScoreInput } from '@/types/scores';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === undefined) return value;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForFirestore(item)) as T;
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (val !== undefined) out[key] = sanitizeForFirestore(val);
+  }
+  return out as T;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized: No token provided' });
@@ -21,39 +35,7 @@ export default async function handler(
   }
 
   try {
-    // Initialize Firebase Admin SDK
-    const { initializeApp, getApps, cert, applicationDefault } = await import('firebase-admin/app');
-    const { getFirestore } = await import('firebase-admin/firestore');
-
-    if (!getApps().length) {
-      try {
-        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-          ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-          : null;
-
-        if (serviceAccount) {
-          initializeApp({
-            credential: cert(serviceAccount),
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
-          });
-        } else {
-          try {
-            initializeApp({
-              credential: applicationDefault(),
-              projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
-            });
-          } catch {
-            initializeApp({
-              projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'satrf-website',
-            });
-          }
-        }
-      } catch (initError) {
-        console.error('Firebase Admin initialization error:', initError);
-      }
-    }
-
-    const db = getFirestore();
+    const db = getAdminDb();
     const scoreRef = db.collection('scores').doc(id);
     const scoreDoc = await scoreRef.get();
 
@@ -61,41 +43,71 @@ export default async function handler(
       return res.status(404).json({ error: 'Score not found' });
     }
 
+    const existing = scoreDoc.data() as Score & { deleted?: boolean };
+
     if (req.method === 'PUT') {
-      const updates = req.body;
-      
-      // Validate updates
-      if (updates.score !== undefined && (updates.score < 0 || updates.score > 109)) {
-        return res.status(400).json({ error: 'Invalid score value' });
+      const body = req.body ?? {};
+
+      // Status-only quick update (legacy)
+      if (body.status && Object.keys(body).length === 1) {
+        await scoreRef.update({
+          status: body.status,
+          updatedAt: new Date().toISOString(),
+        });
+        return res.status(200).json({ success: true, message: 'Score updated successfully' });
       }
 
-      // Update score
-      await scoreRef.update({
-        ...updates,
-        updatedAt: new Date().toISOString(),
+      const input = body as ScoreInput;
+      if (!input.shooterName || !input.positions?.length) {
+        return res.status(400).json({ error: 'Invalid score payload' });
+      }
+
+      const strict = (input.status ?? existing.status) === 'official';
+      const validation = validateScoreInput(input, { strict });
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Validation failed', details: validation.errors });
+      }
+
+      const cache = new Map<string, string | null>();
+      const memberCache = new Map();
+      const enriched = await enrichScoreInput(db, input, cache, memberCache);
+      const rebuilt = buildScore(enriched, {
+        createdBy: existing.createdBy || userId || 'admin',
+        now: existing.createdAt || new Date().toISOString(),
       });
 
-      // Log admin action
+      const updated: Omit<Score, 'id'> = {
+        ...rebuilt,
+        source: input.source ?? existing.source ?? 'manual',
+        createdAt: existing.createdAt,
+        createdBy: existing.createdBy,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await scoreRef.set(sanitizeForFirestore(updated));
+
       await db.collection('adminActions').add({
         adminId: userId,
         action: 'update_score',
         targetId: id,
-        details: updates,
+        details: { shooterName: input.shooterName, decimalTotal: rebuilt.decimalTotal },
         timestamp: new Date().toISOString(),
       });
 
-      return res.status(200).json({ success: true, message: 'Score updated successfully' });
+      return res.status(200).json({
+        success: true,
+        message: 'Score updated successfully',
+        score: { id, ...updated },
+      });
     }
 
     if (req.method === 'DELETE') {
-      // Soft delete - mark as deleted instead of actually deleting
       await scoreRef.update({
         deleted: true,
         deletedAt: new Date().toISOString(),
         deletedBy: userId,
       });
 
-      // Log admin action
       await db.collection('adminActions').add({
         adminId: userId,
         action: 'delete_score',
@@ -107,17 +119,9 @@ export default async function handler(
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error handling score:', error);
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
+    return res.status(500).json({ error: 'Internal server error', details: message });
   }
 }
-
-
-
-
-
-
-
-
-

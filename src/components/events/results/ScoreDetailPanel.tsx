@@ -5,16 +5,23 @@ import { Collapse } from '@chakra-ui/react';
 import { POSITION_LABELS } from '@/lib/issf';
 import type { EventResultRow } from '@/lib/issf';
 import type { Position } from '@/types/scores';
+import QualScoreText from '@/components/scores/QualScoreText';
 
 interface ScoreDetailPanelProps {
   row: EventResultRow;
   isOpen: boolean;
 }
 
+function is3pQualificationRow(row: EventResultRow): boolean {
+  return row.stage === 'qualification' && (row.positions?.length ?? 0) === 3;
+}
+
 export default function ScoreDetailPanel({ row, isOpen }: ScoreDetailPanelProps) {
   const bg = useColorModeValue('gray.50', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const shotCellBg = useColorModeValue('white', 'gray.800');
+  const is3pQual = is3pQualificationRow(row);
+  const scoreVariant = is3pQual ? 'ringPrimary' : 'decimalPrimary';
 
   return (
     <Collapse in={isOpen} animateOpacity unmountOnExit>
@@ -66,22 +73,37 @@ export default function ScoreDetailPanel({ row, isOpen }: ScoreDetailPanelProps)
                 <Text fontSize="xs" color="gray.500" textTransform="uppercase">
                   {POSITION_LABELS[p.position as Position] ?? p.position}
                 </Text>
-                <Text fontWeight="bold" fontSize="lg">
-                  {p.decimalTotal.toFixed(1)}
-                </Text>
+                <QualScoreText
+                  decimal={p.decimalTotal}
+                  rings={p.integerTotal}
+                  variant={scoreVariant}
+                  fontWeight="bold"
+                  fontSize="lg"
+                />
               </Box>
             ))}
           </SimpleGrid>
         )}
 
-        {row.series && row.series.length > 0 && (
-          <SimpleGrid columns={{ base: 3, sm: 6 }} spacing={2}>
+        {row.series && row.series.length > 0 && row.stage !== '3p_final' && (
+          <SimpleGrid columns={{ base: 3, sm: 6 }} spacing={2} mt={row.positions?.length ? 3 : 0}>
             {row.series.map((s) => (
               <Box key={s.seriesNumber} textAlign="center">
                 <Text fontSize="xs" color="gray.500">
                   S{s.seriesNumber}
                 </Text>
-                <Text fontWeight="semibold">{s.missing ? '—' : s.decimal.toFixed(1)}</Text>
+                {s.missing ? (
+                  <Text fontWeight="semibold">—</Text>
+                ) : is3pQual && s.integer != null && s.integer > 0 ? (
+                  <QualScoreText
+                    decimal={s.decimal}
+                    rings={s.integer}
+                    variant="ringPrimary"
+                    fontWeight="semibold"
+                  />
+                ) : (
+                  <Text fontWeight="semibold">{s.decimal.toFixed(1)}</Text>
+                )}
               </Box>
             ))}
           </SimpleGrid>

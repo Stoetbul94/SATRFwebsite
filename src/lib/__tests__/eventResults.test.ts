@@ -57,15 +57,30 @@ describe('buildEventResultBoard', () => {
     expect(board.qualification.map((r) => r.place)).toEqual([1, 2, 3]);
   });
 
-  it('breaks 3P qualification ties by standing decimal when totals match', () => {
+  it('breaks 3P qualification ties by standing decimal when ring totals match', () => {
     const threePPositions = (
-      kneeling: number,
-      prone: number,
-      standing: number
+      kneeling: { decimal: number; ring?: number },
+      prone: { decimal: number; ring?: number },
+      standing: { decimal: number; ring?: number }
     ) => [
-      { position: 'kneeling' as const, series: [], decimalTotal: kneeling, integerTotal: 0 },
-      { position: 'prone' as const, series: [], decimalTotal: prone, integerTotal: 0 },
-      { position: 'standing' as const, series: [], decimalTotal: standing, integerTotal: 0 },
+      {
+        position: 'kneeling' as const,
+        series: [],
+        decimalTotal: kneeling.decimal,
+        integerTotal: kneeling.ring ?? 0,
+      },
+      {
+        position: 'prone' as const,
+        series: [],
+        decimalTotal: prone.decimal,
+        integerTotal: prone.ring ?? 0,
+      },
+      {
+        position: 'standing' as const,
+        series: [],
+        decimalTotal: standing.decimal,
+        integerTotal: standing.ring ?? 0,
+      },
     ];
 
     const docs = [
@@ -74,14 +89,23 @@ describe('buildEventResultBoard', () => {
         discipline: 'three_position_50m',
         shooterName: 'Bernard Laferla',
         decimalTotal: 558.8,
-        positions: threePPositions(187.9, 201.3, 169.6),
+        positions: threePPositions(
+          { decimal: 187.9 },
+          { decimal: 201.3 },
+          { decimal: 169.6 }
+        ),
       }),
       baseScore({
         id: 'arnold',
         discipline: 'three_position_50m',
         shooterName: 'Arnold Admin',
         decimalTotal: 551.7,
-        positions: threePPositions(189.6, 198.7, 163.4),
+        integerTotal: 524,
+        positions: threePPositions(
+          { decimal: 189.6, ring: 180 },
+          { decimal: 198.7, ring: 184 },
+          { decimal: 163.4, ring: 160 }
+        ),
       }),
       baseScore({
         id: 'chantelle',
@@ -89,7 +113,12 @@ describe('buildEventResultBoard', () => {
         shooterName: 'Chantelle Botha',
         category: 'ladies',
         decimalTotal: 551.7,
-        positions: threePPositions(187.9, 201.3, 162.5),
+        integerTotal: 524,
+        positions: threePPositions(
+          { decimal: 187.9, ring: 180 },
+          { decimal: 201.3, ring: 184 },
+          { decimal: 162.5, ring: 160 }
+        ),
       }),
     ];
 
@@ -100,6 +129,38 @@ describe('buildEventResultBoard', () => {
       'Chantelle Botha',
     ]);
     expect(board.qualification.map((r) => r.place)).toEqual([1, 2, 3]);
+  });
+
+  it('ranks 3P qualification by ring total when both shooters have rings', () => {
+    const docs = [
+      baseScore({
+        id: 'higher-dec',
+        discipline: 'three_position_50m',
+        shooterName: 'Higher Decimal',
+        decimalTotal: 560,
+        integerTotal: 520,
+        positions: [
+          { position: 'kneeling', series: [], decimalTotal: 190, integerTotal: 175 },
+          { position: 'prone', series: [], decimalTotal: 200, integerTotal: 185 },
+          { position: 'standing', series: [], decimalTotal: 170, integerTotal: 160 },
+        ],
+      }),
+      baseScore({
+        id: 'higher-ring',
+        discipline: 'three_position_50m',
+        shooterName: 'Higher Rings',
+        decimalTotal: 550,
+        integerTotal: 530,
+        positions: [
+          { position: 'kneeling', series: [], decimalTotal: 185, integerTotal: 180 },
+          { position: 'prone', series: [], decimalTotal: 195, integerTotal: 190 },
+          { position: 'standing', series: [], decimalTotal: 170, integerTotal: 160 },
+        ],
+      }),
+    ];
+
+    const board = buildEventResultBoard(docs, 'three_position_50m');
+    expect(board.qualification.map((r) => r.shooterName)).toEqual(['Higher Rings', 'Higher Decimal']);
   });
 
   it('excludes provisional scores for public view', () => {

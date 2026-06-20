@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { parseEventDisciplines } from '@/lib/eventDisciplines';
-import { aggregateShooterRings, round1, sortRankRows } from '@/lib/rankingsDisplay';
+import { aggregateShooterRings, round1, sortRankRowsForDiscipline } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter } from '@/lib/scoreVeteran';
 import type { Category, Discipline, Score } from '@/types/scores';
 
@@ -137,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    sortRankRows(rows);
+    sortRankRowsForDiscipline(rows, discipline as Discipline);
 
     const userIdSet = new Set(
       rows.map((r) => r.userId).filter((id): id is string => Boolean(id))
