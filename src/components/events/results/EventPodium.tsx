@@ -11,11 +11,14 @@ import {
 } from '@chakra-ui/react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { EventResultRow } from '@/lib/issf';
+import type { Discipline } from '@/types/scores';
+import QualScoreText from '@/components/scores/QualScoreText';
 
 const MotionBox = motion(Box);
 
 interface EventPodiumProps {
   rows: EventResultRow[];
+  discipline: Discipline;
 }
 
 const MEDAL = [
@@ -29,15 +32,18 @@ function PodiumCard({
   medal,
   index,
   reducedMotion,
+  discipline,
 }: {
   row: EventResultRow;
   medal: (typeof MEDAL)[0];
   index: number;
   reducedMotion: boolean;
+  discipline: Discipline;
 }) {
   const cardBg = useColorModeValue('white', 'gray.700');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
   const accent = medal.color;
+  const is3pQual =
+    discipline === 'three_position_50m' && (row.stage ?? 'qualification') === 'qualification';
 
   return (
     <MotionBox
@@ -77,9 +83,14 @@ function PodiumCard({
             <Text fontSize="sm" color="gray.500" noOfLines={1}>
               {row.club}
             </Text>
-            <Text fontSize="2xl" fontWeight="extrabold" color="satrf.lightBlue">
-              {row.decimalTotal.toFixed(1)}
-            </Text>
+            <QualScoreText
+              decimal={row.decimalTotal}
+              rings={row.integerTotal}
+              variant={is3pQual ? 'ringPrimary' : 'decimalPrimary'}
+              fontSize="2xl"
+              fontWeight="extrabold"
+              color="satrf.lightBlue"
+            />
           </VStack>
         </Box>
       </VStack>
@@ -87,7 +98,7 @@ function PodiumCard({
   );
 }
 
-export default function EventPodium({ rows }: EventPodiumProps) {
+export default function EventPodium({ rows, discipline }: EventPodiumProps) {
   const reducedMotion = useReducedMotion();
   const isMobile = useBreakpointValue({ base: true, md: false });
   const top3 = rows.slice(0, 3);
@@ -110,6 +121,7 @@ export default function EventPodium({ rows }: EventPodiumProps) {
             medal={MEDAL[row.place - 1] ?? MEDAL[2]}
             index={i}
             reducedMotion={!!reducedMotion}
+            discipline={discipline}
           />
         ))}
       </VStack>
@@ -125,6 +137,7 @@ export default function EventPodium({ rows }: EventPodiumProps) {
           medal={MEDAL[row.place - 1] ?? MEDAL[i]}
           index={i}
           reducedMotion={!!reducedMotion}
+          discipline={discipline}
         />
       ))}
     </HStack>
