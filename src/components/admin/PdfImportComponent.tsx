@@ -30,6 +30,7 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  Checkbox,
 } from '@chakra-ui/react';
 import { FiSave, FiFileText } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
@@ -43,6 +44,8 @@ import type {
 } from '@/lib/pdfImport/types';
 import { parsed3pPdfToScoreInput, parsedPdfToScoreInput } from '@/lib/pdfImport/toScoreInput';
 import { is3pImportReady, threePImportReadyLabel } from '@/lib/pdfImport/is3pImportReady';
+import { GUEST_MEMBER } from '@/lib/scoreFormState';
+import { isRegisteredMember, shooterIsAssigned } from '@/lib/pdfImport/shooterAssignment';
 
 interface PdfImportComponentProps {
   onImportSuccess: (result: unknown) => void;
@@ -57,6 +60,7 @@ interface MemberOption {
   firstName: string;
   lastName: string;
   club: string;
+  membershipType?: string;
 }
 
 interface EventOption {
@@ -90,20 +94,20 @@ function formatApiError(result: Record<string, unknown>): string {
 }
 
 function PdfSaveChecklist({
-  hasMember,
+  hasShooter,
   hasEvent,
   pdfReady,
   is3pTab,
   threePMode,
 }: {
-  hasMember: boolean;
+  hasShooter: boolean;
   hasEvent: boolean;
   pdfReady: boolean;
   is3pTab: boolean;
   threePMode: ThreePImportMode;
 }) {
   const items = [
-    { label: 'Member selected', ok: hasMember },
+    { label: 'Shooter assigned (member or manual name + club)', ok: hasShooter },
     { label: 'Event selected', ok: hasEvent },
     {
       label: is3pTab ? '3P PDF analysed' : 'PDF analysed (6 series)',
@@ -433,7 +437,8 @@ function ThreePUploadPanel({
 
           {parsed.shooterName && (
             <Text fontSize="sm" color="gray.600" mb={2}>
-              Name on PDF: {parsed.shooterName} (member is still chosen above)
+              Name on PDF: {parsed.shooterName} — filled into Shooter name if empty; you can edit or
+              replace it.
             </Text>
           )}
 
@@ -525,6 +530,9 @@ export default function PdfImportComponent({
 
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [selectedEventId, setSelectedEventId] = useState('');
+  const [shooterName, setShooterName] = useState('');
+  const [club, setClub] = useState('');
+  const [veteran, setVeteran] = useState(false);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState<Category>('open');
 
@@ -555,6 +563,7 @@ export default function PdfImportComponent({
           club?: string;
           status?: string;
           isActive?: boolean;
+          membershipType?: string;
         }[];
         setMembers(
           list
@@ -564,6 +573,7 @@ export default function PdfImportComponent({
               firstName: u.firstName || '',
               lastName: u.lastName || '',
               club: u.club || '',
+              membershipType: u.membershipType,
               label: `${u.firstName || ''} ${u.lastName || ''}`.trim() + (u.club ? ` (${u.club})` : ''),
             }))
         );
@@ -588,8 +598,15 @@ export default function PdfImportComponent({
     loadRefs();
   }, [loadRefs]);
 
+  useEffect(() => {
+    const pdfName = threePParsed?.shooterName?.trim();
+    if (!pdfName) return;
+    setShooterName((prev) => (prev.trim() ? prev : pdfName));
+  }, [threePParsed]);
+
   const selectedMember = members.find((m) => m.id === selectedMemberId);
   const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const manualLocked = isRegisteredMember(selectedMemberId);
 
   const activeProneParsed = activePdfTab === 0 ? summaryParsed : activePdfTab === 1 ? targetParsed : null;
   const is3pTab = activePdfTab === 2;
@@ -598,10 +615,46 @@ export default function PdfImportComponent({
 
   const proneReady = Boolean(activeProneParsed && activeProneParsed.series.length >= 6);
 
+  const hasShooter = shooterIsAssigned(selectedMemberId, shooterName, club);
+
   const canSave =
-    selectedMemberId &&
+    hasShooter &&
     selectedEventId &&
     (is3pTab ? threePReady : proneReady);
+
+  const onMemberSelect = (value: string) => {
+    setSelectedMemberId(value);
+    if (!value || value === GUEST_MEMBER) {
+      setVeteran(false);
+      const pdfName = threePParsed?.shooterName?.trim();
+      if (pdfName) {
+        setShooterName((prev) => (prev.trim() ? prev : pdfName));
+      }
+      return;
+    }
+    const m = members.find((x) => x.id === value);
+    if (m) {
+      setShooterName(`${m.firstName} ${m.lastName}`.trim());
+      setClub(m.club);
+      setVeteran(m.membershipType === 'veteran');
+    }
+  };
+
+  const onShooterNameChange = (value: string) => {
+    setShooterName(value);
+    if (isRegisteredMember(selectedMemberId)) {
+      setSelectedMemberId(GUEST_MEMBER);
+      setVeteran(false);
+    }
+  };
+
+  const onClubChange = (value: string) => {
+    setClub(value);
+    if (isRegisteredMember(selectedMemberId)) {
+      setSelectedMemberId(GUEST_MEMBER);
+      setVeteran(false);
+    }
+  };
 
   const onEventSelect = (id: string) => {
     setSelectedEventId(id);
@@ -613,8 +666,8 @@ export default function PdfImportComponent({
   };
 
   const handleSave = async () => {
-    if (!selectedMember) {
-      onImportError('Select a member');
+    if (!hasShooter) {
+      onImportError('Select a member, or enter shooter name and club manually');
       return;
     }
     if (!selectedEvent) {
@@ -638,14 +691,18 @@ export default function PdfImportComponent({
       const token = await getToken();
       if (!token) throw new Error('Please log in again');
 
-      const shooterName = `${selectedMember!.firstName} ${selectedMember!.lastName}`.trim();
+      const isGuest = !isRegisteredMember(selectedMemberId);
+      const resolvedName = isGuest
+        ? shooterName.trim()
+        : `${selectedMember!.firstName} ${selectedMember!.lastName}`.trim();
       const scoreOpts = {
-        userId: selectedMember!.id,
-        shooterName,
-        club: selectedMember!.club,
+        userId: isGuest ? null : selectedMemberId,
+        shooterName: resolvedName,
+        club: isGuest ? club.trim() : selectedMember!.club,
         category,
-        eventId: selectedEvent!.id,
-        eventName: selectedEvent!.title,
+        isVeteran: veteran,
+        eventId: selectedEvent.id,
+        eventName: selectedEvent.title,
         date,
       };
 
@@ -672,8 +729,8 @@ export default function PdfImportComponent({
         typeof result.message === 'string'
           ? result.message
           : is3pTab
-            ? `Saved 3P qualification (${threePParsed!.decimalTotal}) for ${shooterName}`
-            : `Saved prone score (${activeProneParsed!.decimalTotal}) for ${shooterName}`;
+            ? `Saved 3P qualification (${threePParsed!.decimalTotal}) for ${resolvedName}`
+            : `Saved prone score (${activeProneParsed!.decimalTotal}) for ${resolvedName}`;
 
       onImportSuccess({
         success: true,
@@ -709,7 +766,8 @@ export default function PdfImportComponent({
   return (
     <VStack align="stretch" spacing={6}>
       <Text color="gray.600" fontSize="sm">
-        Upload an electronic-target PDF, pick member and event (not read from the file), then save to Firestore.
+        Upload an electronic-target PDF, assign a registered member or type a guest name and club,
+        pick the event, then save.
       </Text>
 
       <SimpleGridForm
@@ -717,9 +775,16 @@ export default function PdfImportComponent({
         events={events}
         selectedMemberId={selectedMemberId}
         selectedEventId={selectedEventId}
+        shooterName={shooterName}
+        club={club}
+        veteran={veteran}
+        manualLocked={manualLocked}
         category={category}
         date={date}
-        onMember={setSelectedMemberId}
+        onMember={onMemberSelect}
+        onShooterName={onShooterNameChange}
+        onClub={onClubChange}
+        onVeteran={setVeteran}
         onEvent={onEventSelect}
         onCategory={setCategory}
         onDate={setDate}
@@ -796,7 +861,7 @@ export default function PdfImportComponent({
 
       {!canSave && (
         <PdfSaveChecklist
-          hasMember={Boolean(selectedMemberId)}
+          hasShooter={hasShooter}
           hasEvent={Boolean(selectedEventId)}
           pdfReady={is3pTab ? threePReady : proneReady}
           is3pTab={is3pTab}
@@ -812,9 +877,16 @@ function SimpleGridForm({
   events,
   selectedMemberId,
   selectedEventId,
+  shooterName,
+  club,
+  veteran,
+  manualLocked,
   category,
   date,
   onMember,
+  onShooterName,
+  onClub,
+  onVeteran,
   onEvent,
   onCategory,
   onDate,
@@ -823,24 +895,56 @@ function SimpleGridForm({
   events: EventOption[];
   selectedMemberId: string;
   selectedEventId: string;
+  shooterName: string;
+  club: string;
+  veteran: boolean;
+  manualLocked: boolean;
   category: Category;
   date: string;
   onMember: (id: string) => void;
+  onShooterName: (value: string) => void;
+  onClub: (value: string) => void;
+  onVeteran: (value: boolean) => void;
   onEvent: (id: string) => void;
   onCategory: (c: Category) => void;
   onDate: (d: string) => void;
 }) {
   return (
     <Box display="grid" gridTemplateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4}>
-      <FormControl isRequired>
+      <FormControl gridColumn={{ md: 'span 2' }}>
         <FormLabel>Member</FormLabel>
-        <Select placeholder="Select member" value={selectedMemberId} onChange={(e) => onMember(e.target.value)}>
+        <Select
+          placeholder="Select member or type name below"
+          value={selectedMemberId}
+          onChange={(e) => onMember(e.target.value)}
+        >
+          <option value={GUEST_MEMBER}>— Guest / manual name —</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>
           ))}
         </Select>
+        <Text fontSize="xs" color="gray.500" mt={1}>
+          Linked members see scores on their dashboard when saved.
+        </Text>
+      </FormControl>
+      <FormControl>
+        <FormLabel>Shooter name</FormLabel>
+        <Input
+          value={shooterName}
+          onChange={(e) => onShooterName(e.target.value)}
+          placeholder="First Last"
+          isDisabled={manualLocked}
+        />
+      </FormControl>
+      <FormControl>
+        <FormLabel>Club</FormLabel>
+        <Input
+          value={club}
+          onChange={(e) => onClub(e.target.value)}
+          isDisabled={manualLocked}
+        />
       </FormControl>
       <FormControl isRequired>
         <FormLabel>Event</FormLabel>
@@ -859,13 +963,20 @@ function SimpleGridForm({
       <FormControl isRequired>
         <FormLabel>Category</FormLabel>
         <Select value={category} onChange={(e) => onCategory(e.target.value as Category)}>
-          {CATEGORIES.map((c) => (
+          {CATEGORIES.filter((c) => c.id !== 'veteran').map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
             </option>
           ))}
         </Select>
       </FormControl>
+      {category === 'open' && (
+        <FormControl display="flex" alignItems="flex-end">
+          <Checkbox isChecked={veteran} onChange={(e) => onVeteran(e.target.checked)}>
+            Veteran (Open category)
+          </Checkbox>
+        </FormControl>
+      )}
     </Box>
   );
 }

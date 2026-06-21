@@ -13,6 +13,7 @@ export function parsedPdfToScoreInput(
     shooterName: string;
     club: string;
     category: Category;
+    isVeteran?: boolean;
     eventId: string;
     eventName: string;
     date: string;
@@ -23,6 +24,7 @@ export function parsedPdfToScoreInput(
     shooterName: opts.shooterName,
     club: opts.club,
     category: opts.category,
+    isVeteran: opts.isVeteran,
     eventId: opts.eventId,
     eventName: opts.eventName,
     date: opts.date,
@@ -59,6 +61,7 @@ export function parsed3pPdfToScoreInput(
     shooterName: string;
     club: string;
     category: Category;
+    isVeteran?: boolean;
     eventId: string;
     eventName: string;
     date: string;
@@ -69,6 +72,7 @@ export function parsed3pPdfToScoreInput(
     shooterName: opts.shooterName,
     club: opts.club,
     category: opts.category,
+    isVeteran: opts.isVeteran,
     eventId: opts.eventId,
     eventName: opts.eventName,
     date: opts.date,
