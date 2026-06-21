@@ -26,16 +26,18 @@ export default function ScoreTemplate() {
 
           <Heading size="lg">Score import workbook</Heading>
           <Text color="gray.600">
-            Download the official SATRF score import template. Fill qualification sheets (Prone, F-Class,
-            3-Position with 2 series per position) and finals sheets (Prone Final, 3P Final), then upload on
-            the Import page with the event selected.
+            Download the official SATRF score import template. Fill qualification sheets (Prone and
+            F-Class: 6 series decimals + optional ring counts; 3-Position: one decimal and ring
+            total per position) and finals sheets (Prone Final, 3P Final), then upload on the Import
+            page with the event selected.
           </Text>
 
           <Alert status="info" borderRadius="md">
             <AlertIcon />
             <Text fontSize="sm">
-              Column spec: see <code>docs/IMPORT_SPEC.md</code> in the repo. Totals and ranks in the
-              sheet are ignored — the site recalculates everything.
+              Column spec: see <code>docs/IMPORT_SPEC.md</code>. Totals and ranks in the sheet are
+              ignored — the site recalculates everything. Re-importing the same shooter for the same
+              event replaces the prior score.
             </Text>
           </Alert>
 

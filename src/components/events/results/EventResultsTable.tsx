@@ -30,6 +30,7 @@ import type { Category, Discipline } from '@/types/scores';
 import EventPodium from './EventPodium';
 import ScoreDetailPanel from './ScoreDetailPanel';
 import QualScoreText from '@/components/scores/QualScoreText';
+import { qualScoreVariant } from '@/lib/rankingsDisplay';
 
 const MotionTr = motion(Tr);
 const MotionBox = motion(Box);
@@ -78,6 +79,7 @@ function ResultRowExpand({
   onToggle,
   showSeriesColumns,
   is3pQual,
+  discipline,
   reducedMotion,
   index,
 }: {
@@ -86,6 +88,7 @@ function ResultRowExpand({
   onToggle: () => void;
   showSeriesColumns: boolean;
   is3pQual: boolean;
+  discipline: Discipline;
   reducedMotion: boolean;
   index: number;
 }) {
@@ -95,7 +98,7 @@ function ResultRowExpand({
   const pronePos = pos.find((p) => p.position === 'prone');
   const standPos = pos.find((p) => p.position === 'standing');
   const series = row.series ?? [];
-  const scoreVariant = is3pQual ? 'ringPrimary' : 'decimalPrimary';
+  const scoreVariant = qualScoreVariant(discipline, row.stage);
 
   return (
     <>
@@ -202,7 +205,7 @@ function ResultRowExpand({
       {isExpanded && (
         <Tr>
           <Td colSpan={20} py={0} border="none">
-            <ScoreDetailPanel row={row} isOpen={isExpanded} />
+            <ScoreDetailPanel row={row} isOpen={isExpanded} discipline={discipline} />
           </Td>
         </Tr>
       )}
@@ -217,6 +220,7 @@ function MobileResultCard({
   reducedMotion,
   index,
   is3pQual,
+  discipline,
 }: {
   row: EventResultRow;
   isExpanded: boolean;
@@ -224,6 +228,7 @@ function MobileResultCard({
   reducedMotion: boolean;
   index: number;
   is3pQual: boolean;
+  discipline: Discipline;
 }) {
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
@@ -265,13 +270,13 @@ function MobileResultCard({
         <QualScoreText
           decimal={row.decimalTotal}
           rings={row.integerTotal}
-          variant={is3pQual ? 'ringPrimary' : 'decimalPrimary'}
+          variant={qualScoreVariant(discipline, row.stage)}
           fontSize="xl"
           fontWeight="extrabold"
           color="satrf.lightBlue"
         />
       </Flex>
-      <ScoreDetailPanel row={row} isOpen={isExpanded} />
+      <ScoreDetailPanel row={row} isOpen={isExpanded} discipline={discipline} />
     </MotionBox>
   );
 }
@@ -332,6 +337,7 @@ function ResultsBlock({
               reducedMotion={!!reducedMotion}
               index={i}
               is3pQual={is3pQual}
+              discipline={discipline}
             />
           ))}
         </VStack>
@@ -376,6 +382,7 @@ function ResultsBlock({
                   onToggle={() => toggle(rowKey(row))}
                   showSeriesColumns={showSeries}
                   is3pQual={is3pQual}
+                  discipline={discipline}
                   reducedMotion={!!reducedMotion}
                   index={i}
                 />

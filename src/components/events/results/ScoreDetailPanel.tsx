@@ -6,22 +6,32 @@ import { POSITION_LABELS } from '@/lib/issf';
 import type { EventResultRow } from '@/lib/issf';
 import type { Position } from '@/types/scores';
 import QualScoreText from '@/components/scores/QualScoreText';
+import { qualScoreVariant } from '@/lib/rankingsDisplay';
+import type { Discipline } from '@/types/scores';
 
 interface ScoreDetailPanelProps {
   row: EventResultRow;
   isOpen: boolean;
+  discipline?: Discipline;
 }
 
 function is3pQualificationRow(row: EventResultRow): boolean {
   return row.stage === 'qualification' && (row.positions?.length ?? 0) === 3;
 }
 
-export default function ScoreDetailPanel({ row, isOpen }: ScoreDetailPanelProps) {
+export default function ScoreDetailPanel({ row, isOpen, discipline }: ScoreDetailPanelProps) {
   const bg = useColorModeValue('gray.50', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const shotCellBg = useColorModeValue('white', 'gray.800');
   const is3pQual = is3pQualificationRow(row);
-  const scoreVariant = is3pQual ? 'ringPrimary' : 'decimalPrimary';
+  const resolvedDiscipline =
+    discipline ??
+    (is3pQual
+      ? 'three_position_50m'
+      : row.positions?.some((p) => p.position === 'fclass')
+        ? 'fclass_open'
+        : 'prone_50m');
+  const scoreVariant = qualScoreVariant(resolvedDiscipline, row.stage);
 
   return (
     <Collapse in={isOpen} animateOpacity unmountOnExit>

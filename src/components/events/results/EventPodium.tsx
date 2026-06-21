@@ -13,6 +13,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import type { EventResultRow } from '@/lib/issf';
 import type { Discipline } from '@/types/scores';
 import QualScoreText from '@/components/scores/QualScoreText';
+import { qualScoreVariant } from '@/lib/rankingsDisplay';
 
 const MotionBox = motion(Box);
 
@@ -42,8 +43,7 @@ function PodiumCard({
 }) {
   const cardBg = useColorModeValue('white', 'gray.700');
   const accent = medal.color;
-  const is3pQual =
-    discipline === 'three_position_50m' && (row.stage ?? 'qualification') === 'qualification';
+  const scoreVariant = qualScoreVariant(discipline, row.stage);
 
   return (
     <MotionBox
@@ -86,7 +86,7 @@ function PodiumCard({
             <QualScoreText
               decimal={row.decimalTotal}
               rings={row.integerTotal}
-              variant={is3pQual ? 'ringPrimary' : 'decimalPrimary'}
+              variant={scoreVariant}
               fontSize="2xl"
               fontWeight="extrabold"
               color="satrf.lightBlue"

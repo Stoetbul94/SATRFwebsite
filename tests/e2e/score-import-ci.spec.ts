@@ -164,9 +164,9 @@ test.describe('Score import — main CI', () => {
 
     await page.goto('/admin/scores/import');
     await page.getByRole('tab', { name: 'Manual Entry' }).click();
-    await expect(page.getByText('Discipline')).toBeVisible();
 
     const manual = page.getByRole('tabpanel', { name: 'Manual Entry' });
+    await expect(manual.getByText('Discipline', { exact: true })).toBeVisible();
 
     // Validation: empty save surfaces an error before we fill the form
     await manual.getByRole('button', { name: /save 0 score/i }).click();

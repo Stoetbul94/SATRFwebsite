@@ -8,6 +8,7 @@ import {
   sortRankRows,
   sortRankRowsForDiscipline,
   formatScorePair,
+  qualScoreVariant,
 } from '@/lib/rankingsDisplay';
 
 function qualScore(
@@ -135,6 +136,20 @@ describe('rankingsDisplay', () => {
         primary: '578.6',
         secondary: '550',
       });
+    });
+  });
+
+  describe('qualScoreVariant', () => {
+    it('uses ringPrimary for 3P and F-Class qualification', () => {
+      expect(qualScoreVariant('three_position_50m', 'qualification')).toBe('ringPrimary');
+      expect(qualScoreVariant('fclass_open', 'qualification')).toBe('ringPrimary');
+      expect(qualScoreVariant('fclass_tr', 'qualification')).toBe('ringPrimary');
+    });
+
+    it('uses decimalPrimary for finals and prone qual', () => {
+      expect(qualScoreVariant('three_position_50m', '3p_final')).toBe('decimalPrimary');
+      expect(qualScoreVariant('prone_50m', 'qualification')).toBe('decimalPrimary');
+      expect(qualScoreVariant('prone_50m', 'prone_final')).toBe('decimalPrimary');
     });
   });
 
