@@ -1,5 +1,6 @@
 import type { Category, Discipline, ScoreInput, ScoreStage } from '@/types/scores';
 import { CATEGORIES, DISCIPLINES } from '@/lib/issf';
+import { formatScorePair } from '@/lib/rankingsDisplay';
 import { veteranFlagFromImportData } from '@/lib/scoreMemberEnrich';
 import * as XLSX from 'xlsx';
 
@@ -141,13 +142,24 @@ const THREE_P_FINAL_MAP: Record<string, string> = {
   status: 'status',
 };
 
-function findHeaderRowIndex(rows: unknown[][], markers: string[]): number {
+function findHeaderRowIndex(rows: unknown[][], markers: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
     const cells = (rows[i] as unknown[]).map((c) => normalizeHeader(String(c ?? '')));
-    const ok = markers.every((m) => cells.some((c) => c === m || c.includes(m)));
+    const ok = markers.some((group) =>
+      group.every((m) => cells.some((c) => c === m || c.includes(m)))
+    );
     if (ok) return i;
   }
   return 0;
+}
+
+function find3pQualHeaderRow(rows: unknown[][]): number {
+  return findHeaderRowIndex(rows, [
+    ['shooter', 'kneeling dec'],
+    ['shooter name', 'kneeling dec'],
+    ['shooter', 'kn s1'],
+    ['shooter name', 'kn s1'],
+  ]);
 }
 
 function parseFinalRank(raw: unknown): number | undefined {
@@ -156,13 +168,72 @@ function parseFinalRank(raw: unknown): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+function formatPairSummary(
+  decimal: number | null,
+  rings: number | null | undefined,
+  ringPrimary: boolean
+): string {
+  if (decimal == null) return '—';
+  const { primary, secondary } = formatScorePair(
+    decimal,
+    rings != null && rings > 0 ? rings : null,
+    ringPrimary ? 'ringPrimary' : 'decimalPrimary'
+  );
+  return secondary ? `${primary} (${secondary})` : primary;
+}
+
 function has3pQualSummary(data: Record<string, unknown>): string {
   if (parseDecimal(data.knS1) != null) {
     return ['knS1', 'knS2', 'prS1', 'prS2', 'stS1', 'stS2']
       .map((k) => parseDecimal(data[k]) ?? '—')
       .join(' / ');
   }
-  return `${parseDecimal(data.kneelingDec) ?? '—'} / ${parseDecimal(data.proneDec) ?? '—'} / ${parseDecimal(data.standingDec) ?? '—'}`;
+  const kneelDec = parseDecimal(data.kneelingDec);
+  const proneDec = parseDecimal(data.proneDec);
+  const standDec = parseDecimal(data.standingDec);
+  const kneelInt = parseInteger(data.kneelingInt);
+  const proneInt = parseInteger(data.proneInt);
+  const standInt = parseInteger(data.standingInt);
+
+  const parts = [
+    formatPairSummary(kneelDec, kneelInt, true),
+    formatPairSummary(proneDec, proneInt, true),
+    formatPairSummary(standDec, standInt, true),
+  ];
+
+  const totalDec =
+    kneelDec != null && proneDec != null && standDec != null ? kneelDec + proneDec + standDec : null;
+  const totalInt =
+    (kneelInt ?? 0) + (proneInt ?? 0) + (standInt ?? 0) > 0
+      ? (kneelInt ?? 0) + (proneInt ?? 0) + (standInt ?? 0)
+      : null;
+
+  if (totalDec != null) {
+    const totalStr = formatPairSummary(totalDec, totalInt, true);
+    return `${parts.join(' / ')} → ${totalStr}`;
+  }
+  return parts.join(' / ');
+}
+
+function sixSeriesQualSummary(data: Record<string, unknown>, ringPrimary: boolean): string {
+  const decimals = [1, 2, 3, 4, 5, 6].map((n) => parseDecimal(data[`series${n}`]));
+  const integers = [1, 2, 3, 4, 5, 6].map((n) => parseInteger(data[`series${n}Int`]));
+
+  const hasRings = integers.some((v) => v != null && v > 0);
+  if (!hasRings) {
+    return decimals.map((d) => (d != null ? d.toFixed(1) : '—')).join(' / ');
+  }
+
+  const seriesParts = decimals.map((dec, i) => {
+    const int = integers[i] ?? null;
+    if (dec == null) return '—';
+    return formatPairSummary(dec, int, ringPrimary);
+  });
+
+  const totalDec = decimals.reduce<number>((sum, d) => sum + (d ?? 0), 0);
+  const totalInt = integers.reduce<number>((sum, v) => sum + (v ?? 0), 0);
+  const totalStr = formatPairSummary(totalDec, totalInt > 0 ? totalInt : null, ringPrimary);
+  return `${seriesParts.join(' / ')} → ${totalStr}`;
 }
 
 function buildFinalShotMap(headers: string[]): Record<string, string> {
@@ -394,9 +465,9 @@ function parseQualSheet(
     const summary =
       sheetName === '3-Position 50m'
         ? has3pQualSummary(data)
-        : [1, 2, 3, 4, 5, 6]
-            .map((n) => parseDecimal(data[`series${n}`]) ?? '—')
-            .join(' / ');
+        : sheetName === 'F-Class'
+          ? sixSeriesQualSummary(data, true)
+          : sixSeriesQualSummary(data, false);
 
     out.push({
       sheet: sheetName,
@@ -416,7 +487,7 @@ function parseQualSheet(
 }
 
 function parseProneFinalSheet(rows: unknown[][], ctx: ExcelImportContext): ParsedImportRow[] {
-  const headerRowIndex = findHeaderRowIndex(rows, ['shooter name', 's1']);
+  const headerRowIndex = findHeaderRowIndex(rows, [['shooter', 's1']]);
   const headers = (rows[headerRowIndex] as string[]).map((h) => String(h ?? ''));
   const out: ParsedImportRow[] = [];
 
@@ -468,7 +539,10 @@ function parseProneFinalSheet(rows: unknown[][], ctx: ExcelImportContext): Parse
 }
 
 function parse3pFinalSheet(rows: unknown[][], ctx: ExcelImportContext): ParsedImportRow[] {
-  const headerRowIndex = findHeaderRowIndex(rows, ['shooter name', 'kn s1']);
+  const headerRowIndex = findHeaderRowIndex(rows, [
+    ['shooter', 'kn s1'],
+    ['shooter', 'k1'],
+  ]);
   const headers = (rows[headerRowIndex] as string[]).map((h) => String(h ?? ''));
   const usesSeriesFormat = headers.some((h) => normalizeHeader(h).includes('kn s1'));
   const out: ParsedImportRow[] = [];
@@ -628,8 +702,11 @@ export function parseMatchWorkbook(buffer: ArrayBuffer, ctx: ExcelImportContext)
     } else {
       const headerRow =
         sheetName === '3-Position 50m'
-          ? findHeaderRowIndex(rows, ['shooter name', 'kn s1'])
-          : findHeaderRowIndex(rows, ['shooter name', 's1 dec']);
+          ? find3pQualHeaderRow(rows)
+          : findHeaderRowIndex(rows, [
+              ['shooter name', 's1 dec'],
+              ['shooter', 's1 dec'],
+            ]);
       all.push(...parseQualSheet(sheetName, rows, headerRow, ctx));
     }
   }

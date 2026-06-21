@@ -194,12 +194,20 @@ export default function FileUploadComponent({
 
       const result = data;
       const errorRows = parsedData.filter((r) => r.errors?.length);
+      const replaced = typeof result.replaced === 'number' ? result.replaced : 0;
+      const imported = typeof result.imported === 'number' ? result.imported : validRows.length;
+
+      const replaceNote =
+        replaced > 0
+          ? ` Replaced ${replaced} existing score${replaced === 1 ? '' : 's'}.`
+          : '';
 
       onImportSuccess({
         success: errorRows.length === 0,
-        message: `Imported ${validRows.length} score(s) from ${uploadedFile?.name ?? 'workbook'}`,
+        message: `Imported ${imported} score(s) from ${uploadedFile?.name ?? 'workbook'}.${replaceNote}`,
         details: {
-          imported: validRows.length,
+          imported,
+          replaced,
           errors: errorRows.length,
           errorDetails: errorRows.flatMap((r) => r.errors ?? []),
         },
@@ -231,9 +239,9 @@ export default function FileUploadComponent({
       <Alert status="info" borderRadius="md">
         <AlertIcon />
         <Text fontSize="sm">
-          Select the match event first, then upload{' '}
-          <strong>SATRF_Score_Import.xlsx</strong>. Score sheets are imported (Prone, F-Class,
-          3P, Finals).
+          Select the match event first, then upload <strong>SATRF_Score_Import.xlsx</strong>. Score
+          sheets are imported (Prone, F-Class, 3P, Finals). Re-uploading the same shooter for the
+          same event, discipline, and stage <strong>replaces</strong> the existing score.
         </Text>
       </Alert>
 

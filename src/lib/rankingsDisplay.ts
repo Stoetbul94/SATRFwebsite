@@ -82,6 +82,15 @@ export function sortRankRowsForDiscipline<T extends SortableRankRow>(
 
 export type ScorePairVariant = 'decimalPrimary' | 'ringPrimary';
 
+/** Display variant for qualification scores (ring-primary for 3P and F-Class qual). */
+export function qualScoreVariant(discipline: Discipline, stage?: string): ScorePairVariant {
+  const isQual = (stage ?? 'qualification') === 'qualification';
+  if (!isQual) return 'decimalPrimary';
+  if (discipline === 'three_position_50m') return 'ringPrimary';
+  if (discipline === 'fclass_open' || discipline === 'fclass_tr') return 'ringPrimary';
+  return 'decimalPrimary';
+}
+
 export function formatScorePair(
   decimal: number,
   rings: number | null | undefined,

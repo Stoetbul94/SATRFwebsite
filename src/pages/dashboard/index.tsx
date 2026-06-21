@@ -277,10 +277,10 @@ export default function Dashboard() {
                 <FiTarget className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <p className="text-gray-600 mb-2">No scores yet</p>
                 <Link
-                  href="/scores/upload"
+                  href="/scores"
                   className="text-blue-600 hover:text-blue-800 font-medium"
                 >
-                  Upload your first score →
+                  View season rankings →
                 </Link>
               </div>
             ) : (

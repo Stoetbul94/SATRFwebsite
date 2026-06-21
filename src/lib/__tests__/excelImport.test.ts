@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parseMatchWorkbook } from '@/lib/excelImport';
+import { buildScore } from '@/lib/issf';
 
 const templatePath = path.join(process.cwd(), 'public/templates/SATRF_Score_Import.xlsx');
 
@@ -11,7 +12,7 @@ describe('excelImport — SATRF_Score_Import.xlsx', () => {
     date: '2026-06-01',
   };
 
-  it('parses 3-Position qual with 2 series per position', () => {
+  it('parses 3-Position qual with position aggregate + ring totals', () => {
     if (!fs.existsSync(templatePath)) return;
     const buffer = fs.readFileSync(templatePath).buffer;
     const rows = parseMatchWorkbook(buffer, ctx);
@@ -22,9 +23,13 @@ describe('excelImport — SATRF_Score_Import.xlsx', () => {
     expect(first.discipline).toBe('three_position_50m');
     expect(first.positions).toHaveLength(3);
     first.positions.forEach((p) => {
-      expect(p.series).toHaveLength(2);
-      expect(p.aggregate).toBeFalsy();
+      expect(p.aggregate).toBe(true);
+      expect(p.series).toHaveLength(1);
+      expect(p.series[0].integer).toBeGreaterThan(0);
     });
+    const built = buildScore(first, { createdBy: 'test' });
+    expect(built.integerTotal).toBeGreaterThan(0);
+    expect(threeP[0].preview.summary).toMatch(/\d+.*\d+\.\d/);
   });
 
   it('parses Prone 50m qualification rows', () => {
@@ -39,7 +44,7 @@ describe('excelImport — SATRF_Score_Import.xlsx', () => {
     expect(total).toBeGreaterThan(500);
   });
 
-  it('parses F-Class qualification rows', () => {
+  it('parses F-Class qualification rows with ring integers', () => {
     if (!fs.existsSync(templatePath)) return;
     const buffer = fs.readFileSync(templatePath).buffer;
     const rows = parseMatchWorkbook(buffer, ctx);
@@ -48,6 +53,11 @@ describe('excelImport — SATRF_Score_Import.xlsx', () => {
     expect(['fclass_open', 'fclass_tr']).toContain(fclass[0].input?.discipline);
     expect(fclass[0].input?.stage).toBe('qualification');
     expect(fclass[0].input?.positions[0].series).toHaveLength(6);
+    const ringSum = fclass[0].input!.positions[0].series.reduce((s, x) => s + x.integer, 0);
+    expect(ringSum).toBeGreaterThan(0);
+    const built = buildScore(fclass[0].input!, { createdBy: 'test' });
+    expect(built.integerTotal).toBeGreaterThan(0);
+    expect(fclass[0].preview.summary).toMatch(/→/);
   });
 
   it('parses Prone Final with 6 series from header row 3', () => {

@@ -25,7 +25,7 @@ import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
 import { DISCIPLINES, CATEGORIES } from '@/lib/issf';
-import { formatEventsCell } from '@/lib/rankingsDisplay';
+import { formatEventsCell, qualScoreVariant } from '@/lib/rankingsDisplay';
 import type { Discipline } from '@/types/scores';
 import RankingsClubCell from '@/components/scores/RankingsClubCell';
 import RankingsScorePair from '@/components/scores/RankingsScorePair';
@@ -207,14 +207,14 @@ export default function Scores() {
                               <RankingsScorePair
                                 decimal={r.average}
                                 rings={r.averageRings}
-                                variant={discipline === 'three_position_50m' ? 'ringPrimary' : 'decimalPrimary'}
+                                variant={qualScoreVariant(discipline)}
                               />
                             </Td>
                             <Td isNumeric>
                               <RankingsScorePair
                                 decimal={r.best}
                                 rings={r.bestRings}
-                                variant={discipline === 'three_position_50m' ? 'ringPrimary' : 'decimalPrimary'}
+                                variant={qualScoreVariant(discipline)}
                               />
                             </Td>
                             <Td isNumeric color="text.muted">
