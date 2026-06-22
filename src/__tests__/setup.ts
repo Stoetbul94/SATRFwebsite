@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
+import { PWAInstallProvider } from '../contexts/PWAInstallContext';
 
 // Create a flexible mock that can be overridden
 const mockAuthContext = {
@@ -35,7 +36,11 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
 }
 
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
-  return React.createElement(ChakraProvider, null, children);
+  return React.createElement(
+    ChakraProvider,
+    null,
+    React.createElement(PWAInstallProvider, null, children),
+  );
 };
 
 const customRender = (
