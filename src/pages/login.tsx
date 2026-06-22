@@ -27,6 +27,7 @@ import { isProfileAdmin } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/userRole';
 import { resolvePostLoginPath } from '@/lib/userAthlete';
 import AuthPageLayout, { AuthHeaderIcon } from '@/components/auth/AuthPageLayout';
+import { markPostLoginSessionFlag } from '@/lib/pwa/installUtils';
 
 const isAdminUser = (user: { role?: string; email?: string; roles?: { admin?: boolean }; admin?: boolean }) =>
   isUserAdmin(user) || isProfileAdmin(user as Parameters<typeof isProfileAdmin>[0]);
@@ -109,6 +110,7 @@ const LoginPage: NextPage = () => {
           document.cookie = `access_token=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
           document.cookie = `auth_token=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
         }
+        markPostLoginSessionFlag();
         window.location.assign(dest);
         return;
       }

@@ -13,6 +13,7 @@ import {
 import FlagStripe from '@/components/brand/FlagStripe';
 import SatrfHorizontalLogo from '@/components/brand/SatrfHorizontalLogo';
 import SocialLinks from '@/components/layout/SocialLinks';
+import InstallAppAction from '@/components/pwa/InstallAppAction';
 
 export default function Footer() {
   const linkColor = 'whiteAlpha.700';
@@ -79,6 +80,7 @@ export default function Footer() {
                     </Text>
                   </Link>
                 ))}
+                <InstallAppAction variant="footer-link" label="Install SATRF App" />
               </VStack>
             </VStack>
           </GridItem>

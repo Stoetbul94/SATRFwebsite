@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { ChakraProvider } from '@chakra-ui/react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '../contexts/AuthContext';
+import { PWAInstallProvider } from '@/contexts/PWAInstallContext';
 import { ToolboxEnabledProvider } from '@/contexts/ToolboxEnabledContext';
 import { ToolboxProvider } from '@/components/toolbox/ToolboxProvider';
 import { isToolboxEnabled } from '@/lib/toolbox/enabled';
@@ -22,6 +23,11 @@ const PWARegister = dynamic(() => import('@/components/pwa/PWARegister'), {
 });
 
 const InstallPrompt = dynamic(() => import('@/components/pwa/InstallPrompt'), {
+  ssr: false,
+  loading: () => null,
+});
+
+const InstallInstructionsModal = dynamic(() => import('@/components/pwa/InstallInstructionsModal'), {
   ssr: false,
   loading: () => null,
 });
@@ -68,20 +74,23 @@ export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppPr
         <ChakraProvider theme={theme}>
           <ToolboxEnabledProvider enabled={toolboxEnabled}>
             <AuthProvider>
-              <PWARegister />
-              <InstallPrompt />
-              {toolboxEnabled ? (
-                <ToolboxProvider>
-                  <Component {...pageProps} />
-                  <ToolboxLauncher />
-                  {toaster}
-                </ToolboxProvider>
-              ) : (
-                <>
-                  <Component {...pageProps} />
-                  {toaster}
-                </>
-              )}
+              <PWAInstallProvider>
+                <PWARegister />
+                <InstallPrompt />
+                <InstallInstructionsModal />
+                {toolboxEnabled ? (
+                  <ToolboxProvider>
+                    <Component {...pageProps} />
+                    <ToolboxLauncher />
+                    {toaster}
+                  </ToolboxProvider>
+                ) : (
+                  <>
+                    <Component {...pageProps} />
+                    {toaster}
+                  </>
+                )}
+              </PWAInstallProvider>
             </AuthProvider>
           </ToolboxEnabledProvider>
         </ChakraProvider>

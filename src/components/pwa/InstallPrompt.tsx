@@ -1,93 +1,64 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Button, Flex, Text, CloseButton } from '@chakra-ui/react';
-
-const STORAGE_KEY = 'satrf-pwa-install-dismissed';
-const DISMISS_DAYS = 7;
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-function isDismissedRecently(): boolean {
-  if (typeof window === 'undefined') return true;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const dismissedAt = parseInt(raw, 10);
-    if (!Number.isFinite(dismissedAt)) return false;
-    return Date.now() - dismissedAt < DISMISS_DAYS * 24 * 60 * 60 * 1000;
-  } catch {
-    return false;
-  }
-}
-
-function isHiddenPath(pathname: string): boolean {
-  return (
-    pathname.startsWith('/admin') ||
-    pathname === '/login' ||
-    pathname === '/register'
-  );
-}
+import { usePWAInstall } from '@/contexts/PWAInstallContext';
+import { isBannerDismissedRecently, isHiddenInstallPath } from '@/lib/pwa/installUtils';
 
 export default function InstallPrompt() {
   const router = useRouter();
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [visible, setVisible] = useState(false);
+  const {
+    canNativeInstall,
+    postLoginNudge,
+    showInstallEntry,
+    promptInstall,
+    dismissBanner,
+    openInstructions,
+    openBanner,
+    bannerOpen,
+  } = usePWAInstall();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (isDismissedRecently()) return;
+    if (!showInstallEntry || isHiddenInstallPath(router.pathname)) return;
 
-    const onBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      if (!isHiddenPath(window.location.pathname)) {
-        setVisible(true);
-      }
-    };
-
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-  }, []);
-
-  useEffect(() => {
-    if (!deferredPrompt) return;
-    if (isHiddenPath(router.pathname)) {
-      setVisible(false);
-    } else if (!isDismissedRecently()) {
-      setVisible(true);
+    if (postLoginNudge) {
+      openBanner();
+      return;
     }
-  }, [router.pathname, deferredPrompt]);
+
+    if (canNativeInstall && !isBannerDismissedRecently()) {
+      openBanner();
+    }
+  }, [canNativeInstall, postLoginNudge, router.pathname, showInstallEntry, openBanner]);
+
+  useEffect(() => {
+    if (isHiddenInstallPath(router.pathname)) return;
+    if (postLoginNudge && showInstallEntry) {
+      openBanner();
+    }
+  }, [router.pathname, postLoginNudge, showInstallEntry, openBanner]);
 
   const dismiss = useCallback(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(Date.now()));
-    } catch {
-      /* ignore */
-    }
-    setVisible(false);
-    setDeferredPrompt(null);
-  }, []);
+    dismissBanner({ permanentPostLogin: postLoginNudge });
+  }, [dismissBanner, postLoginNudge]);
 
   const install = useCallback(async () => {
-    if (!deferredPrompt) return;
-    try {
-      await deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-    } catch {
-      /* ignore */
+    if (canNativeInstall) {
+      await promptInstall();
+      return;
     }
-    setVisible(false);
-    setDeferredPrompt(null);
-  }, [deferredPrompt]);
+    openInstructions();
+  }, [canNativeInstall, promptInstall, openInstructions]);
 
-  if (!visible || !deferredPrompt || isHiddenPath(router.pathname)) {
+  if (!bannerOpen || !showInstallEntry || isHiddenInstallPath(router.pathname)) {
     return null;
   }
+
+  const title = postLoginNudge ? 'Welcome back — install SATRF' : 'Install SATRF App';
+  const body = postLoginNudge
+    ? 'Add SATRF to your home screen for quicker access after sign-in.'
+    : 'Add SATRF to your home screen for quicker access to events, results and notices.';
 
   return (
     <Box
@@ -106,16 +77,16 @@ export default function InstallPrompt() {
     >
       <Flex justify="space-between" align="flex-start" gap={2} mb={2}>
         <Text fontWeight="bold" color="#1a365d" fontSize="md">
-          Install SATRF App
+          {title}
         </Text>
         <CloseButton size="sm" onClick={dismiss} aria-label="Dismiss install prompt" />
       </Flex>
       <Text fontSize="sm" color="gray.600" mb={3}>
-        Add SATRF to your home screen for quicker access to events, results and notices.
+        {body}
       </Text>
       <Flex gap={2}>
         <Button size="sm" colorScheme="red" bg="#e53e3e" _hover={{ bg: '#c53030' }} onClick={install}>
-          Install
+          {canNativeInstall ? 'Install' : 'How to install'}
         </Button>
         <Button size="sm" variant="ghost" onClick={dismiss}>
           Not now

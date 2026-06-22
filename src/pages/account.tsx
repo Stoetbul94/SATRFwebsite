@@ -13,7 +13,8 @@ import {
 } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/layout/Layout';
-import { FiArrowLeft, FiShield, FiKey, FiBell, FiTrash2 } from 'react-icons/fi';
+import { FiArrowLeft, FiShield, FiKey, FiBell, FiTrash2, FiSmartphone } from 'react-icons/fi';
+import InstallAppAction from '@/components/pwa/InstallAppAction';
 
 export default function Account() {
   const router = useRouter();
@@ -68,6 +69,25 @@ export default function Account() {
                   >
                     Change Password
                   </Button>
+                </VStack>
+              </CardBody>
+            </Card>
+
+            {/* Mobile app */}
+            <Card bg={cardBg} shadow="md">
+              <CardHeader>
+                <Heading size="md" display="flex" alignItems="center" gap={3}>
+                  <FiSmartphone />
+                  Mobile App
+                </Heading>
+              </CardHeader>
+              <CardBody>
+                <VStack spacing={4} align="stretch">
+                  <Text color="gray.600">
+                    Install SATRF on your phone or tablet for faster access to events, results and
+                    notices — works offline for public pages.
+                  </Text>
+                  <InstallAppAction variant="outline-button" label="Install SATRF App" />
                 </VStack>
               </CardBody>
             </Card>
