@@ -1,0 +1,56 @@
+{
+  "name": "South African Target Rifle Federation",
+  "short_name": "SATRF",
+  "description": "The official digital platform for South African Target Rifle Federation events, results, notices, scores and member services.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1a365d",
+  "categories": ["sports", "education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Events",
+      "short_name": "Events",
+      "url": "/events",
+      "description": "View upcoming SATRF events"
+    },
+    {
+      "name": "Results",
+      "short_name": "Results",
+      "url": "/results",
+      "description": "View SATRF results"
+    },
+    {
+      "name": "Notices",
+      "short_name": "Notices",
+      "url": "/notices",
+      "description": "View official SATRF notices"
+    }
+  ]
+}

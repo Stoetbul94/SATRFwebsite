@@ -43,6 +43,6 @@ export const config = {
      * - favicon.ico, apple-touch-icon.png (favicon files)
      * - images/ (static images including /images/favicon.png)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|apple-touch-icon.png|images/).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|apple-touch-icon.png|sw.js|manifest.webmanifest|offline.html|icons/|images/).*)',
   ],
 }; 
