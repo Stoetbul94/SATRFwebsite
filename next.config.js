@@ -1,10 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  async rewrites() {
+  async headers() {
     return [
-      { source: '/favicon.ico', destination: '/images/favicon.png' },
-      { source: '/apple-touch-icon.png', destination: '/images/favicon.png' },
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+        ],
+      },
     ];
   },
   images: {
@@ -46,4 +57,4 @@ const nextConfig = {
 };
 
 // Sentry Webpack plugin temporarily disabled for local build troubleshooting
-module.exports = nextConfig; 
+module.exports = nextConfig;

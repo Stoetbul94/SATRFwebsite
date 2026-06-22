@@ -16,6 +16,16 @@ const ToolboxLauncher = dynamic(() => import('@/components/toolbox/ToolboxLaunch
   loading: () => null,
 });
 
+const PWARegister = dynamic(() => import('@/components/pwa/PWARegister'), {
+  ssr: false,
+  loading: () => null,
+});
+
+const InstallPrompt = dynamic(() => import('@/components/pwa/InstallPrompt'), {
+  ssr: false,
+  loading: () => null,
+});
+
 type SatrfAppProps = AppProps & {
   toolboxEnabled: boolean;
 };
@@ -58,6 +68,8 @@ export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppPr
         <ChakraProvider theme={theme}>
           <ToolboxEnabledProvider enabled={toolboxEnabled}>
             <AuthProvider>
+              <PWARegister />
+              <InstallPrompt />
               {toolboxEnabled ? (
                 <ToolboxProvider>
                   <Component {...pageProps} />
