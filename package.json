@@ -69,7 +69,8 @@
     "workflow:validate": "npm run lint && npm test && npm run test:coverage",
     "workflow:pre-commit": "npm run workflow:validate",
     "docs:scoring-pdf": "node scripts/generate-scoring-workflow-pdf.js",
-    "generate:pwa-icons": "node scripts/generate-pwa-icons.js"
+    "generate:pwa-icons": "node scripts/generate-pwa-icons.js",
+    "optimize:images": "node scripts/optimize-public-images.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

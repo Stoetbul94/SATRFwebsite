@@ -1,4 +1,4 @@
-import type { AppContext, AppProps } from 'next/app';
+import type { AppProps } from 'next/app';
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { ChakraProvider } from '@chakra-ui/react';
@@ -32,15 +32,14 @@ const InstallInstructionsModal = dynamic(() => import('@/components/pwa/InstallI
   loading: () => null,
 });
 
-type SatrfAppProps = AppProps & {
-  toolboxEnabled: boolean;
-};
+type SatrfAppProps = AppProps;
 
 function CustomErrorBoundary({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppProps) {
+export default function App({ Component, pageProps }: SatrfAppProps) {
+  const toolboxEnabled = isToolboxEnabled();
   const toaster = (
     <Toaster
       position="top-right"
@@ -98,17 +97,3 @@ export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppPr
     </CustomErrorBoundary>
   );
 }
-
-App.getInitialProps = async (appContext: AppContext) => {
-  const appProps = await (async () => {
-    if (appContext.Component.getInitialProps) {
-      return appContext.Component.getInitialProps(appContext.ctx);
-    }
-    return {};
-  })();
-
-  return {
-    pageProps: appProps,
-    toolboxEnabled: isToolboxEnabled(),
-  };
-};
