@@ -25,6 +25,25 @@ export interface AthleteChartPoint {
   xLabel: string;
 }
 
+export interface PersonalBest {
+  value: number;
+  label: string;
+  eventName: string;
+  date: string;
+}
+
+export interface AimMark {
+  value: number;
+  label: string;
+  shortLabel: string;
+}
+
+export interface DisciplineAimMarks {
+  qual: AimMark;
+  final: AimMark | null;
+  positionQual?: Partial<Record<'kneeling' | 'prone' | 'standing', AimMark>>;
+}
+
 export interface DisciplineAnalytics {
   discipline: Discipline;
   label: string;
@@ -32,6 +51,9 @@ export interface DisciplineAnalytics {
   finalCompetitions: number;
   qualSeries: AthleteChartPoint[];
   finalSeries: AthleteChartPoint[];
+  bestQual: PersonalBest | null;
+  bestFinal: PersonalBest | null;
+  aimMarks: DisciplineAimMarks;
   threePPositions?: {
     kneeling: AthleteChartPoint[];
     prone: AthleteChartPoint[];
@@ -163,6 +185,69 @@ function uniqueEventCount(scores: Score[]): number {
   return new Set(scores.map(eventKey)).size;
 }
 
+function bestFromSeries(series: AthleteChartPoint[]): PersonalBest | null {
+  if (!series.length) return null;
+  const best = series.reduce((a, b) => (b.primaryValue > a.primaryValue ? b : a));
+  return {
+    value: best.primaryValue,
+    label: best.label,
+    eventName: best.eventName,
+    date: best.date,
+  };
+}
+
+/** Realistic SATRF / club-to-national pathway targets for chart reference lines. */
+export function getDisciplineAimMarks(discipline: Discipline): DisciplineAimMarks {
+  switch (discipline) {
+    case 'three_position_50m':
+      return {
+        qual: {
+          value: 565,
+          label: 'National qual aim',
+          shortLabel: 'Aim 565',
+        },
+        final: {
+          value: 318,
+          label: 'National final aim',
+          shortLabel: 'Aim 318',
+        },
+        positionQual: {
+          kneeling: { value: 185, label: 'Kneeling aim', shortLabel: 'Aim 185' },
+          prone: { value: 190, label: 'Prone aim', shortLabel: 'Aim 190' },
+          standing: { value: 175, label: 'Standing aim', shortLabel: 'Aim 175' },
+        },
+      };
+    case 'prone_50m':
+      return {
+        qual: {
+          value: 620,
+          label: 'National qual aim',
+          shortLabel: 'Aim 620',
+        },
+        final: {
+          value: 620,
+          label: 'National final aim',
+          shortLabel: 'Aim 620',
+        },
+      };
+    case 'fclass_open':
+    case 'fclass_tr':
+      return {
+        qual: {
+          value: 580,
+          label: 'National qual aim',
+          shortLabel: 'Aim 580',
+        },
+        final: null,
+      };
+    default:
+      return {
+        qual: { value: 0, label: 'Aim', shortLabel: 'Aim' },
+        final: null,
+      };
+  }
+}
+
 function buildInsights(
   discipline: Discipline,
   qualSeries: AthleteChartPoint[],
@@ -172,11 +257,6 @@ function buildInsights(
 
   if (qualSeries.length === 0 && finalSeries.length === 0) {
     return insights;
-  }
-
-  if (qualSeries.length > 0) {
-    const best = qualSeries.reduce((a, b) => (b.primaryValue > a.primaryValue ? b : a));
-    insights.push(`Personal best qualification at ${best.eventName} (${best.label})`);
   }
 
   if (qualSeries.length >= 4) {
@@ -240,6 +320,9 @@ function buildDisciplineAnalytics(discipline: Discipline, scores: Score[]): Disc
     finalCompetitions: uniqueEventCount(finalScores),
     qualSeries,
     finalSeries,
+    bestQual: bestFromSeries(qualSeries),
+    bestFinal: bestFromSeries(finalSeries),
+    aimMarks: getDisciplineAimMarks(discipline),
     insights: buildInsights(discipline, qualSeries, finalSeries),
   };
 

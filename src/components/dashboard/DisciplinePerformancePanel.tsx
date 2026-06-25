@@ -2,10 +2,12 @@ import { useState } from 'react';
 import type { DisciplineAnalytics } from '@/lib/athleteAnalytics';
 import { qualScoreVariant } from '@/lib/rankingsDisplay';
 import AthleteInsights from '@/components/dashboard/AthleteInsights';
+import DisciplineStatsRow from '@/components/dashboard/DisciplineStatsRow';
 import PerformanceLineChart, {
   buildPointLookup,
   buildPositionChartData,
   chartPointsToLineData,
+  type ChartReferenceLine,
 } from '@/components/dashboard/PerformanceLineChart';
 
 interface DisciplinePerformancePanelProps {
@@ -26,6 +28,31 @@ export default function DisciplinePerformancePanel({ analytics }: DisciplinePerf
 
   const qualLookup = buildPointLookup(analytics.qualSeries);
   const finalLookup = buildPointLookup(analytics.finalSeries);
+
+  const qualReferenceLines: ChartReferenceLine[] = [
+    {
+      value: analytics.aimMarks.qual.value,
+      label: analytics.aimMarks.qual.shortLabel,
+    },
+  ];
+
+  const finalReferenceLines: ChartReferenceLine[] = analytics.aimMarks.final
+    ? [
+        {
+          value: analytics.aimMarks.final.value,
+          label: analytics.aimMarks.final.shortLabel,
+        },
+      ]
+    : [];
+
+  const positionReferenceLines: ChartReferenceLine[] = POSITION_LINES.flatMap((line) => {
+    const mark = analytics.aimMarks.positionQual?.[line.dataKey];
+    if (!mark) return [];
+    return [{ value: mark.value, label: `${line.name} ${mark.shortLabel}` }];
+  });
+
+  const qualHighlight = analytics.bestQual ? [analytics.bestQual.value] : [];
+  const finalHighlight = analytics.bestFinal ? [analytics.bestFinal.value] : [];
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-8">
@@ -62,6 +89,7 @@ export default function DisciplinePerformancePanel({ analytics }: DisciplinePerf
         )}
       </div>
 
+      <DisciplineStatsRow analytics={analytics} />
       <AthleteInsights insights={analytics.insights} />
 
       <div className="space-y-8">
@@ -76,6 +104,7 @@ export default function DisciplinePerformancePanel({ analytics }: DisciplinePerf
               yAxisLabel="Rings"
               emptyMessage="No 3P position data yet."
               pointLookup={qualLookup}
+              referenceLines={positionReferenceLines}
             />
           ) : (
             <PerformanceLineChart
@@ -84,6 +113,8 @@ export default function DisciplinePerformancePanel({ analytics }: DisciplinePerf
               yAxisLabel={qualYLabel}
               emptyMessage="No qualification scores yet."
               pointLookup={qualLookup}
+              referenceLines={qualReferenceLines}
+              highlightValues={qualHighlight}
             />
           )}
         </section>
@@ -98,6 +129,8 @@ export default function DisciplinePerformancePanel({ analytics }: DisciplinePerf
             yAxisLabel="Decimal"
             emptyMessage="No final scores recorded for this discipline yet."
             pointLookup={finalLookup}
+            referenceLines={finalReferenceLines}
+            highlightValues={finalHighlight}
           />
         </section>
       </div>

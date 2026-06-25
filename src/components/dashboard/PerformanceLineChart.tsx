@@ -3,6 +3,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,6 +17,12 @@ export interface ChartLineConfig {
   color: string;
 }
 
+export interface ChartReferenceLine {
+  value: number;
+  label: string;
+  color?: string;
+}
+
 interface PerformanceLineChartProps {
   data: Record<string, unknown>[];
   lines: ChartLineConfig[];
@@ -24,6 +31,8 @@ interface PerformanceLineChartProps {
   height?: number;
   /** Raw points for rich tooltips (keyed by xLabel) */
   pointLookup?: Map<string, AthleteChartPoint>;
+  referenceLines?: ChartReferenceLine[];
+  highlightValues?: number[];
 }
 
 function ChartTooltip({
@@ -77,6 +86,34 @@ function ChartTooltip({
   );
 }
 
+function computeYDomain(
+  data: Record<string, unknown>[],
+  lines: ChartLineConfig[],
+  referenceLines: ChartReferenceLine[] = [],
+): [number, number] {
+  const values: number[] = [];
+
+  for (const row of data) {
+    for (const line of lines) {
+      const value = row[line.dataKey];
+      if (typeof value === 'number' && !Number.isNaN(value)) {
+        values.push(value);
+      }
+    }
+  }
+
+  for (const ref of referenceLines) {
+    values.push(ref.value);
+  }
+
+  if (!values.length) return [0, 100];
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max((max - min) * 0.08, 5);
+  return [Math.floor(min - pad), Math.ceil(max + pad)];
+}
+
 export default function PerformanceLineChart({
   data,
   lines,
@@ -84,6 +121,8 @@ export default function PerformanceLineChart({
   emptyMessage = 'No scores to chart yet.',
   height = 280,
   pointLookup,
+  referenceLines = [],
+  highlightValues = [],
 }: PerformanceLineChartProps) {
   if (!data.length) {
     return (
@@ -96,9 +135,12 @@ export default function PerformanceLineChart({
     );
   }
 
+  const yDomain = computeYDomain(data, lines, referenceLines);
+  const highlightSet = new Set(highlightValues);
+
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+      <LineChart data={data} margin={{ top: 12, right: 24, left: 8, bottom: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
         <XAxis
           dataKey="xLabel"
@@ -106,6 +148,7 @@ export default function PerformanceLineChart({
           interval="preserveStartEnd"
         />
         <YAxis
+          domain={yDomain}
           tick={{ fontSize: 11, fill: '#6b7280' }}
           label={
             yAxisLabel
@@ -115,6 +158,21 @@ export default function PerformanceLineChart({
         />
         <Tooltip content={<ChartTooltip pointLookup={pointLookup} />} />
         {lines.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        {referenceLines.map((ref) => (
+          <ReferenceLine
+            key={ref.label}
+            y={ref.value}
+            stroke={ref.color ?? '#d97706'}
+            strokeDasharray="6 4"
+            strokeWidth={1.5}
+            label={{
+              value: ref.label,
+              position: 'insideTopRight',
+              fontSize: 10,
+              fill: ref.color ?? '#b45309',
+            }}
+          />
+        ))}
         {lines.map((line) => (
           <Line
             key={line.dataKey}
@@ -123,7 +181,21 @@ export default function PerformanceLineChart({
             name={line.name}
             stroke={line.color}
             strokeWidth={2}
-            dot={{ r: 4, strokeWidth: 2 }}
+            dot={(props) => {
+              const { cx, cy, payload } = props;
+              const value = payload?.[line.dataKey];
+              const isPb = typeof value === 'number' && highlightSet.has(value);
+              return (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isPb ? 6 : 4}
+                  fill={isPb ? '#fbbf24' : line.color}
+                  stroke={isPb ? '#b45309' : line.color}
+                  strokeWidth={isPb ? 2.5 : 2}
+                />
+              );
+            }}
             activeDot={{ r: 6 }}
             connectNulls
           />
