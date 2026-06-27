@@ -35,7 +35,7 @@ import {
 import { FiSave, FiFileText } from 'react-icons/fi';
 import { auth } from '@/lib/firebase';
 import { CATEGORIES, POSITION_LABELS } from '@/lib/issf';
-import type { Category } from '@/types/scores';
+import type { Category, ScoreStage } from '@/types/scores';
 import type {
   Parse3pPdfResult,
   ParsePronePdfResult,
@@ -74,6 +74,46 @@ const getToken = async (): Promise<string | null> => {
   if (fresh) return fresh;
   return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 };
+
+function stagesForPdfTab(is3pTab: boolean): ScoreStage[] {
+  return is3pTab ? ['qualification', '3p_final'] : ['qualification', 'prone_final'];
+}
+
+function stageLabel(stage: ScoreStage): string {
+  if (stage === 'qualification') return 'Qualification';
+  if (stage === 'prone_final') return 'Prone Final';
+  return '3P Final';
+}
+
+function pdfSaveButtonLabel(
+  is3pTab: boolean,
+  stage: ScoreStage,
+  activePdfTab: number,
+  threePImportMode: ThreePImportMode,
+): string {
+  if (is3pTab) {
+    const round = stage === '3p_final' ? '3P final' : '3P qualification';
+    const mode = threePImportMode === 'position_aggregate' ? 'position totals' : '6 series';
+    return `Save ${round} (${mode})`;
+  }
+  const round = stage === 'prone_final' ? 'prone final' : 'prone qualification';
+  const source = activePdfTab === 0 ? 'summary' : 'target';
+  return `Save ${round} from ${source} PDF`;
+}
+
+function pdfSaveSuccessMessage(
+  is3pTab: boolean,
+  stage: ScoreStage,
+  decimalTotal: number,
+  resolvedName: string,
+): string {
+  if (is3pTab) {
+    const round = stage === '3p_final' ? '3P final' : '3P qualification';
+    return `Saved ${round} (${decimalTotal}) for ${resolvedName}`;
+  }
+  const round = stage === 'prone_final' ? 'prone final' : 'prone qualification';
+  return `Saved ${round} (${decimalTotal}) for ${resolvedName}`;
+}
 
 function formatApiError(result: Record<string, unknown>): string {
   const parts: string[] = [];
@@ -535,6 +575,7 @@ export default function PdfImportComponent({
   const [veteran, setVeteran] = useState(false);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState<Category>('open');
+  const [stage, setStage] = useState<ScoreStage>('qualification');
 
   const [summaryFile, setSummaryFile] = useState<File | null>(null);
   const [targetFile, setTargetFile] = useState<File | null>(null);
@@ -610,6 +651,13 @@ export default function PdfImportComponent({
 
   const activeProneParsed = activePdfTab === 0 ? summaryParsed : activePdfTab === 1 ? targetParsed : null;
   const is3pTab = activePdfTab === 2;
+  const availableStages = stagesForPdfTab(is3pTab);
+
+  const onPdfTabChange = (index: number) => {
+    setActivePdfTab(index);
+    const nextStages = stagesForPdfTab(index === 2);
+    setStage((current) => (nextStages.includes(current) ? current : 'qualification'));
+  };
 
   const threePReady = is3pImportReady(threePParsed, threePImportMode);
 
@@ -704,6 +752,7 @@ export default function PdfImportComponent({
         eventId: selectedEvent.id,
         eventName: selectedEvent.title,
         date,
+        stage,
       };
 
       const input = is3pTab
@@ -728,9 +777,12 @@ export default function PdfImportComponent({
       const message =
         typeof result.message === 'string'
           ? result.message
-          : is3pTab
-            ? `Saved 3P qualification (${threePParsed!.decimalTotal}) for ${resolvedName}`
-            : `Saved prone score (${activeProneParsed!.decimalTotal}) for ${resolvedName}`;
+          : pdfSaveSuccessMessage(
+              is3pTab,
+              stage,
+              is3pTab ? threePParsed!.decimalTotal : activeProneParsed!.decimalTotal,
+              resolvedName,
+            );
 
       onImportSuccess({
         success: true,
@@ -781,6 +833,8 @@ export default function PdfImportComponent({
         manualLocked={manualLocked}
         category={category}
         date={date}
+        stage={stage}
+        availableStages={availableStages}
         onMember={onMemberSelect}
         onShooterName={onShooterNameChange}
         onClub={onClubChange}
@@ -788,13 +842,14 @@ export default function PdfImportComponent({
         onEvent={onEventSelect}
         onCategory={setCategory}
         onDate={setDate}
+        onStage={setStage}
       />
 
       <Divider />
 
       <Tabs
         index={activePdfTab}
-        onChange={(i) => setActivePdfTab(i)}
+        onChange={onPdfTabChange}
         variant="soft-rounded"
         colorScheme="blue"
       >
@@ -854,9 +909,7 @@ export default function PdfImportComponent({
         isDisabled={!canSave}
         w="full"
       >
-        {is3pTab
-          ? `Save 3P qualification (${threePImportMode === 'position_aggregate' ? 'position totals' : '6 series'})`
-          : `Save score from ${activePdfTab === 0 ? 'summary' : 'target'} PDF`}
+        {pdfSaveButtonLabel(is3pTab, stage, activePdfTab, threePImportMode)}
       </Button>
 
       {!canSave && (
@@ -883,6 +936,8 @@ function SimpleGridForm({
   manualLocked,
   category,
   date,
+  stage,
+  availableStages,
   onMember,
   onShooterName,
   onClub,
@@ -890,6 +945,7 @@ function SimpleGridForm({
   onEvent,
   onCategory,
   onDate,
+  onStage,
 }: {
   members: MemberOption[];
   events: EventOption[];
@@ -901,6 +957,8 @@ function SimpleGridForm({
   manualLocked: boolean;
   category: Category;
   date: string;
+  stage: ScoreStage;
+  availableStages: ScoreStage[];
   onMember: (id: string) => void;
   onShooterName: (value: string) => void;
   onClub: (value: string) => void;
@@ -908,6 +966,7 @@ function SimpleGridForm({
   onEvent: (id: string) => void;
   onCategory: (c: Category) => void;
   onDate: (d: string) => void;
+  onStage: (stage: ScoreStage) => void;
 }) {
   return (
     <Box display="grid" gridTemplateColumns={{ base: '1fr', md: '1fr 1fr' }} gap={4}>
@@ -966,6 +1025,16 @@ function SimpleGridForm({
           {CATEGORIES.filter((c) => c.id !== 'veteran').map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
+            </option>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl isRequired>
+        <FormLabel>Round</FormLabel>
+        <Select value={stage} onChange={(e) => onStage(e.target.value as ScoreStage)}>
+          {availableStages.map((s) => (
+            <option key={s} value={s}>
+              {stageLabel(s)}
             </option>
           ))}
         </Select>

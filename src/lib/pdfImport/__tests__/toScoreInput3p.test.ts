@@ -12,6 +12,7 @@ describe('parsed3pPdfToScoreInput', () => {
     eventId: 'evt-1',
     eventName: 'Test Match',
     date: '2026-06-20',
+    stage: 'qualification' as const,
   };
 
   it('position_aggregate mode uses one aggregate block per position with ring totals', () => {
@@ -32,5 +33,13 @@ describe('parsed3pPdfToScoreInput', () => {
     expect(kneel?.series).toHaveLength(2);
     expect(kneel?.series[0]).toMatchObject({ seriesNumber: 1, decimal: 94.6, integer: 90 });
     expect(kneel?.series[1]).toMatchObject({ seriesNumber: 2, decimal: 95.0, integer: 90 });
+  });
+
+  it('uses 3p_final stage when specified', () => {
+    const input = parsed3pPdfToScoreInput(parsed, 'position_aggregate', {
+      ...opts,
+      stage: '3p_final',
+    });
+    expect(input.stage).toBe('3p_final');
   });
 });
