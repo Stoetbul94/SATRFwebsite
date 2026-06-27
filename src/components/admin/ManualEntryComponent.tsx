@@ -42,6 +42,7 @@ import {
   CUSTOM_EVENT,
   emptySeries,
   GUEST_MEMBER,
+  isFClassQualification,
   isThreePFinal,
   makePositionEntryMode,
   makePositionSeries,
@@ -49,6 +50,7 @@ import {
   scoreToFormState,
   supportsPositionTotalEntry,
   validateScoreForm,
+  positionEntryHasScore,
   type PositionEntryMode,
   type SeriesEntry,
 } from '@/lib/scoreFormState';
@@ -289,6 +291,26 @@ export default function ManualEntryComponent({
     return sum > 0 ? sum : null;
   }, [positionRingTotals]);
 
+  const usesRingPrimaryQual =
+    stage === 'qualification' &&
+    (discipline === 'three_position_50m' || isFClassQualification(discipline, stage));
+
+  const formatPositionSubtotal = (pos: Position) => {
+    const dec = positionTotals[pos] ?? 0;
+    const rings = positionRingTotals[pos] ?? 0;
+    if (isFClassQualification(discipline, stage) && dec === 0 && rings > 0) {
+      return String(rings);
+    }
+    return dec.toFixed(1);
+  };
+
+  const displayQualTotal =
+    usesRingPrimaryQual && grandRingTotal != null
+      ? grandTotal > 0
+        ? `${grandRingTotal} (${grandTotal.toFixed(1)})`
+        : String(grandRingTotal)
+      : grandTotal.toFixed(1);
+
   const availableStages = useMemo((): ScoreStage[] => {
     if (discipline === 'three_position_50m') return ['qualification', '3p_final'];
     if (discipline === 'prone_50m') return ['qualification', 'prone_final'];
@@ -304,8 +326,17 @@ export default function ManualEntryComponent({
     setPositionEntryMode(makePositionEntryMode(d));
   };
 
-  const changeStage = (next: ScoreStage) => {
+  const changeStage = (next: ScoreStage, options?: { preserveScores?: boolean }) => {
     setStage(next);
+
+    if (options?.preserveScores) {
+      if (next === 'qualification') {
+        setFinalRank('');
+        setElimShots(['', '', '', '', '']);
+      }
+      return;
+    }
+
     setFinalRank('');
     setElimShots(['', '', '', '', '']);
     if (next === '3p_final') {
@@ -468,12 +499,9 @@ export default function ManualEntryComponent({
       }
     }
 
-    const anyScore = spec.positions.some((pos) => {
-      if (totalEntrySupported && positionEntryMode[pos] === 'total') {
-        return parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '') > 0;
-      }
-      return seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0);
-    });
+    const anyScore = spec.positions.some((pos) =>
+      positionEntryHasScore(discipline, stage, positionEntryMode, seriesByPosition, pos),
+    );
     const anyElim = elimShots.some((s) => parseDecimalValue(s) > 0);
     if (stage === '3p_final') {
       if (!anyScore && !anyElim) return 'Enter position series and/or elimination shots';
@@ -500,7 +528,10 @@ export default function ManualEntryComponent({
         category: input.category,
         veteran: veteran || input.isVeteran === true,
         discipline,
-        decimalTotal: grandTotal,
+        decimalTotal:
+          isFClassQualification(discipline, stage) && grandTotal === 0 && grandRingTotal != null
+            ? grandRingTotal
+            : grandTotal,
       },
     ]);
     resetShooter();
@@ -536,9 +567,6 @@ export default function ManualEntryComponent({
         return;
       }
       const input = buildScoreInputFromForm(formState, { source: editScore.source });
-      if (editScore.stage === '3p_final' && editScore.eliminatedAtShot != null) {
-        input.eliminatedAtShot = editScore.eliminatedAtShot;
-      }
       setIsLoading(true);
       try {
         const token = await getToken();
@@ -647,8 +675,7 @@ export default function ManualEntryComponent({
           <FormLabel>Stage</FormLabel>
           <Select
             value={stage}
-            onChange={(e) => changeStage(e.target.value as ScoreStage)}
-            isDisabled={isEditMode}
+            onChange={(e) => changeStage(e.target.value as ScoreStage, { preserveScores: isEditMode })}
           >
             {availableStages.map((s) => (
               <option key={s} value={s}>
@@ -795,7 +822,7 @@ export default function ManualEntryComponent({
                     </Button>
                   </HStack>
                 )}
-                <Badge colorScheme="blue">Subtotal: {positionTotals[pos]?.toFixed(1)}</Badge>
+                <Badge colorScheme="blue">Subtotal: {formatPositionSubtotal(pos)}</Badge>
               </HStack>
             </HStack>
             {isTotalMode ? (
@@ -831,6 +858,7 @@ export default function ManualEntryComponent({
                 </Box>
               </SimpleGrid>
             ) : (
+              <>
               <SimpleGrid columns={{ base: 2, md: spec.seriesPerPosition }} spacing={3}>
                 {seriesByPosition[pos].map((s, i) => (
                   <Box key={i}>
@@ -860,11 +888,19 @@ export default function ManualEntryComponent({
                       size="sm"
                     />
                     <Text fontSize="xs" color="gray.500" mt={1}>
-                      Ring — whole-number shot value (optional)
+                      {isFClassQualification(discipline, stage)
+                        ? 'Ring score (paper targets — decimal optional)'
+                        : 'Ring — whole-number shot value (optional)'}
                     </Text>
                   </Box>
                 ))}
               </SimpleGrid>
+              {isFClassQualification(discipline, stage) && (
+                <Text fontSize="xs" color="gray.500" mt={2}>
+                  F-Class paper scores: enter ring values only (all 6 series).
+                </Text>
+              )}
+              </>
             )}
           </Box>
         );
@@ -913,12 +949,7 @@ export default function ManualEntryComponent({
 
       <HStack justify="space-between">
         <Badge fontSize="md" colorScheme="green" px={3} py={1}>
-          {stage === 'qualification' ? 'Qual total' : 'Final total'}:{' '}
-          {stage === 'qualification' &&
-          discipline === 'three_position_50m' &&
-          grandRingTotal != null
-            ? `${grandRingTotal} (${grandTotal.toFixed(1)})`
-            : grandTotal.toFixed(1)}
+          {stage === 'qualification' ? 'Qual total' : 'Final total'}: {displayQualTotal}
           {stage === '3p_final' &&
             elimShots.some((s) => parseDecimalValue(s) > 0) &&
             ` + ${elimShots.reduce((a, s) => a + parseDecimalValue(s), 0).toFixed(1)} elim`}

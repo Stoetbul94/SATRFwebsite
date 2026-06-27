@@ -2,6 +2,10 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { buildScore, validateScoreInput } from '@/lib/issf';
+import {
+  finalGroupsToRecomputeAfterUpdate,
+  recomputeFinalRanksForEvent,
+} from '@/lib/recomputeFinalRanks';
 import { enrichScoreInput } from '@/lib/scoreMemberEnrich';
 import type { Score, ScoreInput } from '@/types/scores';
 
@@ -85,6 +89,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       await scoreRef.set(sanitizeForFirestore(updated));
+
+      const rankGroups = finalGroupsToRecomputeAfterUpdate(existing, updated);
+      for (const group of rankGroups) {
+        await recomputeFinalRanksForEvent(db, group).catch((err) =>
+          console.warn('finalRank recompute after update failed:', err),
+        );
+      }
 
       await db.collection('adminActions').add({
         adminId: userId,

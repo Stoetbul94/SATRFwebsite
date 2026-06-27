@@ -185,6 +185,7 @@ export function buildScoreInputFromForm(
 
   const parsedElim = form.elimShots.map((s) => parseDecimalValue(s)).filter((v) => v > 0);
   const rank = parseInt(form.finalRank, 10);
+  const isFinal = form.stage === 'prone_final' || form.stage === '3p_final';
 
   return {
     userId: form.selectedMemberId && form.selectedMemberId !== GUEST_MEMBER ? form.selectedMemberId : null,
@@ -202,9 +203,45 @@ export function buildScoreInputFromForm(
     source: options?.source ?? 'manual',
     positions,
     finalShots: form.stage === '3p_final' && parsedElim.length > 0 ? parsedElim : undefined,
-    finalRank: Number.isFinite(rank) && rank > 0 ? rank : undefined,
+    finalRank: isFinal && Number.isFinite(rank) && rank > 0 ? rank : undefined,
     eliminatedAtShot: undefined,
   };
+}
+
+export function isFClassQualification(discipline: Discipline, stage: ScoreStage): boolean {
+  return (discipline === 'fclass_open' || discipline === 'fclass_tr') && stage === 'qualification';
+}
+
+export function seriesEntryHasScore(
+  discipline: Discipline,
+  stage: ScoreStage,
+  entry: { decimal: string; integer: string },
+): boolean {
+  const dec = parseDecimalValue(entry.decimal);
+  const intVal = parseInt(entry.integer, 10) || 0;
+  if (isFClassQualification(discipline, stage)) {
+    return dec > 0 || intVal > 0;
+  }
+  return dec > 0;
+}
+
+export function positionEntryHasScore(
+  discipline: Discipline,
+  stage: ScoreStage,
+  positionEntryMode: Record<Position, PositionEntryMode>,
+  seriesByPosition: Record<Position, SeriesEntry[]>,
+  pos: Position,
+): boolean {
+  const totalEntrySupported = supportsPositionTotalEntry(discipline, stage);
+  if (totalEntrySupported && positionEntryMode[pos] === 'total') {
+    const dec = parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '');
+    const intVal = parseInt(seriesByPosition[pos][0]?.integer ?? '', 10) || 0;
+    if (isFClassQualification(discipline, stage)) {
+      return dec > 0 || intVal > 0;
+    }
+    return dec > 0;
+  }
+  return (seriesByPosition[pos] ?? []).some((s) => seriesEntryHasScore(discipline, stage, s));
 }
 
 export function validateScoreForm(
@@ -254,12 +291,15 @@ export function validateScoreForm(
     }
   }
 
-  const anyScore = spec.positions.some((pos) => {
-    if (totalEntrySupported && form.positionEntryMode[pos] === 'total') {
-      return parseDecimalValue(form.seriesByPosition[pos][0]?.decimal ?? '') > 0;
-    }
-    return form.seriesByPosition[pos].some((s) => parseDecimalValue(s.decimal) > 0);
-  });
+  const anyScore = spec.positions.some((pos) =>
+    positionEntryHasScore(
+      form.discipline,
+      form.stage,
+      form.positionEntryMode,
+      form.seriesByPosition,
+      pos,
+    ),
+  );
   const anyElim = form.elimShots.some((s) => parseDecimalValue(s) > 0);
   if (form.stage === '3p_final') {
     if (!anyScore && !anyElim) return 'Enter position series and/or elimination shots';
