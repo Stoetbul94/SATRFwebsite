@@ -54,6 +54,7 @@ import {
   type PositionEntryMode,
   type SeriesEntry,
 } from '@/lib/scoreFormState';
+import { isFClassDiscipline } from '@/lib/rankingsDisplay';
 
 interface ManualEntryComponentProps {
   onImportSuccess: (result: any) => void;
@@ -1003,7 +1004,11 @@ export default function ManualEntryComponent({
                     </HStack>
                   </Td>
                   <Td>{DISCIPLINES[row.discipline].label}</Td>
-                  <Td isNumeric>{row.decimalTotal.toFixed(1)}</Td>
+                  <Td isNumeric>
+                    {isFClassDiscipline(row.discipline)
+                      ? String(Math.round(row.decimalTotal))
+                      : row.decimalTotal.toFixed(1)}
+                  </Td>
                   <Td>
                     <IconButton
                       aria-label="Remove"

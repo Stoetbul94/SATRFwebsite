@@ -13,7 +13,7 @@ import type {
   ScoringType,
   ShotSeries,
 } from '@/types/scores';
-import { ringTotalForScore } from '@/lib/rankingsDisplay';
+import { ringTotalForScore, rankingValueForScore } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter, normalizeScoreCategoryFlags } from '@/lib/scoreVeteran';
 
 export const SHOTS_PER_SERIES = 10;
@@ -704,7 +704,12 @@ function applyFinalRanks(docs: ScoreDoc[], discipline: Discipline): ScoreDoc[] {
       .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
   }
 
-  const rankMap = rankProneFinalists(docs.map((d) => ({ id: d.id, decimalTotal: d.decimalTotal })));
+  const rankMap = rankProneFinalists(
+    docs.map((d) => ({
+      id: d.id,
+      decimalTotal: rankingValueForScore(d),
+    })),
+  );
   return [...docs]
     .map((d) => ({ ...d, finalRank: rankMap.get(d.id) ?? d.finalRank }))
     .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
@@ -728,6 +733,10 @@ export function compareQualificationScores(a: ScoreDoc, b: ScoreDoc, discipline:
     if (totalDiff !== 0) return totalDiff;
     const lastPosition = DISCIPLINES.three_position_50m.positions.at(-1)!;
     return positionDecimalTotal(b, lastPosition) - positionDecimalTotal(a, lastPosition);
+  }
+
+  if (discipline === 'fclass_open' || discipline === 'fclass_tr') {
+    return rankingValueForScore(b) - rankingValueForScore(a);
   }
 
   const totalDiff = b.decimalTotal - a.decimalTotal;

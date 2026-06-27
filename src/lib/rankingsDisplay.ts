@@ -52,6 +52,29 @@ export interface SortableRankRow {
   rank?: number;
 }
 
+export function isFClassDiscipline(discipline: Discipline): boolean {
+  return discipline === 'fclass_open' || discipline === 'fclass_tr';
+}
+
+export function rankingValueForScore(
+  score: Pick<Score, 'decimalTotal' | 'integerTotal' | 'positions' | 'discipline'>,
+): number {
+  if (isFClassDiscipline(score.discipline)) {
+    return ringTotalForScore(score) ?? score.decimalTotal;
+  }
+  return score.decimalTotal;
+}
+
+export function formatScoreTotalDisplay(
+  score: Pick<Score, 'decimalTotal' | 'integerTotal' | 'positions' | 'discipline' | 'stage'>,
+): string {
+  const stage = score.stage ?? 'qualification';
+  const rings = ringTotalForScore(score);
+  const pair = formatScorePair(score.decimalTotal, rings, qualScoreVariant(score.discipline, stage));
+  if (pair.secondary) return `${pair.primary} (${pair.secondary})`;
+  return pair.primary;
+}
+
 export function sortRankRows<T extends SortableRankRow>(rows: T[]): T[] {
   return sortRankRowsForDiscipline(rows, 'prone_50m');
 }
@@ -61,7 +84,7 @@ export function sortRankRowsForDiscipline<T extends SortableRankRow>(
   discipline: Discipline
 ): T[] {
   const sorted = [...rows].sort((a, b) => {
-    if (discipline === 'three_position_50m') {
+    if (discipline === 'three_position_50m' || isFClassDiscipline(discipline)) {
       const ringA = a.averageRings ?? 0;
       const ringB = b.averageRings ?? 0;
       if (ringA > 0 && ringB > 0) {
@@ -100,11 +123,30 @@ export function formatScorePair(
   if (variant === 'ringPrimary' && showRings) {
     return {
       primary: String(Math.round(rings)),
-      secondary: decimal.toFixed(1),
+      secondary: decimal > 0 ? decimal.toFixed(1) : null,
     };
   }
   return {
     primary: decimal.toFixed(1),
     secondary: showRings ? String(Math.round(rings)) : null,
   };
+}
+
+/** Display a single series cell (S1–S6) for event results tables and detail panels. */
+export function formatSeriesScoreDisplay(
+  series: { decimal?: number; integer?: number; missing?: boolean } | undefined,
+  discipline: Discipline,
+  stage?: string,
+): string {
+  if (!series || series.missing) return '—';
+  const decimal = series.decimal ?? 0;
+  const integer = series.integer ?? 0;
+  const variant = qualScoreVariant(discipline, stage);
+  if (variant === 'ringPrimary' && integer > 0) {
+    const pair = formatScorePair(decimal, integer, 'ringPrimary');
+    if (pair.secondary) return `${pair.primary} (${pair.secondary})`;
+    return pair.primary;
+  }
+  if (decimal > 0) return decimal.toFixed(1);
+  return '—';
 }

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { rank3pFinalists, rankProneFinalists } from '@/lib/issf';
+import { rankingValueForScore } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter } from '@/lib/scoreVeteran';
 import type { Category, Discipline, Score } from '@/types/scores';
 
@@ -101,7 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }))
       );
     } else {
-      rankMap = rankProneFinalists(scores.map((s) => ({ id: s.id, decimalTotal: s.decimalTotal })));
+      rankMap = rankProneFinalists(
+        scores.map((s) => ({ id: s.id, decimalTotal: rankingValueForScore(s) })),
+      );
     }
 
     const rows: FinalsRankRow[] = scores.map((s) => ({

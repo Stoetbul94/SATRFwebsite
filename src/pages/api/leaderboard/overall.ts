@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { parseEventDisciplines } from '@/lib/eventDisciplines';
-import { aggregateShooterRings, round1, sortRankRowsForDiscipline } from '@/lib/rankingsDisplay';
+import { aggregateShooterRings, isFClassDiscipline, rankingValueForScore, round1, sortRankRowsForDiscipline } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter } from '@/lib/scoreVeteran';
 import type { Category, Discipline, Score } from '@/types/scores';
 
@@ -114,7 +114,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const rows: RankRow[] = Array.from(groups.values()).map((list) => {
-      const totals = list.map((s) => s.decimalTotal);
+      const useRankingValue = isFClassDiscipline(discipline as Discipline);
+      const totals = list.map((s) =>
+        useRankingValue ? rankingValueForScore(s) : s.decimalTotal,
+      );
       const average = round1(totals.reduce((a, b) => a + b, 0) / totals.length);
       const best = Math.max(...totals);
       const { averageRings, bestRings } = aggregateShooterRings(list);

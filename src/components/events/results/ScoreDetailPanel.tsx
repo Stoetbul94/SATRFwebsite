@@ -6,7 +6,7 @@ import { POSITION_LABELS } from '@/lib/issf';
 import type { EventResultRow } from '@/lib/issf';
 import type { Position } from '@/types/scores';
 import QualScoreText from '@/components/scores/QualScoreText';
-import { qualScoreVariant } from '@/lib/rankingsDisplay';
+import { qualScoreVariant, formatSeriesScoreDisplay } from '@/lib/rankingsDisplay';
 import type { Discipline } from '@/types/scores';
 
 interface ScoreDetailPanelProps {
@@ -104,15 +104,10 @@ export default function ScoreDetailPanel({ row, isOpen, discipline }: ScoreDetai
                 </Text>
                 {s.missing ? (
                   <Text fontWeight="semibold">—</Text>
-                ) : is3pQual && s.integer != null && s.integer > 0 ? (
-                  <QualScoreText
-                    decimal={s.decimal}
-                    rings={s.integer}
-                    variant="ringPrimary"
-                    fontWeight="semibold"
-                  />
                 ) : (
-                  <Text fontWeight="semibold">{s.decimal.toFixed(1)}</Text>
+                  <Text fontWeight="semibold">
+                    {formatSeriesScoreDisplay(s, resolvedDiscipline, row.stage)}
+                  </Text>
                 )}
               </Box>
             ))}
