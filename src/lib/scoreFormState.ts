@@ -208,8 +208,16 @@ export function buildScoreInputFromForm(
   };
 }
 
+export function isFClassPaperScoring(discipline: Discipline, stage: ScoreStage): boolean {
+  return (
+    (discipline === 'fclass_open' || discipline === 'fclass_tr') &&
+    (stage === 'qualification' || stage === 'prone_final')
+  );
+}
+
+/** @deprecated Use isFClassPaperScoring */
 export function isFClassQualification(discipline: Discipline, stage: ScoreStage): boolean {
-  return (discipline === 'fclass_open' || discipline === 'fclass_tr') && stage === 'qualification';
+  return isFClassPaperScoring(discipline, stage);
 }
 
 export function seriesEntryHasScore(
@@ -219,7 +227,7 @@ export function seriesEntryHasScore(
 ): boolean {
   const dec = parseDecimalValue(entry.decimal);
   const intVal = parseInt(entry.integer, 10) || 0;
-  if (isFClassQualification(discipline, stage)) {
+  if (isFClassPaperScoring(discipline, stage)) {
     return dec > 0 || intVal > 0;
   }
   return dec > 0;
@@ -236,7 +244,7 @@ export function positionEntryHasScore(
   if (totalEntrySupported && positionEntryMode[pos] === 'total') {
     const dec = parseDecimalValue(seriesByPosition[pos][0]?.decimal ?? '');
     const intVal = parseInt(seriesByPosition[pos][0]?.integer ?? '', 10) || 0;
-    if (isFClassQualification(discipline, stage)) {
+    if (isFClassPaperScoring(discipline, stage)) {
       return dec > 0 || intVal > 0;
     }
     return dec > 0;

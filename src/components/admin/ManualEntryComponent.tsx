@@ -42,7 +42,7 @@ import {
   CUSTOM_EVENT,
   emptySeries,
   GUEST_MEMBER,
-  isFClassQualification,
+  isFClassPaperScoring,
   isThreePFinal,
   makePositionEntryMode,
   makePositionSeries,
@@ -291,21 +291,21 @@ export default function ManualEntryComponent({
     return sum > 0 ? sum : null;
   }, [positionRingTotals]);
 
-  const usesRingPrimaryQual =
-    stage === 'qualification' &&
-    (discipline === 'three_position_50m' || isFClassQualification(discipline, stage));
+  const usesRingPrimaryDisplay =
+    (stage === 'qualification' && discipline === 'three_position_50m') ||
+    isFClassPaperScoring(discipline, stage);
 
   const formatPositionSubtotal = (pos: Position) => {
     const dec = positionTotals[pos] ?? 0;
     const rings = positionRingTotals[pos] ?? 0;
-    if (isFClassQualification(discipline, stage) && dec === 0 && rings > 0) {
+    if (isFClassPaperScoring(discipline, stage) && dec === 0 && rings > 0) {
       return String(rings);
     }
     return dec.toFixed(1);
   };
 
   const displayQualTotal =
-    usesRingPrimaryQual && grandRingTotal != null
+    usesRingPrimaryDisplay && grandRingTotal != null
       ? grandTotal > 0
         ? `${grandRingTotal} (${grandTotal.toFixed(1)})`
         : String(grandRingTotal)
@@ -314,8 +314,20 @@ export default function ManualEntryComponent({
   const availableStages = useMemo((): ScoreStage[] => {
     if (discipline === 'three_position_50m') return ['qualification', '3p_final'];
     if (discipline === 'prone_50m') return ['qualification', 'prone_final'];
+    if (discipline === 'fclass_open' || discipline === 'fclass_tr') {
+      return ['qualification', 'prone_final'];
+    }
     return ['qualification'];
   }, [discipline]);
+
+  const stageOptionLabel = (s: ScoreStage): string => {
+    if (s === 'qualification') return 'Qualification';
+    if (s === '3p_final') return '3P Final';
+    if (s === 'prone_final' && (discipline === 'fclass_open' || discipline === 'fclass_tr')) {
+      return 'Final';
+    }
+    return 'Prone Final';
+  };
 
   const changeDiscipline = (d: Discipline) => {
     setDiscipline(d);
@@ -343,8 +355,8 @@ export default function ManualEntryComponent({
       setSeriesByPosition(makePositionSeries('three_position_50m'));
       setPositionEntryMode(makePositionEntryMode('three_position_50m'));
     } else if (next === 'prone_final') {
-      setSeriesByPosition(makePositionSeries('prone_50m'));
-      setPositionEntryMode(makePositionEntryMode('prone_50m'));
+      setSeriesByPosition(makePositionSeries(discipline));
+      setPositionEntryMode(makePositionEntryMode(discipline));
     } else {
       setSeriesByPosition(makePositionSeries(discipline));
       setPositionEntryMode(makePositionEntryMode(discipline));
@@ -529,7 +541,7 @@ export default function ManualEntryComponent({
         veteran: veteran || input.isVeteran === true,
         discipline,
         decimalTotal:
-          isFClassQualification(discipline, stage) && grandTotal === 0 && grandRingTotal != null
+          isFClassPaperScoring(discipline, stage) && grandTotal === 0 && grandRingTotal != null
             ? grandRingTotal
             : grandTotal,
       },
@@ -679,7 +691,7 @@ export default function ManualEntryComponent({
           >
             {availableStages.map((s) => (
               <option key={s} value={s}>
-                {s === 'qualification' ? 'Qualification' : s === 'prone_final' ? 'Prone Final' : '3P Final'}
+                {stageOptionLabel(s)}
               </option>
             ))}
           </Select>
@@ -888,14 +900,14 @@ export default function ManualEntryComponent({
                       size="sm"
                     />
                     <Text fontSize="xs" color="gray.500" mt={1}>
-                      {isFClassQualification(discipline, stage)
+                      {isFClassPaperScoring(discipline, stage)
                         ? 'Ring score (paper targets — decimal optional)'
                         : 'Ring — whole-number shot value (optional)'}
                     </Text>
                   </Box>
                 ))}
               </SimpleGrid>
-              {isFClassQualification(discipline, stage) && (
+              {isFClassPaperScoring(discipline, stage) && (
                 <Text fontSize="xs" color="gray.500" mt={2}>
                   F-Class paper scores: enter ring values only (all 6 series).
                 </Text>

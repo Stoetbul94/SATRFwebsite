@@ -8,8 +8,7 @@ import type { Category, Discipline, Score } from '@/types/scores';
  * GET /api/leaderboard/finals
  *
  * Finals-only public rankings per discipline and category.
- * Prone board: stage=prone_final. 3P board: stage=3p_final.
- * F-Class has no finals board (returns empty).
+ * Prone / F-Class board: stage=prone_final. 3P board: stage=3p_final.
  */
 interface FinalsRankRow {
   rank: number;
@@ -25,11 +24,22 @@ interface FinalsRankRow {
   date: string;
 }
 
-const FINALS_DISCIPLINES: Discipline[] = ['prone_50m', 'three_position_50m'];
+const FINALS_DISCIPLINES: Discipline[] = [
+  'prone_50m',
+  'three_position_50m',
+  'fclass_open',
+  'fclass_tr',
+];
 
 function expectedFinalStage(discipline: Discipline): 'prone_final' | '3p_final' | null {
   if (discipline === 'three_position_50m') return '3p_final';
-  if (discipline === 'prone_50m') return 'prone_final';
+  if (
+    discipline === 'prone_50m' ||
+    discipline === 'fclass_open' ||
+    discipline === 'fclass_tr'
+  ) {
+    return 'prone_final';
+  }
   return null;
 }
 

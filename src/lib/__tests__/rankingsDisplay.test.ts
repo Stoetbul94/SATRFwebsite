@@ -151,6 +151,11 @@ describe('rankingsDisplay', () => {
       expect(qualScoreVariant('prone_50m', 'qualification')).toBe('decimalPrimary');
       expect(qualScoreVariant('prone_50m', 'prone_final')).toBe('decimalPrimary');
     });
+
+    it('uses ringPrimary for F-Class at all stages', () => {
+      expect(qualScoreVariant('fclass_tr', 'prone_final')).toBe('ringPrimary');
+      expect(qualScoreVariant('fclass_open', 'prone_final')).toBe('ringPrimary');
+    });
   });
 
   describe('provinceAbbrev', () => {

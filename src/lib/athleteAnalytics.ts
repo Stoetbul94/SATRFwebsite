@@ -238,7 +238,11 @@ export function getDisciplineAimMarks(discipline: Discipline): DisciplineAimMark
           label: 'National qual aim',
           shortLabel: 'Aim 580',
         },
-        final: null,
+        final: {
+          value: 580,
+          label: 'National final aim',
+          shortLabel: 'Aim 580',
+        },
       };
     default:
       return {

@@ -354,17 +354,17 @@ export function validateScoreInput(
 
   if (isSixSeriesDiscipline(input.discipline) || stage === 'prone_final') {
     const block = input.positions?.[0];
-    const isFClassQual =
-      stage === 'qualification' &&
-      (input.discipline === 'fclass_open' || input.discipline === 'fclass_tr');
+    const isFClassPaper =
+      (input.discipline === 'fclass_open' || input.discipline === 'fclass_tr') &&
+      (stage === 'qualification' || stage === 'prone_final');
     const filled =
       block?.series.filter((s) =>
-        isFClassQual ? (s.decimal ?? 0) > 0 || (s.integer ?? 0) > 0 : (s.decimal ?? 0) > 0,
+        isFClassPaper ? (s.decimal ?? 0) > 0 || (s.integer ?? 0) > 0 : (s.decimal ?? 0) > 0,
       ) ?? [];
     if (strict && filled.length < 6) {
       errors.push({
         path: 'positions',
-        message: isFClassQual
+        message: isFClassPaper
           ? 'All 6 series ring or decimal scores are required for official F-Class scores'
           : 'All 6 series decimals are required for official scores',
       });
