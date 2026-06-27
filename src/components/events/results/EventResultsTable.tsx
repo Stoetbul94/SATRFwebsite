@@ -30,7 +30,7 @@ import type { Category, Discipline } from '@/types/scores';
 import EventPodium from './EventPodium';
 import ScoreDetailPanel from './ScoreDetailPanel';
 import QualScoreText from '@/components/scores/QualScoreText';
-import { qualScoreVariant } from '@/lib/rankingsDisplay';
+import { qualScoreVariant, formatSeriesScoreDisplay } from '@/lib/rankingsDisplay';
 
 const MotionTr = motion(Tr);
 const MotionBox = motion(Box);
@@ -141,7 +141,7 @@ function ResultRowExpand({
         {showSeriesColumns &&
           [0, 1, 2, 3, 4, 5].map((i) => (
             <Td key={i} isNumeric display={{ base: 'none', lg: 'table-cell' }} fontSize="sm">
-              {series[i]?.decimal?.toFixed(1) ?? '—'}
+              {formatSeriesScoreDisplay(series[i], discipline, row.stage)}
             </Td>
           ))}
         {is3pQual && (

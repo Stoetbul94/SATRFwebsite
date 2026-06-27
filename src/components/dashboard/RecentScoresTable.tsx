@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { FiTarget } from 'react-icons/fi';
 import { DISCIPLINES } from '@/lib/issf';
-import { formatScorePair, qualScoreVariant, ringTotalForScore } from '@/lib/rankingsDisplay';
+import { formatScoreTotalDisplay } from '@/lib/rankingsDisplay';
 import { STAGE_LABELS } from '@/lib/athleteAnalytics';
 import type { Score } from '@/types/scores';
 
@@ -14,18 +14,6 @@ function statusBadge(status: string) {
   if (status === 'official') return `${base} bg-green-100 text-green-800`;
   if (status === 'provisional') return `${base} bg-yellow-100 text-yellow-800`;
   return `${base} bg-gray-100 text-gray-800`;
-}
-
-function formatTotal(score: Score): string {
-  const stage = score.stage ?? 'qualification';
-  const rings = ringTotalForScore(score);
-  const pair = formatScorePair(
-    score.decimalTotal,
-    rings,
-    qualScoreVariant(score.discipline, stage),
-  );
-  if (pair.secondary) return `${pair.primary} (${pair.secondary})`;
-  return pair.primary;
 }
 
 export default function RecentScoresTable({ scores }: RecentScoresTableProps) {
@@ -89,7 +77,7 @@ export default function RecentScoresTable({ scores }: RecentScoresTableProps) {
                     {STAGE_LABELS[score.stage ?? 'qualification']}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                    {formatTotal(score)}
+                    {formatScoreTotalDisplay(score)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                     {score.innerTens ?? 0}

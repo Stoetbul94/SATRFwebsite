@@ -1,4 +1,5 @@
 import { rank3pFinalists, rankProneFinalists } from '@/lib/issf';
+import { rankingValueForScore } from '@/lib/rankingsDisplay';
 import type { Discipline, Score, ScoreStage } from '@/types/scores';
 
 export type FinalStage = 'prone_final' | '3p_final';
@@ -6,6 +7,7 @@ export type FinalStage = 'prone_final' | '3p_final';
 export interface FinalistDoc {
   id: string;
   decimalTotal: number;
+  rankingTotal?: number;
   eliminatedAtShot?: number | null;
 }
 
@@ -23,7 +25,12 @@ export function computeFinalRankMap(stage: FinalStage, docs: FinalistDoc[]): Map
       })),
     );
   }
-  return rankProneFinalists(docs.map((d) => ({ id: d.id, decimalTotal: d.decimalTotal })));
+  return rankProneFinalists(
+    docs.map((d) => ({
+      id: d.id,
+      decimalTotal: d.rankingTotal ?? d.decimalTotal,
+    })),
+  );
 }
 
 export interface RecomputeFinalRanksParams {
@@ -55,6 +62,7 @@ export async function recomputeFinalRanksForEvent(
       return {
         id: d.id,
         decimalTotal: data.decimalTotal,
+        rankingTotal: rankingValueForScore(data),
         eliminatedAtShot: data.eliminatedAtShot,
       };
     });

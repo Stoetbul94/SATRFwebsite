@@ -3,6 +3,7 @@ import {
   availableDisciplinesFromScores,
   defaultDisciplineFromAvailable,
   rank3pFinalists,
+  scoreToEventResultRow,
 } from '../issf';
 import type { Score } from '@/types/scores';
 
@@ -288,6 +289,82 @@ describe('buildEventResultBoard', () => {
     const board = buildEventResultBoard(docs, 'prone_50m');
     expect(board.final?.[0].shooterName).toBe('High');
     expect(board.final?.[0].place).toBe(1);
+  });
+
+  it('ranks F-Class TR qualification by ring total when decimalTotal is zero', () => {
+    const rings = [99, 98, 99, 99, 99, 96];
+    const fclassPositions = (total: number) => [
+      {
+        position: 'fclass' as const,
+        series: rings.map((integer, i) => ({
+          seriesNumber: i + 1,
+          decimal: 0,
+          integer,
+        })),
+        decimalTotal: 0,
+        integerTotal: total,
+        innerTens: 0,
+      },
+    ];
+    const docs = [
+      baseScore({
+        id: 'a',
+        discipline: 'fclass_tr',
+        shooterName: 'Alice',
+        decimalTotal: 0,
+        integerTotal: 590,
+        positions: fclassPositions(590),
+      }),
+      baseScore({
+        id: 'b',
+        discipline: 'fclass_tr',
+        shooterName: 'Bob',
+        decimalTotal: 0,
+        integerTotal: 596,
+        positions: fclassPositions(596),
+      }),
+      baseScore({
+        id: 'c',
+        discipline: 'fclass_tr',
+        shooterName: 'Carol',
+        decimalTotal: 0,
+        integerTotal: 586,
+        positions: fclassPositions(586),
+      }),
+    ];
+    const board = buildEventResultBoard(docs, 'fclass_tr');
+    expect(board.qualification.map((r) => r.shooterName)).toEqual(['Bob', 'Alice', 'Carol']);
+    expect(board.qualification[0].integerTotal).toBe(596);
+  });
+});
+
+describe('scoreToEventResultRow F-Class', () => {
+  it('maps per-series ring integers for F-Class TR qualification', () => {
+    const rings = [97, 98, 97, 99, 99, 99];
+    const score = baseScore({
+      id: 'fc-1',
+      discipline: 'fclass_tr',
+      decimalTotal: 0,
+      integerTotal: rings.reduce((a, b) => a + b, 0),
+      positions: [
+        {
+          position: 'fclass',
+          series: rings.map((integer, i) => ({
+            seriesNumber: i + 1,
+            decimal: 0,
+            integer,
+          })),
+          decimalTotal: 0,
+          integerTotal: rings.reduce((a, b) => a + b, 0),
+          innerTens: 0,
+        },
+      ],
+    });
+    const row = scoreToEventResultRow(score, 1);
+    expect(row.series).toHaveLength(6);
+    expect(row.series?.[0]).toMatchObject({ seriesNumber: 1, decimal: 0, integer: 97 });
+    expect(row.series?.[5]).toMatchObject({ seriesNumber: 6, decimal: 0, integer: 99 });
+    expect(row.integerTotal).toBe(589);
   });
 });
 

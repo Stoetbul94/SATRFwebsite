@@ -13,7 +13,7 @@ import type {
   ScoringType,
   ShotSeries,
 } from '@/types/scores';
-import { ringTotalForScore } from '@/lib/rankingsDisplay';
+import { ringTotalForScore, rankingValueForScore } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter, normalizeScoreCategoryFlags } from '@/lib/scoreVeteran';
 
 export const SHOTS_PER_SERIES = 10;
@@ -354,17 +354,17 @@ export function validateScoreInput(
 
   if (isSixSeriesDiscipline(input.discipline) || stage === 'prone_final') {
     const block = input.positions?.[0];
-    const isFClassQual =
-      stage === 'qualification' &&
-      (input.discipline === 'fclass_open' || input.discipline === 'fclass_tr');
+    const isFClassPaper =
+      (input.discipline === 'fclass_open' || input.discipline === 'fclass_tr') &&
+      (stage === 'qualification' || stage === 'prone_final');
     const filled =
       block?.series.filter((s) =>
-        isFClassQual ? (s.decimal ?? 0) > 0 || (s.integer ?? 0) > 0 : (s.decimal ?? 0) > 0,
+        isFClassPaper ? (s.decimal ?? 0) > 0 || (s.integer ?? 0) > 0 : (s.decimal ?? 0) > 0,
       ) ?? [];
     if (strict && filled.length < 6) {
       errors.push({
         path: 'positions',
-        message: isFClassQual
+        message: isFClassPaper
           ? 'All 6 series ring or decimal scores are required for official F-Class scores'
           : 'All 6 series decimals are required for official scores',
       });
@@ -704,7 +704,12 @@ function applyFinalRanks(docs: ScoreDoc[], discipline: Discipline): ScoreDoc[] {
       .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
   }
 
-  const rankMap = rankProneFinalists(docs.map((d) => ({ id: d.id, decimalTotal: d.decimalTotal })));
+  const rankMap = rankProneFinalists(
+    docs.map((d) => ({
+      id: d.id,
+      decimalTotal: rankingValueForScore(d),
+    })),
+  );
   return [...docs]
     .map((d) => ({ ...d, finalRank: rankMap.get(d.id) ?? d.finalRank }))
     .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999));
@@ -728,6 +733,10 @@ export function compareQualificationScores(a: ScoreDoc, b: ScoreDoc, discipline:
     if (totalDiff !== 0) return totalDiff;
     const lastPosition = DISCIPLINES.three_position_50m.positions.at(-1)!;
     return positionDecimalTotal(b, lastPosition) - positionDecimalTotal(a, lastPosition);
+  }
+
+  if (discipline === 'fclass_open' || discipline === 'fclass_tr') {
+    return rankingValueForScore(b) - rankingValueForScore(a);
   }
 
   const totalDiff = b.decimalTotal - a.decimalTotal;

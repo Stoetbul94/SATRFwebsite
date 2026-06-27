@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { buildScore, rank3pFinalists, rankProneFinalists, validateScoreInput } from '@/lib/issf';
+import { rankingValueForScore } from '@/lib/rankingsDisplay';
 import type { ScoreInput, Score } from '@/types/scores';
 import { enrichScoreInput, type MemberLookup } from '@/lib/scoreMemberEnrich';
 import { findReplaceableScores, softDeleteScores } from '@/lib/scoreReplace';
@@ -143,7 +144,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   decimalTotal: g.score.decimalTotal,
                 }))
               )
-            : rankProneFinalists(group.map((g) => ({ id: g.id, decimalTotal: g.score.decimalTotal })));
+            : rankProneFinalists(
+                group.map((g) => ({
+                  id: g.id,
+                  decimalTotal: rankingValueForScore(g.score),
+                })),
+              );
         for (const g of group) {
           const rank = g.score.finalRank ?? rankMap.get(g.id);
           if (rank != null && g.score.finalRank == null) {

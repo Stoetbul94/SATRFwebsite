@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { rank3pFinalists, rankProneFinalists } from '@/lib/issf';
+import { rankingValueForScore } from '@/lib/rankingsDisplay';
 import { scoreMatchesCategoryFilter } from '@/lib/scoreVeteran';
 import type { Category, Discipline, Score } from '@/types/scores';
 
@@ -8,8 +9,7 @@ import type { Category, Discipline, Score } from '@/types/scores';
  * GET /api/leaderboard/finals
  *
  * Finals-only public rankings per discipline and category.
- * Prone board: stage=prone_final. 3P board: stage=3p_final.
- * F-Class has no finals board (returns empty).
+ * Prone / F-Class board: stage=prone_final. 3P board: stage=3p_final.
  */
 interface FinalsRankRow {
   rank: number;
@@ -25,11 +25,22 @@ interface FinalsRankRow {
   date: string;
 }
 
-const FINALS_DISCIPLINES: Discipline[] = ['prone_50m', 'three_position_50m'];
+const FINALS_DISCIPLINES: Discipline[] = [
+  'prone_50m',
+  'three_position_50m',
+  'fclass_open',
+  'fclass_tr',
+];
 
 function expectedFinalStage(discipline: Discipline): 'prone_final' | '3p_final' | null {
   if (discipline === 'three_position_50m') return '3p_final';
-  if (discipline === 'prone_50m') return 'prone_final';
+  if (
+    discipline === 'prone_50m' ||
+    discipline === 'fclass_open' ||
+    discipline === 'fclass_tr'
+  ) {
+    return 'prone_final';
+  }
   return null;
 }
 
@@ -91,7 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }))
       );
     } else {
-      rankMap = rankProneFinalists(scores.map((s) => ({ id: s.id, decimalTotal: s.decimalTotal })));
+      rankMap = rankProneFinalists(
+        scores.map((s) => ({ id: s.id, decimalTotal: rankingValueForScore(s) })),
+      );
     }
 
     const rows: FinalsRankRow[] = scores.map((s) => ({

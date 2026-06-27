@@ -7,6 +7,7 @@ import {
   validateScoreForm,
 } from '@/lib/scoreFormState';
 import { buildScore, validateScoreInput } from '@/lib/issf';
+import { qualScoreVariant } from '@/lib/rankingsDisplay';
 import {
   computeFinalRankMap,
   finalGroupsToRecomputeAfterUpdate,
@@ -98,6 +99,35 @@ describe('F-Class ring-only qualification', () => {
     const built = buildScore(input, { createdBy: 'test' });
     expect(built.integerTotal).toBe(589);
     expect(validateScoreInput(input, { strict: true }).valid).toBe(true);
+  });
+});
+
+describe('F-Class ring-only final', () => {
+  function fclassFinalForm(rings: number[]) {
+    const discipline = 'fclass_tr' as const;
+    const seriesByPosition = makePositionSeries(discipline);
+    rings.forEach((ring, i) => {
+      seriesByPosition.fclass[i] = { decimal: '', integer: String(ring) };
+    });
+    return baseForm({ discipline, stage: 'prone_final', seriesByPosition });
+  }
+
+  it('accepts ring-only series for F-Class final', () => {
+    expect(validateScoreForm(fclassFinalForm([97, 98, 97, 99, 99, 99]))).toBeNull();
+  });
+
+  it('builds and validates official F-Class final with integers only', () => {
+    const input = buildScoreInputFromForm(fclassFinalForm([97, 98, 97, 99, 99, 99]));
+    expect(input.stage).toBe('prone_final');
+    expect(input.discipline).toBe('fclass_tr');
+    const built = buildScore(input, { createdBy: 'test' });
+    expect(built.integerTotal).toBe(589);
+    expect(built.stage).toBe('prone_final');
+    expect(validateScoreInput(input, { strict: true }).valid).toBe(true);
+  });
+
+  it('uses ringPrimary display variant for F-Class final', () => {
+    expect(qualScoreVariant('fclass_tr', 'prone_final')).toBe('ringPrimary');
   });
 });
 

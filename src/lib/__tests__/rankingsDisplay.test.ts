@@ -3,11 +3,14 @@ import { provinceAbbrev } from '@/lib/memberFields';
 import {
   aggregateShooterRings,
   formatEventsCell,
+  formatScoreTotalDisplay,
   hasRecordedRings,
+  rankingValueForScore,
   ringTotalForScore,
   sortRankRows,
   sortRankRowsForDiscipline,
   formatScorePair,
+  formatSeriesScoreDisplay,
   qualScoreVariant,
 } from '@/lib/rankingsDisplay';
 
@@ -121,6 +124,68 @@ describe('rankingsDisplay', () => {
       );
       expect(rows[0].average).toBe(558.8);
     });
+
+    it('F-Class sorts by ring average when both have rings', () => {
+      const rows = sortRankRowsForDiscipline(
+        [
+          { average: 0, averageRings: 580, rank: 0 },
+          { average: 0, averageRings: 589, rank: 0 },
+        ],
+        'fclass_tr'
+      );
+      expect(rows[0].averageRings).toBe(589);
+      expect(rows[0].rank).toBe(1);
+    });
+  });
+
+  describe('rankingValueForScore', () => {
+    it('returns ring total for F-Class when rings recorded', () => {
+      expect(
+        rankingValueForScore({
+          discipline: 'fclass_tr',
+          decimalTotal: 0,
+          integerTotal: 589,
+          positions: [],
+        })
+      ).toBe(589);
+    });
+
+    it('returns decimal total for non-F-Class', () => {
+      expect(
+        rankingValueForScore({
+          discipline: 'prone_50m',
+          decimalTotal: 621.5,
+          integerTotal: 0,
+          positions: [],
+        })
+      ).toBe(621.5);
+    });
+  });
+
+  describe('formatScoreTotalDisplay', () => {
+    it('shows ring-only F-Class total without (0.0)', () => {
+      expect(
+        formatScoreTotalDisplay({
+          discipline: 'fclass_tr',
+          stage: 'qualification',
+          decimalTotal: 0,
+          integerTotal: 589,
+          positions: [],
+        })
+      ).toBe('589');
+    });
+
+    it('shows both ring and decimal when both recorded', () => {
+      expect(
+        formatScoreTotalDisplay({
+          discipline: 'fclass_open',
+          stage: 'qualification',
+          decimalTotal: 578.6,
+          integerTotal: 589,
+          positions: [],
+        })
+      ).toBe('589 (578.6)');
+    });
   });
 
   describe('formatScorePair', () => {
@@ -131,11 +196,43 @@ describe('rankingsDisplay', () => {
       });
     });
 
+    it('ringPrimary omits secondary when decimal is zero', () => {
+      expect(formatScorePair(0, 589, 'ringPrimary')).toEqual({
+        primary: '589',
+        secondary: null,
+      });
+    });
+
     it('decimalPrimary shows decimal first', () => {
       expect(formatScorePair(578.6, 550, 'decimalPrimary')).toEqual({
         primary: '578.6',
         secondary: '550',
       });
+    });
+  });
+
+  describe('formatSeriesScoreDisplay', () => {
+    it('shows F-Class ring-only series without decimal suffix', () => {
+      expect(formatSeriesScoreDisplay({ decimal: 0, integer: 99 }, 'fclass_tr', 'qualification')).toBe(
+        '99'
+      );
+    });
+
+    it('shows F-Class series with both ring and decimal', () => {
+      expect(formatSeriesScoreDisplay({ decimal: 98.5, integer: 99 }, 'fclass_open', 'qualification')).toBe(
+        '99 (98.5)'
+      );
+    });
+
+    it('shows prone decimal series unchanged', () => {
+      expect(formatSeriesScoreDisplay({ decimal: 100.7, integer: 95 }, 'prone_50m', 'qualification')).toBe(
+        '100.7'
+      );
+    });
+
+    it('returns em dash for missing series', () => {
+      expect(formatSeriesScoreDisplay(undefined, 'fclass_tr')).toBe('—');
+      expect(formatSeriesScoreDisplay({ missing: true }, 'fclass_tr')).toBe('—');
     });
   });
 
@@ -150,6 +247,11 @@ describe('rankingsDisplay', () => {
       expect(qualScoreVariant('three_position_50m', '3p_final')).toBe('decimalPrimary');
       expect(qualScoreVariant('prone_50m', 'qualification')).toBe('decimalPrimary');
       expect(qualScoreVariant('prone_50m', 'prone_final')).toBe('decimalPrimary');
+    });
+
+    it('uses ringPrimary for F-Class at all stages', () => {
+      expect(qualScoreVariant('fclass_tr', 'prone_final')).toBe('ringPrimary');
+      expect(qualScoreVariant('fclass_open', 'prone_final')).toBe('ringPrimary');
     });
   });
 

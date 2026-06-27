@@ -37,7 +37,7 @@ import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { DISCIPLINES } from '@/lib/issf';
-import { formatScorePair } from '@/lib/rankingsDisplay';
+import { formatScoreTotalDisplay } from '@/lib/rankingsDisplay';
 import type { Score } from '@/types/scores';
 
 const getToken = async (): Promise<string | null> => {
@@ -45,13 +45,6 @@ const getToken = async (): Promise<string | null> => {
   if (fresh) return fresh;
   return typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 };
-
-function formatTotalCell(score: Score): string {
-  if (score.discipline === 'three_position_50m' && score.stage === 'qualification' && score.integerTotal > 0) {
-    return `${formatScorePair(score.decimalTotal, score.integerTotal, 'ringPrimary').primary} (${score.decimalTotal.toFixed(1)})`;
-  }
-  return score.decimalTotal?.toFixed(1) ?? '—';
-}
 
 export default function AdminScores() {
   useProtectedRoute();
@@ -244,7 +237,7 @@ export default function AdminScores() {
                     )}
                   </Td>
                   <Td isNumeric fontWeight="semibold">
-                    {formatTotalCell(score)}
+                    {formatScoreTotalDisplay(score)}
                   </Td>
                   <Td isNumeric>{score.innerTens || 0}</Td>
                   <Td>
