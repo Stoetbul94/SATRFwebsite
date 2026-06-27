@@ -2,37 +2,30 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { FiTarget, FiCalendar, FiTrendingUp, FiUsers, FiAward, FiUpload, FiEye, FiEdit, FiInfo } from 'react-icons/fi';
+import { FiCalendar, FiEdit, FiEye } from 'react-icons/fi';
 import { useAuth, useProtectedRoute } from '../../contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { shouldRedirectAdminFromDashboard } from '@/lib/userAthlete';
 import { auth } from '@/lib/firebase';
-import { DISCIPLINES } from '@/lib/issf';
-
-interface DashboardStats {
-  totalScores: number;
-  bestScore: number;
-  averageScore: number;
-  totalXCount: number;
-  currentRank: number | null;
-  clubRank: number | null;
-  categoryRank: number | null;
-}
+import { buildAthleteAnalytics, type AthleteAnalyticsSummary } from '@/lib/athleteAnalytics';
+import AthleteSummaryCards from '@/components/dashboard/AthleteSummaryCards';
+import DisciplineTabs from '@/components/dashboard/DisciplineTabs';
+import DisciplinePerformancePanel from '@/components/dashboard/DisciplinePerformancePanel';
+import RecentScoresTable from '@/components/dashboard/RecentScoresTable';
+import type { Score } from '@/types/scores';
 
 export default function Dashboard() {
-  // Use AuthContext instead of local state
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
-  
-  // Local state for dashboard data
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentScores, setRecentScores] = useState<any[]>([]);
+
+  const [analytics, setAnalytics] = useState<AthleteAnalyticsSummary | null>(null);
+  const [recentScores, setRecentScores] = useState<Score[]>([]);
+  const [overallRank, setOverallRank] = useState<number | null>(null);
+  const [activeDiscipline, setActiveDiscipline] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
-  // Protected route guard - redirect to login if not authenticated
   useProtectedRoute();
 
-  // Admin-only users go to admin dashboard; admin-athletes (isAthlete) may use member dashboard
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
       if (shouldRedirectAdminFromDashboard(user)) {
@@ -44,108 +37,73 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Only fetch data if user is authenticated
-        if (isAuthenticated && user) {
-          const token = await auth.currentUser?.getIdToken();
+        if (!isAuthenticated || !user) return;
 
-          // Get the member's own scores from Firestore (new ISSF model).
-          const myScoresRes = await fetch('/api/scores/my-scores', {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          });
-          const myScoresJson = await myScoresRes.json().catch(() => ({ data: [] }));
-          const myScores: any[] = myScoresJson.data || [];
+        const token = await auth.currentUser?.getIdToken();
+        const myScoresRes = await fetch('/api/scores/my-scores', {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const myScoresJson = await myScoresRes.json().catch(() => ({ data: [] }));
+        const myScores: Score[] = myScoresJson.data || [];
 
-          // Recent scores (already date-sorted by the API), limit 10.
-          setRecentScores(myScores.slice(0, 10));
+        setRecentScores(myScores.slice(0, 10));
 
-          // Statistics based on decimal totals.
-          const totals = myScores.map((s) => s.decimalTotal || 0);
-          const totalScores = myScores.length;
-          const bestScore = totals.length ? Math.max(...totals) : 0;
-          const averageScore = totals.length
-            ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10
-            : 0;
-          const totalInnerTens = myScores.reduce((sum, s) => sum + (s.innerTens || 0), 0);
-
-          // Rank within prone rankings (default discipline).
-          const lbRes = await fetch('/api/leaderboard/overall?discipline=prone_50m').catch(() => null);
-          const lbJson = lbRes ? await lbRes.json().catch(() => ({ data: [] })) : { data: [] };
-          const userRank = (lbJson.data || []).findIndex((e: any) => e.userId === user.id) + 1;
-
-          setStats({
-            totalScores,
-            bestScore,
-            averageScore,
-            totalXCount: totalInnerTens,
-            currentRank: userRank > 0 ? userRank : null,
-            clubRank: null,
-            categoryRank: null,
-          });
+        const built = buildAthleteAnalytics(myScores);
+        setAnalytics(built);
+        if (built.disciplines.length > 0) {
+          setActiveDiscipline((prev) =>
+            prev && built.disciplines.some((d) => d.discipline === prev)
+              ? prev
+              : built.disciplines[0].discipline,
+          );
         }
+
+        const lbRes = await fetch('/api/leaderboard/overall?discipline=prone_50m').catch(() => null);
+        const lbJson = lbRes ? await lbRes.json().catch(() => ({ data: [] })) : { data: [] };
+        const userRank = (lbJson.data || []).findIndex((e: { userId: string }) => e.userId === user.id) + 1;
+        setOverallRank(userRank > 0 ? userRank : null);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        // Set default stats on error
-        setStats({
-          totalScores: 0,
-          bestScore: 0,
-          averageScore: 0,
-          totalXCount: 0,
-          currentRank: null,
-          clubRank: null,
-          categoryRank: null,
+        setAnalytics({
+          totalQualCompetitions: 0,
+          totalFinalCompetitions: 0,
+          disciplinesActive: 0,
+          totalInnerTens: 0,
+          totalScoreRecords: 0,
+          disciplines: [],
         });
       } finally {
         setLoading(false);
       }
     };
 
-    // Only fetch data when auth is complete and user is authenticated
     if (!authLoading && isAuthenticated) {
       fetchDashboardData();
     } else if (!authLoading && !isAuthenticated) {
-      // If not authenticated, stop loading
       setLoading(false);
     }
   }, [isAuthenticated, user, authLoading]);
 
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-    switch (status) {
-      case 'official':
-        return `${baseClasses} bg-green-100 text-green-800`;
-      case 'provisional':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
-    }
-  };
+  const activePanel = analytics?.disciplines.find((d) => d.discipline === activeDiscipline);
 
-  // Show loading state while auth is being checked or data is loading
   if (authLoading || loading) {
     return (
       <Layout>
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-200 rounded mb-4 w-1/3"></div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-32 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="h-64 bg-gray-200 rounded"></div>
-                ))}
-              </div>
+          <div className="max-w-7xl mx-auto animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-1/3" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-28 bg-gray-200 rounded" />
+              ))}
             </div>
+            <div className="h-80 bg-gray-200 rounded" />
           </div>
         </div>
       </Layout>
     );
   }
 
-  // Don't render anything if not authenticated (will be redirected by useProtectedRoute)
   if (!isAuthenticated || !user) {
     return null;
   }
@@ -154,77 +112,42 @@ export default function Dashboard() {
     <Layout>
       <Head>
         <title>Dashboard - SATRF</title>
-        <meta name="description" content="Your personal shooting dashboard. View your scores, statistics, and performance metrics." />
+        <meta
+          name="description"
+          content="Your SATRF athlete dashboard — competition history, performance charts, and scores by discipline."
+        />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-
-          {/* Header */}
-          <div className="mb-8">
+          <div className="mb-8" id="performance">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Welcome back, {user.firstName}!
             </h1>
             <p className="text-gray-600">
-              Here's your shooting performance overview
+              Your competition history and performance trends across disciplines
             </p>
           </div>
 
-          {/* Stats Cards */}
-          {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <FiTarget className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Scores</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalScores}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FiTrendingUp className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Best Score</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.bestScore}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FiAward className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Average Score</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.averageScore}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {analytics && (
+            <AthleteSummaryCards summary={analytics} overallRank={overallRank} />
           )}
 
-          {/* User Info */}
           <div className="bg-white rounded-lg shadow p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Profile</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-600">Name</p>
-                <p className="font-medium">{user.firstName} {user.lastName}</p>
+                <p className="font-medium">
+                  {user.firstName} {user.lastName}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Email</p>
                 <p className="font-medium">{user.email}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Membership Type</p>
+                <p className="text-sm text-gray-600">Membership</p>
                 <p className="font-medium capitalize">{user.membershipType}</p>
               </div>
               <div>
@@ -234,115 +157,35 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Rankings */}
-          {stats && (
-            <div className="bg-white rounded-lg shadow p-6 mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Rankings</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Overall Rank</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.currentRank ? `#${stats.currentRank}` : 'N/A'}
-                  </p>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Club Rank</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.clubRank ? `#${stats.clubRank}` : 'N/A'}
-                  </p>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Category Rank</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.categoryRank ? `#${stats.categoryRank}` : 'N/A'}
-                  </p>
-                </div>
-              </div>
+          {analytics && analytics.disciplines.length > 0 ? (
+            <>
+              <DisciplineTabs
+                disciplines={analytics.disciplines}
+                active={activeDiscipline}
+                onChange={setActiveDiscipline}
+              />
+              {activePanel && <DisciplinePerformancePanel analytics={activePanel} />}
+            </>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-8 mb-8 text-center">
+              <p className="text-gray-600 mb-2">No competition scores linked to your account yet.</p>
+              <p className="text-sm text-gray-500">
+                Scores appear here once recorded at an event by SATRF officials.
+              </p>
             </div>
           )}
 
-          {/* Recent Scores */}
-          <div className="bg-white rounded-lg shadow p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Scores</h2>
-              <Link
-                href="/scores"
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                View All →
-              </Link>
-            </div>
-            {recentScores.length === 0 ? (
-              <div className="text-center py-8">
-                <FiTarget className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-gray-600 mb-2">No scores yet</p>
-                <Link
-                  href="/scores"
-                  className="text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  View season rankings →
-                </Link>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Discipline
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Inner 10s
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {recentScores.map((score: any) => (
-                      <tr key={score.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {score.date ? new Date(score.date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {DISCIPLINES[score.discipline as keyof typeof DISCIPLINES]?.label || score.discipline || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          {typeof score.decimalTotal === 'number' ? score.decimalTotal.toFixed(1) : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {score.innerTens || 0}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={getStatusBadge(score.status)}>
-                            {score.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <RecentScoresTable scores={recentScores} />
 
-          {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link
                 href="/scores"
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <FiEye className="h-5 w-5 text-green-600 mr-3" />
-                <span className="font-medium">View Scores</span>
+                <span className="font-medium">Season Rankings</span>
               </Link>
               <Link
                 href="/profile"
@@ -361,15 +204,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Back to Home Link */}
           <div className="text-center">
             <Link
               href="/"
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
               Back to Home
             </Link>
           </div>
@@ -377,4 +216,4 @@ export default function Dashboard() {
       </div>
     </Layout>
   );
-} 
+}

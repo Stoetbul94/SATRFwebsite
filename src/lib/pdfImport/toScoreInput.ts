@@ -1,23 +1,25 @@
-import type { ScoreInput } from '@/types/scores';
-import type { Category } from '@/types/scores';
+import type { Category, ScoreInput, ScoreStage } from '@/types/scores';
 import type {
   Parse3pPdfResult,
   ParsePronePdfResult,
   ThreePImportMode,
 } from './types';
 
+export type PdfScoreInputOpts = {
+  userId: string | null;
+  shooterName: string;
+  club: string;
+  category: Category;
+  isVeteran?: boolean;
+  eventId: string;
+  eventName: string;
+  date: string;
+  stage: ScoreStage;
+};
+
 export function parsedPdfToScoreInput(
   parsed: ParsePronePdfResult,
-  opts: {
-    userId: string | null;
-    shooterName: string;
-    club: string;
-    category: Category;
-    isVeteran?: boolean;
-    eventId: string;
-    eventName: string;
-    date: string;
-  }
+  opts: PdfScoreInputOpts,
 ): ScoreInput {
   return {
     userId: opts.userId,
@@ -32,7 +34,7 @@ export function parsedPdfToScoreInput(
     scoringType: 'decimal',
     status: 'official',
     source: 'pdf',
-    stage: 'qualification',
+    stage: opts.stage,
     positions: [
       {
         position: 'prone',
@@ -56,16 +58,7 @@ function splitIntegerAcrossSeries(total: number): [number, number] {
 export function parsed3pPdfToScoreInput(
   parsed: Parse3pPdfResult,
   mode: ThreePImportMode,
-  opts: {
-    userId: string | null;
-    shooterName: string;
-    club: string;
-    category: Category;
-    isVeteran?: boolean;
-    eventId: string;
-    eventName: string;
-    date: string;
-  }
+  opts: PdfScoreInputOpts,
 ): ScoreInput {
   const base = {
     userId: opts.userId,
@@ -80,7 +73,7 @@ export function parsed3pPdfToScoreInput(
     scoringType: 'decimal' as const,
     status: 'official' as const,
     source: 'pdf' as const,
-    stage: 'qualification' as const,
+    stage: opts.stage,
   };
 
   if (mode === 'position_aggregate') {

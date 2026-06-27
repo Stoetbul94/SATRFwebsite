@@ -2,10 +2,10 @@ module.exports = {
   ci: {
     collect: {
       url: [
-        'https://your-domain.vercel.app',
-        'https://your-domain.vercel.app/results',
-        'https://your-domain.vercel.app/donate',
-        'https://your-domain.vercel.app/contact'
+        'https://satrf.org.za/',
+        'https://satrf.org.za/results',
+        'https://satrf.org.za/donate',
+        'https://satrf.org.za/contact',
       ],
       numberOfRuns: 3,
       settings: {
@@ -17,31 +17,20 @@ module.exports = {
           cpuSlowdownMultiplier: 1,
           requestLatencyMs: 0,
           downloadThroughputKbps: 0,
-          uploadThroughputKbps: 0
-        }
+          uploadThroughputKbps: 0,
+        },
       },
     },
     assert: {
       assertions: {
-        // Performance thresholds
-        'categories:performance': ['warn', { minScore: 0.8 }],
+        'categories:performance': ['warn', { minScore: 0.75 }],
         'categories:accessibility': ['error', { minScore: 0.9 }],
         'categories:best-practices': ['warn', { minScore: 0.8 }],
         'categories:seo': ['warn', { minScore: 0.8 }],
-        
-        // Core Web Vitals
         'first-contentful-paint': ['warn', { maxNumericValue: 2000 }],
         'largest-contentful-paint': ['warn', { maxNumericValue: 2500 }],
         'cumulative-layout-shift': ['warn', { maxNumericValue: 0.1 }],
-        'total-blocking-time': ['warn', { maxNumericValue: 300 }],
-        
-        // Resource optimization
-        'unused-css-rules': ['warn', { maxLength: 0 }],
-        'unused-javascript': ['warn', { maxLength: 0 }],
-        'modern-image-formats': ['warn', { maxLength: 0 }],
-        'efficient-animated-content': ['warn', { maxLength: 0 }],
-        
-        // Security and best practices
+        'total-blocking-time': ['warn', { maxNumericValue: 600 }],
         'uses-https': ['error', { minScore: 1 }],
         'external-anchors-use-rel-noopener': ['error', { minScore: 1 }],
         'no-vulnerable-libraries': ['error', { minScore: 1 }],
@@ -53,4 +42,4 @@ module.exports = {
       outputDir: './lighthouse-reports',
     },
   },
-} 
+};

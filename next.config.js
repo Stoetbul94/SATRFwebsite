@@ -19,6 +19,7 @@ const nextConfig = {
     ];
   },
   images: {
+    formats: ['image/avif', 'image/webp'],
     // Migrate from deprecated images.domains to images.remotePatterns
     remotePatterns: [
       {

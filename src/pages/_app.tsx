@@ -1,9 +1,10 @@
-import type { AppContext, AppProps } from 'next/app';
+import type { AppProps } from 'next/app';
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { ChakraProvider } from '@chakra-ui/react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '../contexts/AuthContext';
+import { PWAInstallProvider } from '@/contexts/PWAInstallContext';
 import { ToolboxEnabledProvider } from '@/contexts/ToolboxEnabledContext';
 import { ToolboxProvider } from '@/components/toolbox/ToolboxProvider';
 import { isToolboxEnabled } from '@/lib/toolbox/enabled';
@@ -26,15 +27,19 @@ const InstallPrompt = dynamic(() => import('@/components/pwa/InstallPrompt'), {
   loading: () => null,
 });
 
-type SatrfAppProps = AppProps & {
-  toolboxEnabled: boolean;
-};
+const InstallInstructionsModal = dynamic(() => import('@/components/pwa/InstallInstructionsModal'), {
+  ssr: false,
+  loading: () => null,
+});
+
+type SatrfAppProps = AppProps;
 
 function CustomErrorBoundary({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppProps) {
+export default function App({ Component, pageProps }: SatrfAppProps) {
+  const toolboxEnabled = isToolboxEnabled();
   const toaster = (
     <Toaster
       position="top-right"
@@ -68,20 +73,23 @@ export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppPr
         <ChakraProvider theme={theme}>
           <ToolboxEnabledProvider enabled={toolboxEnabled}>
             <AuthProvider>
-              <PWARegister />
-              <InstallPrompt />
-              {toolboxEnabled ? (
-                <ToolboxProvider>
-                  <Component {...pageProps} />
-                  <ToolboxLauncher />
-                  {toaster}
-                </ToolboxProvider>
-              ) : (
-                <>
-                  <Component {...pageProps} />
-                  {toaster}
-                </>
-              )}
+              <PWAInstallProvider>
+                <PWARegister />
+                <InstallPrompt />
+                <InstallInstructionsModal />
+                {toolboxEnabled ? (
+                  <ToolboxProvider>
+                    <Component {...pageProps} />
+                    <ToolboxLauncher />
+                    {toaster}
+                  </ToolboxProvider>
+                ) : (
+                  <>
+                    <Component {...pageProps} />
+                    {toaster}
+                  </>
+                )}
+              </PWAInstallProvider>
             </AuthProvider>
           </ToolboxEnabledProvider>
         </ChakraProvider>
@@ -89,17 +97,3 @@ export default function App({ Component, pageProps, toolboxEnabled }: SatrfAppPr
     </CustomErrorBoundary>
   );
 }
-
-App.getInitialProps = async (appContext: AppContext) => {
-  const appProps = await (async () => {
-    if (appContext.Component.getInitialProps) {
-      return appContext.Component.getInitialProps(appContext.ctx);
-    }
-    return {};
-  })();
-
-  return {
-    pageProps: appProps,
-    toolboxEnabled: isToolboxEnabled(),
-  };
-};

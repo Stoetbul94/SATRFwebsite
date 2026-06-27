@@ -1,33 +1,15 @@
-import React from 'react';
-import { NextPage } from 'next';
-import Head from 'next/head';
-import { useAuth, useProtectedRoute } from '../contexts/AuthContext';
 import { GetServerSideProps } from 'next';
-import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
 
-const AnalyticsPage: NextPage = () => {
-  const { user } = useAuth();
-  
-  // Protect this route
-  useProtectedRoute();
+/** Legacy analytics page — performance charts now live on /dashboard */
+export default function AnalyticsRedirect() {
+  return null;
+}
 
-  return (
-    <>
-      <Head>
-        <title>Analytics - SATRF</title>
-        <meta name="description" content="Your SATRF shooting performance analytics and statistics" />
-      </Head>
-
-      <AnalyticsDashboard userId={user?.id} />
-    </>
-  );
-};
-
-export default AnalyticsPage;
-
-// Make this page server-side rendered to avoid useAuth issues during static generation
 export const getServerSideProps: GetServerSideProps = async () => {
   return {
-    props: {}
+    redirect: {
+      destination: '/dashboard#performance',
+      permanent: false,
+    },
   };
-}; 
+};
