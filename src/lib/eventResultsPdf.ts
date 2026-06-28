@@ -237,10 +237,10 @@ function drawTable(
   state.y += 12;
 }
 
-export function generateEventResultsPdf(input: EventResultsPdfInput): Promise<Buffer> {
-  return new Promise(async (resolve, reject) => {
-    const PDFDocument = (await import('pdfkit')).default;
+export async function generateEventResultsPdf(input: EventResultsPdfInput): Promise<Buffer> {
+  const PDFDocument = (await import('pdfkit')).default;
 
+  return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
       layout: 'landscape',

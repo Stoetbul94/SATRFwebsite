@@ -1,7 +1,9 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { deriveAgeCategory } from '@/lib/memberFields';
+import { formatScoreTotalDisplay } from '@/lib/rankingsDisplay';
 import { normalizeEmail } from '@/lib/registrations';
+import type { Score, ScoreStage } from '@/types/scores';
 
 export interface SignupMemberFields {
   firstName: string;
@@ -156,6 +158,50 @@ export interface LinkableRegistrationPreview {
   createdAt: string;
 }
 
+export interface LinkedScorePreview {
+  id: string;
+  shooterName: string;
+  club: string;
+  eventName: string;
+  date: string;
+  discipline: string;
+  stage: ScoreStage;
+  totalDisplay: string;
+}
+
+export function linkedScorePreviewFromData(
+  id: string,
+  data: Record<string, unknown>
+): LinkedScorePreview {
+  const stage = (data.stage as ScoreStage | undefined) ?? 'qualification';
+  const scoreLike = {
+    decimalTotal: data.decimalTotal as number | undefined,
+    integerTotal: data.integerTotal as number | undefined,
+    positions: data.positions as Score['positions'],
+    discipline: String(data.discipline || ''),
+    stage,
+  };
+  return {
+    id,
+    shooterName: String(data.shooterName || ''),
+    club: String(data.club || ''),
+    eventName: String(data.eventName || ''),
+    date: String(data.date || ''),
+    discipline: String(data.discipline || ''),
+    stage,
+    totalDisplay: formatScoreTotalDisplay(scoreLike as Pick<Score, 'decimalTotal' | 'integerTotal' | 'positions' | 'discipline' | 'stage'>),
+  };
+}
+
+export function filterScoresByLinkStatus<T extends { userId?: string | null }>(
+  scores: T[],
+  link: 'all' | 'linked' | 'unlinked'
+): T[] {
+  if (link === 'linked') return scores.filter((s) => Boolean(s.userId));
+  if (link === 'unlinked') return scores.filter((s) => !s.userId);
+  return scores;
+}
+
 export function memberDisplayName(user: { firstName?: string; lastName?: string }): string {
   return `${(user.firstName || '').trim()} ${(user.lastName || '').trim()}`.trim();
 }
@@ -235,6 +281,27 @@ export async function findUnlinkedScoresForMember(
   return snap.docs
     .filter((doc) => scoreMatchesMemberProfile(doc.data() as Record<string, unknown>, member))
     .map((doc) => toScorePreview(doc.id, doc.data() as Record<string, unknown>, member));
+}
+
+/** Find scores already linked to a member account. */
+export async function findLinkedScoresForMember(
+  db: Firestore,
+  userId: string
+): Promise<LinkedScorePreview[]> {
+  const snap = await db.collection('scores').where('userId', '==', userId).get();
+  return snap.docs
+    .filter((doc) => !(doc.data() as Record<string, unknown>).deleted)
+    .map((doc) => linkedScorePreviewFromData(doc.id, doc.data() as Record<string, unknown>))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+/** Find registrations already linked to a member account. */
+export async function findLinkedRegistrationsForMember(
+  db: Firestore,
+  userId: string
+): Promise<LinkableRegistrationPreview[]> {
+  const snap = await db.collection('registrations').where('memberId', '==', userId).get();
+  return snap.docs.map((doc) => toRegistrationPreview(doc.id, doc.data() as Record<string, unknown>));
 }
 
 /** Find guest registrations for the member's email. */

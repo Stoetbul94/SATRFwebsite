@@ -23,6 +23,7 @@ import {
   ModalBody,
   ModalCloseButton,
   useDisclosure,
+  Text,
 } from '@chakra-ui/react';
 import { FiEdit, FiTrash2, FiSearch } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -40,6 +41,8 @@ import { DISCIPLINES } from '@/lib/issf';
 import { formatScoreTotalDisplay } from '@/lib/rankingsDisplay';
 import type { Score } from '@/types/scores';
 
+type AdminScoreRow = Score & { linkedMemberName?: string | null };
+
 const getToken = async (): Promise<string | null> => {
   const fresh = await auth.currentUser?.getIdToken().catch(() => null);
   if (fresh) return fresh;
@@ -52,12 +55,13 @@ export default function AdminScores() {
   const router = useRouter();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [scores, setScores] = useState<Score[]>([]);
+  const [scores, setScores] = useState<AdminScoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [disciplineFilter, setDisciplineFilter] = useState<string>('all');
+  const [linkFilter, setLinkFilter] = useState<string>('all');
 
   const [selectedScore, setSelectedScore] = useState<Score | null>(null);
 
@@ -74,6 +78,7 @@ export default function AdminScores() {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (disciplineFilter !== 'all') params.append('discipline', disciplineFilter);
+      if (linkFilter !== 'all') params.append('link', linkFilter);
       if (searchTerm) params.append('search', searchTerm);
       const response = await fetch(`/api/admin/scores?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -90,7 +95,7 @@ export default function AdminScores() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, statusFilter, disciplineFilter, searchTerm, toast]);
+  }, [isAdmin, statusFilter, disciplineFilter, linkFilter, searchTerm, toast]);
 
   useEffect(() => {
     fetchScores();
@@ -143,7 +148,7 @@ export default function AdminScores() {
     return (
       <AdminLayout>
         <AdminPageHeader title="Scores" subtitle="Review, edit, and manage submitted scores" />
-        <AdminTableSkeleton columns={9} />
+        <AdminTableSkeleton columns={11} />
       </AdminLayout>
     );
   }
@@ -186,6 +191,11 @@ export default function AdminScores() {
             <option value="official">Official</option>
             <option value="provisional">Provisional</option>
           </Select>
+          <Select value={linkFilter} onChange={(e) => setLinkFilter(e.target.value)} w="180px">
+            <option value="all">All Links</option>
+            <option value="linked">Linked</option>
+            <option value="unlinked">Unlinked</option>
+          </Select>
         </HStack>
       </Box>
 
@@ -194,6 +204,8 @@ export default function AdminScores() {
           <Thead>
             <Tr>
               <Th>Shooter</Th>
+              <Th>Event</Th>
+              <Th>Member</Th>
               <Th>Club</Th>
               <Th>Discipline</Th>
               <Th>Category</Th>
@@ -207,7 +219,7 @@ export default function AdminScores() {
           <Tbody>
             {scores.length === 0 ? (
               <Tr>
-                <Td colSpan={9} p={0} border={0}>
+                <Td colSpan={11} p={0} border={0}>
                   <AdminEmptyState
                     icon={FiSearch}
                     title="No scores found"
@@ -218,11 +230,18 @@ export default function AdminScores() {
             ) : (
               scores.map((score) => (
                 <Tr key={score.id}>
-                  <Td fontWeight="medium">
-                    {score.shooterName}
-                    {!score.userId && (
-                      <Badge ml={2} colorScheme="gray" fontSize="0.6em">
-                        unlinked
+                  <Td fontWeight="medium">{score.shooterName}</Td>
+                  <Td maxW="180px" isTruncated title={score.eventName}>
+                    {score.eventName || '—'}
+                  </Td>
+                  <Td>
+                    {score.linkedMemberName ? (
+                      <Text color="teal.600" fontSize="sm" fontWeight="medium">
+                        {score.linkedMemberName}
+                      </Text>
+                    ) : (
+                      <Badge colorScheme="gray" fontSize="0.65em">
+                        Unlinked
                       </Badge>
                     )}
                   </Td>

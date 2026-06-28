@@ -3,6 +3,8 @@ import {
   memberDisplayName,
   scoreClubDiffersFromMember,
   scoreMatchesMemberProfile,
+  linkedScorePreviewFromData,
+  filterScoresByLinkStatus,
 } from '@/lib/memberLink';
 
 describe('mergeMemberData', () => {
@@ -111,5 +113,48 @@ describe('scoreClubDiffersFromMember', () => {
   it('returns false when either club is empty', () => {
     expect(scoreClubDiffersFromMember({ club: '' }, member)).toBe(false);
     expect(scoreClubDiffersFromMember({ club: 'Durban Deep' }, { club: '' })).toBe(false);
+  });
+});
+
+describe('linkedScorePreviewFromData', () => {
+  it('maps score fields and formats total display', () => {
+    const preview = linkedScorePreviewFromData('score-1', {
+      shooterName: 'Sherene Grundlingh',
+      club: 'NG',
+      eventName: 'SATRF PRONE EVENT #2',
+      date: '2026-04-25',
+      discipline: 'prone_50m',
+      stage: 'qualification',
+      decimalTotal: 584.4,
+      integerTotal: 584,
+    });
+
+    expect(preview.id).toBe('score-1');
+    expect(preview.shooterName).toBe('Sherene Grundlingh');
+    expect(preview.stage).toBe('qualification');
+    expect(preview.totalDisplay).toContain('584');
+  });
+});
+
+describe('filterScoresByLinkStatus', () => {
+  const rows = [
+    { id: '1', userId: 'uid-a' },
+    { id: '2', userId: null },
+    { id: '3', userId: 'uid-b' },
+  ];
+
+  it('filters linked scores', () => {
+    expect(filterScoresByLinkStatus(rows, 'linked')).toEqual([
+      { id: '1', userId: 'uid-a' },
+      { id: '3', userId: 'uid-b' },
+    ]);
+  });
+
+  it('filters unlinked scores', () => {
+    expect(filterScoresByLinkStatus(rows, 'unlinked')).toEqual([{ id: '2', userId: null }]);
+  });
+
+  it('returns all scores for all filter', () => {
+    expect(filterScoresByLinkStatus(rows, 'all')).toEqual(rows);
   });
 });
