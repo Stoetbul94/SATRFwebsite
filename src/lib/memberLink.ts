@@ -145,6 +145,7 @@ export interface LinkableScorePreview {
   eventName: string;
   date: string;
   discipline: string;
+  clubMismatch?: boolean;
 }
 
 export interface LinkableRegistrationPreview {
@@ -175,21 +176,35 @@ export function scoreMatchesMemberProfile(
   const scoreName = (score.shooterName || '').trim().toLowerCase();
   if (!memberName || memberName !== scoreName) return false;
 
-  const memberClub = (member.club || '').trim().toLowerCase();
-  const scoreClub = (score.club || '').trim().toLowerCase();
-  if (memberClub && scoreClub && memberClub !== scoreClub) return false;
-
   return true;
 }
 
-function toScorePreview(id: string, data: Record<string, unknown>): LinkableScorePreview {
-  return {
-    id,
+export function scoreClubDiffersFromMember(
+  score: { club?: string },
+  member: { club?: string }
+): boolean {
+  const memberClub = (member.club || '').trim().toLowerCase();
+  const scoreClub = (score.club || '').trim().toLowerCase();
+  if (!memberClub || !scoreClub) return false;
+  return memberClub !== scoreClub;
+}
+
+function toScorePreview(
+  id: string,
+  data: Record<string, unknown>,
+  member: MemberLinkProfile
+): LinkableScorePreview {
+  const score = {
     shooterName: String(data.shooterName || ''),
     club: String(data.club || ''),
+  };
+  return {
+    id,
+    ...score,
     eventName: String(data.eventName || ''),
     date: String(data.date || ''),
     discipline: String(data.discipline || ''),
+    clubMismatch: scoreClubDiffersFromMember(score, member),
   };
 }
 
@@ -211,7 +226,7 @@ function toRegistrationPreview(id: string, data: Record<string, unknown>): Linka
   };
 }
 
-/** Find guest scores that match a member profile (name + club when both set). */
+/** Find guest scores that match a member profile by shooter name. */
 export async function findUnlinkedScoresForMember(
   db: Firestore,
   member: MemberLinkProfile
@@ -219,7 +234,7 @@ export async function findUnlinkedScoresForMember(
   const snap = await db.collection('scores').where('userId', '==', null).get();
   return snap.docs
     .filter((doc) => scoreMatchesMemberProfile(doc.data() as Record<string, unknown>, member))
-    .map((doc) => toScorePreview(doc.id, doc.data() as Record<string, unknown>));
+    .map((doc) => toScorePreview(doc.id, doc.data() as Record<string, unknown>, member));
 }
 
 /** Find guest registrations for the member's email. */

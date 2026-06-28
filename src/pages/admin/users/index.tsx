@@ -63,6 +63,7 @@ interface LinkHistoryPreview {
     eventName: string;
     date: string;
     discipline: string;
+    clubMismatch?: boolean;
   }>;
   registrations: Array<{
     id: string;
@@ -504,8 +505,15 @@ export default function AdminUsers() {
                   <strong>
                     {linkUser?.firstName} {linkUser?.lastName}
                   </strong>
-                  . Matches use name + club (scores) and email (registrations).
+                  . Scores match by name; registrations match by email.
                 </Text>
+                {linkPreview &&
+                  linkPreview.scores.some((s) => s.clubMismatch) && (
+                    <Text fontSize="sm" color="orange.600">
+                      {linkPreview.scores.filter((s) => s.clubMismatch).length} score(s) have a
+                      different club than this member — review before linking.
+                    </Text>
+                  )}
                 {linkPreview && linkPreview.scoreCount === 0 && linkPreview.registrationCount === 0 ? (
                   <Text color="gray.500">No matching unlinked scores or registrations found.</Text>
                 ) : (
@@ -517,10 +525,18 @@ export default function AdminUsers() {
                         </Text>
                         <VStack align="stretch" spacing={1} maxH="200px" overflowY="auto">
                           {linkPreview.scores.map((score) => (
-                            <Text key={score.id} fontSize="sm">
-                              {score.eventName || 'Event'} · {score.discipline} ·{' '}
-                              {score.date ? new Date(score.date).toLocaleDateString() : '—'}
-                            </Text>
+                            <HStack key={score.id} fontSize="sm" spacing={2} flexWrap="wrap">
+                              <Text>
+                                {score.eventName || 'Event'} · {score.discipline} ·{' '}
+                                {score.date ? new Date(score.date).toLocaleDateString() : '—'}
+                                {score.club ? ` · ${score.club}` : ''}
+                              </Text>
+                              {score.clubMismatch && (
+                                <Badge colorScheme="orange" fontSize="0.65em">
+                                  Club differs
+                                </Badge>
+                              )}
+                            </HStack>
                           ))}
                         </VStack>
                       </Box>

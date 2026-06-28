@@ -1,6 +1,7 @@
 import {
   mergeMemberData,
   memberDisplayName,
+  scoreClubDiffersFromMember,
   scoreMatchesMemberProfile,
 } from '@/lib/memberLink';
 
@@ -62,13 +63,13 @@ describe('scoreMatchesMemberProfile', () => {
     ).toBe(true);
   });
 
-  it('rejects when club differs and both are set', () => {
+  it('matches unlinked score when club differs but name matches', () => {
     expect(
       scoreMatchesMemberProfile(
         { shooterName: 'Nico Rautenbach', club: 'Other Club', userId: null },
         member
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('matches on name only when member club is empty', () => {
@@ -93,5 +94,22 @@ describe('scoreMatchesMemberProfile', () => {
         member
       )
     ).toBe(false);
+  });
+});
+
+describe('scoreClubDiffersFromMember', () => {
+  const member = { club: 'PMSBSC' };
+
+  it('returns true when both clubs are set and differ', () => {
+    expect(scoreClubDiffersFromMember({ club: 'Durban Deep' }, member)).toBe(true);
+  });
+
+  it('returns false when clubs match', () => {
+    expect(scoreClubDiffersFromMember({ club: 'PMSBSC' }, member)).toBe(false);
+  });
+
+  it('returns false when either club is empty', () => {
+    expect(scoreClubDiffersFromMember({ club: '' }, member)).toBe(false);
+    expect(scoreClubDiffersFromMember({ club: 'Durban Deep' }, { club: '' })).toBe(false);
   });
 });
