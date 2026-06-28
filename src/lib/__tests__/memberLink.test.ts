@@ -1,4 +1,8 @@
-import { mergeMemberData } from '@/lib/memberLink';
+import {
+  mergeMemberData,
+  memberDisplayName,
+  scoreMatchesMemberProfile,
+} from '@/lib/memberLink';
 
 describe('mergeMemberData', () => {
   const signup = {
@@ -37,5 +41,57 @@ describe('mergeMemberData', () => {
     expect(merged.id).toBe('auth-uid-1');
     expect(merged.authUid).toBe('auth-uid-1');
     expect(merged.status).toBe('active');
+  });
+});
+
+describe('memberDisplayName', () => {
+  it('joins first and last name', () => {
+    expect(memberDisplayName({ firstName: 'Nico', lastName: 'Rautenbach' })).toBe('Nico Rautenbach');
+  });
+});
+
+describe('scoreMatchesMemberProfile', () => {
+  const member = { firstName: 'Nico', lastName: 'Rautenbach', club: 'PMSBSC' };
+
+  it('matches unlinked score with same name and club', () => {
+    expect(
+      scoreMatchesMemberProfile(
+        { shooterName: 'Nico Rautenbach', club: 'PMSBSC', userId: null },
+        member
+      )
+    ).toBe(true);
+  });
+
+  it('rejects when club differs and both are set', () => {
+    expect(
+      scoreMatchesMemberProfile(
+        { shooterName: 'Nico Rautenbach', club: 'Other Club', userId: null },
+        member
+      )
+    ).toBe(false);
+  });
+
+  it('matches on name only when member club is empty', () => {
+    expect(
+      scoreMatchesMemberProfile(
+        { shooterName: 'Nico Rautenbach', club: 'PMSBSC', userId: null },
+        { firstName: 'Nico', lastName: 'Rautenbach', club: '' }
+      )
+    ).toBe(true);
+  });
+
+  it('rejects linked or deleted scores', () => {
+    expect(
+      scoreMatchesMemberProfile(
+        { shooterName: 'Nico Rautenbach', club: 'PMSBSC', userId: 'uid-1' },
+        member
+      )
+    ).toBe(false);
+    expect(
+      scoreMatchesMemberProfile(
+        { shooterName: 'Nico Rautenbach', club: 'PMSBSC', userId: null, deleted: true },
+        member
+      )
+    ).toBe(false);
   });
 });
