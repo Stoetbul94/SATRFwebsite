@@ -9,6 +9,11 @@ import {
   parseEventDisciplines,
 } from '@/lib/eventDisciplines';
 import type { Discipline } from '@/types/scores';
+import {
+  countLinkedActiveScores,
+  deleteDocsInBatches,
+  eventDeleteBlockedMessage,
+} from '@/lib/eventDelete';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -126,23 +131,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === 'DELETE') {
-      await eventRef.update({
-        status: 'closed',
-        archived: true,
-        archivedAt: new Date().toISOString(),
-        archivedBy: userId,
-      });
+      const existing = eventDoc.data() as Record<string, unknown>;
+      const eventTitle = String(existing.title || '');
+
+      const scoresSnap = await db.collection('scores').where('eventId', '==', id).get();
+      const scoreCount = countLinkedActiveScores(scoresSnap.docs);
+      const blockMessage = eventDeleteBlockedMessage(scoreCount);
+      if (blockMessage) {
+        return res.status(409).json({ error: blockMessage, scoreCount });
+      }
+
+      const regsSnap = await db.collection('registrations').where('eventId', '==', id).get();
+      await deleteDocsInBatches(db, regsSnap.docs);
+
+      await eventRef.delete();
 
       if (userId) {
         await db.collection('adminActions').add({
           adminId: userId,
-          action: 'archive_event',
+          action: 'delete_event',
           targetId: id,
+          details: { title: eventTitle },
           timestamp: new Date().toISOString(),
         });
       }
 
-      return res.status(200).json({ success: true, message: 'Event archived successfully' });
+      return res.status(200).json({ success: true, message: 'Event deleted successfully' });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
