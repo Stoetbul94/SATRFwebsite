@@ -37,7 +37,7 @@ import {
   FormLabel,
   FormHelperText,
 } from '@chakra-ui/react';
-import { FiSearch, FiShield, FiCheck, FiX, FiSlash, FiRotateCcw, FiUsers } from 'react-icons/fi';
+import { FiSearch, FiShield, FiCheck, FiX, FiSlash, FiRotateCcw, FiUsers, FiLink } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminTableCard from '@/components/admin/AdminTableCard';
@@ -50,6 +50,28 @@ import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { UserProfile } from '@/lib/auth';
 import { formatIsoDate } from '@/lib/firestoreSerialize';
+
+interface LinkHistoryPreview {
+  memberId: string;
+  memberName: string;
+  scoreCount: number;
+  registrationCount: number;
+  scores: Array<{
+    id: string;
+    shooterName: string;
+    club: string;
+    eventName: string;
+    date: string;
+    discipline: string;
+  }>;
+  registrations: Array<{
+    id: string;
+    eventTitle: string;
+    name: string;
+    email: string;
+    createdAt: string;
+  }>;
+}
 
 type StatusFilter = 'pending' | 'active' | 'all';
 
@@ -65,6 +87,11 @@ export default function AdminUsers() {
   const router = useRouter();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const {
+    isOpen: isLinkOpen,
+    onOpen: onLinkOpen,
+    onClose: onLinkClose,
+  } = useDisclosure();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +102,10 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [newRole, setNewRole] = useState<'user' | 'admin' | 'event_scorer'>('user');
   const [newIsAthlete, setNewIsAthlete] = useState(false);
+  const [linkUser, setLinkUser] = useState<UserProfile | null>(null);
+  const [linkPreview, setLinkPreview] = useState<LinkHistoryPreview | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkApplying, setLinkApplying] = useState(false);
 
   useEffect(() => {
     if (isAdmin) fetchUsers();
@@ -174,6 +205,62 @@ export default function AdminUsers() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to update member';
       toast({ title: 'Error', description: message, status: 'error', duration: 3000 });
+    }
+  };
+
+  const openLinkHistory = async (user: UserProfile) => {
+    setLinkUser(user);
+    setLinkPreview(null);
+    onLinkOpen();
+    setLinkLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await fetch(`/api/admin/users/${user.id}/link-history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load link preview');
+      }
+      setLinkPreview(data);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load link preview';
+      toast({ title: 'Error', description: message, status: 'error', duration: 4000 });
+      onLinkClose();
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  const applyLinkHistory = async () => {
+    if (!linkUser) return;
+    setLinkApplying(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await fetch(`/api/admin/users/${linkUser.id}/link-history`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to link historical data');
+      }
+      toast({
+        title: 'Historical data linked',
+        description: data.message || `Linked ${data.scoresLinked} score(s) and ${data.registrationsLinked} registration(s).`,
+        status: 'success',
+        duration: 5000,
+      });
+      onLinkClose();
+      setLinkUser(null);
+      setLinkPreview(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to link historical data';
+      toast({ title: 'Error', description: message, status: 'error', duration: 4000 });
+    } finally {
+      setLinkApplying(false);
     }
   };
 
@@ -316,9 +403,21 @@ export default function AdminUsers() {
                           </>
                         )}
                         {s === 'active' && (
-                          <Tooltip label="Suspend">
-                            <IconButton aria-label="Suspend" icon={<FiSlash />} size="sm" colorScheme="orange" variant="ghost" onClick={() => setStatus(user, 'suspended')} />
-                          </Tooltip>
+                          <>
+                            <Tooltip label="Link historical scores & registrations">
+                              <IconButton
+                                aria-label="Link history"
+                                icon={<FiLink />}
+                                size="sm"
+                                colorScheme="teal"
+                                variant="ghost"
+                                onClick={() => openLinkHistory(user)}
+                              />
+                            </Tooltip>
+                            <Tooltip label="Suspend">
+                              <IconButton aria-label="Suspend" icon={<FiSlash />} size="sm" colorScheme="orange" variant="ghost" onClick={() => setStatus(user, 'suspended')} />
+                            </Tooltip>
+                          </>
                         )}
                         {(s === 'suspended' || s === 'rejected') && (
                           <Tooltip label="Reactivate">
@@ -384,6 +483,83 @@ export default function AdminUsers() {
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
             <Button variant="satrf" onClick={handleSaveRole}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isLinkOpen} onClose={() => !linkApplying && onLinkClose()} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Link historical data</ModalHeader>
+          <ModalCloseButton isDisabled={linkApplying} />
+          <ModalBody>
+            {linkLoading ? (
+              <Center py={8}>
+                <Spinner color="satrf.navy" />
+              </Center>
+            ) : (
+              <VStack align="stretch" spacing={4}>
+                <Text>
+                  Attach guest scores and registrations to{' '}
+                  <strong>
+                    {linkUser?.firstName} {linkUser?.lastName}
+                  </strong>
+                  . Matches use name + club (scores) and email (registrations).
+                </Text>
+                {linkPreview && linkPreview.scoreCount === 0 && linkPreview.registrationCount === 0 ? (
+                  <Text color="gray.500">No matching unlinked scores or registrations found.</Text>
+                ) : (
+                  <>
+                    {linkPreview && linkPreview.scoreCount > 0 && (
+                      <Box>
+                        <Text fontWeight="semibold" mb={2}>
+                          Scores ({linkPreview.scoreCount})
+                        </Text>
+                        <VStack align="stretch" spacing={1} maxH="200px" overflowY="auto">
+                          {linkPreview.scores.map((score) => (
+                            <Text key={score.id} fontSize="sm">
+                              {score.eventName || 'Event'} · {score.discipline} ·{' '}
+                              {score.date ? new Date(score.date).toLocaleDateString() : '—'}
+                            </Text>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
+                    {linkPreview && linkPreview.registrationCount > 0 && (
+                      <Box>
+                        <Text fontWeight="semibold" mb={2}>
+                          Registrations ({linkPreview.registrationCount})
+                        </Text>
+                        <VStack align="stretch" spacing={1} maxH="160px" overflowY="auto">
+                          {linkPreview.registrations.map((reg) => (
+                            <Text key={reg.id} fontSize="sm">
+                              {reg.eventTitle || 'Event'} · {reg.email}
+                            </Text>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
+                  </>
+                )}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onLinkClose} isDisabled={linkApplying}>
+              Cancel
+            </Button>
+            <Button
+              variant="satrf"
+              onClick={applyLinkHistory}
+              isLoading={linkApplying}
+              isDisabled={
+                linkLoading ||
+                !linkPreview ||
+                (linkPreview.scoreCount === 0 && linkPreview.registrationCount === 0)
+              }
+            >
+              Link data
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

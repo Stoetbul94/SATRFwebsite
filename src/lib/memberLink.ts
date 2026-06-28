@@ -1,5 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import { deriveAgeCategory } from '@/lib/memberFields';
+import { normalizeEmail } from '@/lib/registrations';
 
 export interface SignupMemberFields {
   firstName: string;
@@ -126,4 +128,202 @@ export async function migrateMemberReferences(
   }
 
   await commitIfNeeded();
+}
+
+export interface MemberLinkProfile {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  club?: string;
+  email?: string;
+}
+
+export interface LinkableScorePreview {
+  id: string;
+  shooterName: string;
+  club: string;
+  eventName: string;
+  date: string;
+  discipline: string;
+}
+
+export interface LinkableRegistrationPreview {
+  id: string;
+  eventTitle: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export function memberDisplayName(user: { firstName?: string; lastName?: string }): string {
+  return `${(user.firstName || '').trim()} ${(user.lastName || '').trim()}`.trim();
+}
+
+export function scoreMatchesMemberProfile(
+  score: {
+    shooterName?: string;
+    club?: string;
+    userId?: string | null;
+    deleted?: boolean;
+  },
+  member: { firstName?: string; lastName?: string; club?: string }
+): boolean {
+  if (score.deleted) return false;
+  if (score.userId) return false;
+
+  const memberName = memberDisplayName(member).toLowerCase();
+  const scoreName = (score.shooterName || '').trim().toLowerCase();
+  if (!memberName || memberName !== scoreName) return false;
+
+  const memberClub = (member.club || '').trim().toLowerCase();
+  const scoreClub = (score.club || '').trim().toLowerCase();
+  if (memberClub && scoreClub && memberClub !== scoreClub) return false;
+
+  return true;
+}
+
+function toScorePreview(id: string, data: Record<string, unknown>): LinkableScorePreview {
+  return {
+    id,
+    shooterName: String(data.shooterName || ''),
+    club: String(data.club || ''),
+    eventName: String(data.eventName || ''),
+    date: String(data.date || ''),
+    discipline: String(data.discipline || ''),
+  };
+}
+
+function toRegistrationPreview(id: string, data: Record<string, unknown>): LinkableRegistrationPreview {
+  const toIso = (d: unknown): string => {
+    if (!d) return '';
+    if (typeof d === 'object' && d !== null && 'toDate' in d) {
+      return (d as { toDate: () => Date }).toDate().toISOString();
+    }
+    return typeof d === 'string' ? d : '';
+  };
+
+  return {
+    id,
+    eventTitle: String(data.eventTitle || ''),
+    name: String(data.name || ''),
+    email: String(data.email || ''),
+    createdAt: toIso(data.createdAt),
+  };
+}
+
+/** Find guest scores that match a member profile (name + club when both set). */
+export async function findUnlinkedScoresForMember(
+  db: Firestore,
+  member: MemberLinkProfile
+): Promise<LinkableScorePreview[]> {
+  const snap = await db.collection('scores').where('userId', '==', null).get();
+  return snap.docs
+    .filter((doc) => scoreMatchesMemberProfile(doc.data() as Record<string, unknown>, member))
+    .map((doc) => toScorePreview(doc.id, doc.data() as Record<string, unknown>));
+}
+
+/** Find guest registrations for the member's email. */
+export async function findUnlinkedRegistrationsForMember(
+  db: Firestore,
+  member: MemberLinkProfile
+): Promise<LinkableRegistrationPreview[]> {
+  const email = member.email?.trim();
+  if (!email) return [];
+
+  const normalized = normalizeEmail(email);
+  const snap = await db.collection('registrations').where('email', '==', normalized).get();
+
+  return snap.docs
+    .filter((doc) => {
+      const data = doc.data();
+      return !data.memberId;
+    })
+    .map((doc) => toRegistrationPreview(doc.id, doc.data() as Record<string, unknown>));
+}
+
+export async function linkScoresToMember(
+  db: Firestore,
+  userId: string,
+  scoreIds: string[]
+): Promise<number> {
+  if (scoreIds.length === 0) return 0;
+
+  const now = new Date().toISOString();
+  let batch = db.batch();
+  let ops = 0;
+  let linked = 0;
+
+  const commitIfNeeded = async () => {
+    if (ops === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    ops = 0;
+  };
+
+  for (const scoreId of scoreIds) {
+    const ref = db.collection('scores').doc(scoreId);
+    const doc = await ref.get();
+    if (!doc.exists) continue;
+    const data = doc.data() as Record<string, unknown>;
+    if (data.deleted || data.userId) continue;
+
+    batch.update(ref, { userId, updatedAt: now });
+    ops += 1;
+    linked += 1;
+    if (ops >= BATCH_LIMIT) await commitIfNeeded();
+  }
+
+  await commitIfNeeded();
+  return linked;
+}
+
+export async function linkRegistrationsByEmail(
+  db: Firestore,
+  userId: string,
+  email: string
+): Promise<number> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return 0;
+
+  const snap = await db.collection('registrations').where('email', '==', normalized).get();
+  const toLink = snap.docs.filter((doc) => !doc.data().memberId);
+  if (toLink.length === 0) return 0;
+
+  let batch = db.batch();
+  let ops = 0;
+  let linked = 0;
+
+  const commitIfNeeded = async () => {
+    if (ops === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    ops = 0;
+  };
+
+  for (const doc of toLink) {
+    batch.update(doc.ref, {
+      memberId: userId,
+      isMember: true,
+      updatedAt: Timestamp.now(),
+    });
+    ops += 1;
+    linked += 1;
+    if (ops >= BATCH_LIMIT) await commitIfNeeded();
+  }
+
+  await commitIfNeeded();
+  return linked;
+}
+
+export function memberProfileFromUserDoc(
+  userId: string,
+  data: Record<string, unknown>
+): MemberLinkProfile {
+  return {
+    userId,
+    firstName: String(data.firstName || ''),
+    lastName: String(data.lastName || ''),
+    club: typeof data.club === 'string' ? data.club : '',
+    email: typeof data.email === 'string' ? data.email : '',
+  };
 }

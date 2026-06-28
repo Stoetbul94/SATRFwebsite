@@ -696,6 +696,56 @@ export default function AdminEvents() {
     }
   };
 
+  const handleDelete = async (eventId: string, title: string) => {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (!token) return;
+
+      const response = await fetch(`/api/admin/events/${eventId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 409) {
+        toast({
+          title: 'Cannot delete event',
+          description: data.error || 'Remove linked scores from Admin → Scores first.',
+          status: 'warning',
+          duration: 7000,
+          isClosable: true,
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete event');
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Event deleted successfully',
+        status: 'success',
+        duration: 3000,
+      });
+      fetchEvents();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete event',
+        status: 'error',
+        duration: 5000,
+      });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <AdminLayout>
@@ -801,6 +851,12 @@ export default function AdminEvents() {
                           icon: <FiArchive />,
                           colorScheme: 'orange',
                           onClick: () => handleArchive(event.id),
+                        },
+                        {
+                          label: 'Delete event',
+                          icon: <FiTrash2 />,
+                          colorScheme: 'red',
+                          onClick: () => handleDelete(event.id, event.title),
                         },
                       ]}
                     />
