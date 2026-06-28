@@ -21,8 +21,9 @@ import {
   useBreakpointValue,
   IconButton,
   Flex,
+  useToast,
 } from '@chakra-ui/react';
-import { FiChevronDown, FiChevronUp, FiTarget } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiTarget, FiDownload } from 'react-icons/fi';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CATEGORIES, DISCIPLINES, EVENT_DISCIPLINE_ORDER } from '@/lib/issf';
 import type { EventResultRow } from '@/lib/issf';
@@ -406,6 +407,8 @@ export default function EventResultsTable({
   const [data, setData] = useState<EventResultsApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const toast = useToast();
 
   const pillInactiveBg = useColorModeValue('bg.surface', 'gray.700');
   const pillInactiveBorder = useColorModeValue('border.default', 'gray.500');
@@ -457,6 +460,50 @@ export default function EventResultsTable({
     !data ||
     ((data.qualification?.length ?? 0) === 0 && (data.final?.length ?? 0) === 0);
 
+  const handleDownloadPdf = async () => {
+    if (!eventId || isEmpty) return;
+    setPdfLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (activeDiscipline) params.set('discipline', activeDiscipline);
+      if (category !== 'all') params.set('category', category);
+      if (includeProvisional) params.set('includeProvisional', 'true');
+
+      const headers: HeadersInit = {};
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
+      const res = await fetch(`/api/events/${eventId}/results.pdf?${params.toString()}`, {
+        headers,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to generate PDF');
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition');
+      const match = disposition?.match(/filename="([^"]+)"/);
+      const filename = match?.[1] ?? 'SATRF-results.pdf';
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({
+        title: 'PDF download failed',
+        description: e instanceof Error ? e.message : 'Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <Center py={12}>
@@ -502,19 +549,31 @@ export default function EventResultsTable({
             );
           })}
         </HStack>
-        <Select
-          size="sm"
-          w={{ base: '100%', sm: '180px' }}
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="all">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
+        <HStack spacing={2} w={{ base: '100%', sm: 'auto' }}>
+          <Select
+            size="sm"
+            w={{ base: '100%', sm: '180px' }}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="all">All categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+          <Button
+            size="sm"
+            leftIcon={<FiDownload />}
+            variant="outline"
+            onClick={handleDownloadPdf}
+            isLoading={pdfLoading}
+            isDisabled={isEmpty || loading}
+          >
+            Download PDF
+          </Button>
+        </HStack>
       </Flex>
 
       {isEmpty ? (

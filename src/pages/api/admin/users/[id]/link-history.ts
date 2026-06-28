@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { verifyAdminFromToken } from '@/lib/admin';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import {
+  findLinkedRegistrationsForMember,
+  findLinkedScoresForMember,
   findUnlinkedRegistrationsForMember,
   findUnlinkedScoresForMember,
   linkRegistrationsByEmail,
@@ -45,9 +47,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const member = memberProfileFromUserDoc(id, userData);
 
     if (req.method === 'GET') {
-      const [scores, registrations] = await Promise.all([
+      const [scores, registrations, linkedScores, linkedRegistrations] = await Promise.all([
         findUnlinkedScoresForMember(db, member),
         findUnlinkedRegistrationsForMember(db, member),
+        findLinkedScoresForMember(db, id),
+        findLinkedRegistrationsForMember(db, id),
       ]);
 
       return res.status(200).json({
@@ -57,6 +61,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         registrationCount: registrations.length,
         scores,
         registrations,
+        linkedScoreCount: linkedScores.length,
+        linkedRegistrationCount: linkedRegistrations.length,
+        linkedScores,
+        linkedRegistrations,
       });
     }
 

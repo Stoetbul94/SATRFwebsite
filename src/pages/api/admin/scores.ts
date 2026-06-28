@@ -6,6 +6,7 @@ import { rankingValueForScore } from '@/lib/rankingsDisplay';
 import type { ScoreInput, Score } from '@/types/scores';
 import { enrichScoreInput, type MemberLookup } from '@/lib/scoreMemberEnrich';
 import { findReplaceableScores, softDeleteScores } from '@/lib/scoreReplace';
+import { filterScoresByLinkStatus, memberDisplayName } from '@/lib/memberLink';
 
 /**
  * /api/admin/scores
@@ -48,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     try {
       let query: FirebaseFirestore.Query = db.collection('scores');
-      const { status, search, discipline } = req.query;
+      const { status, search, discipline, link } = req.query;
       if (status && status !== 'all') query = query.where('status', '==', status);
       if (discipline && discipline !== 'all') query = query.where('discipline', '==', discipline);
 
@@ -57,6 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .map((doc) => ({ id: doc.id, ...doc.data() }) as Score & { deleted?: boolean })
         .filter((s) => !s.deleted);
       scores.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+      const linkFilter =
+        link === 'linked' || link === 'unlinked' ? link : 'all';
+      scores = filterScoresByLinkStatus(scores, linkFilter);
 
       if (search && typeof search === 'string') {
         const q = search.toLowerCase();
@@ -68,7 +73,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         );
       }
 
-      return res.status(200).json({ scores });
+      const userIds = Array.from(
+        new Set(scores.map((s) => s.userId).filter((id): id is string => Boolean(id)))
+      );
+      const memberNameById = new Map<string, string>();
+      if (userIds.length > 0) {
+        const refs = userIds.map((uid) => db.collection('users').doc(uid));
+        const userDocs = await db.getAll(...refs);
+        for (const userDoc of userDocs) {
+          if (!userDoc.exists) continue;
+          const data = userDoc.data() as Record<string, unknown>;
+          memberNameById.set(userDoc.id, memberDisplayName(data));
+        }
+      }
+
+      const scoresWithMember = scores.map((s) => ({
+        ...s,
+        linkedMemberName: s.userId ? memberNameById.get(s.userId) ?? null : null,
+      }));
+
+      return res.status(200).json({ scores: scoresWithMember });
     } catch (error: any) {
       console.error('Error fetching scores:', error);
       return res.status(500).json({ error: 'Internal server error', details: error.message });

@@ -1,7 +1,9 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { deriveAgeCategory } from '@/lib/memberFields';
+import { formatScoreTotalDisplay } from '@/lib/rankingsDisplay';
 import { normalizeEmail } from '@/lib/registrations';
+import type { Score, ScoreStage } from '@/types/scores';
 
 export interface SignupMemberFields {
   firstName: string;
@@ -145,6 +147,7 @@ export interface LinkableScorePreview {
   eventName: string;
   date: string;
   discipline: string;
+  clubMismatch?: boolean;
 }
 
 export interface LinkableRegistrationPreview {
@@ -153,6 +156,50 @@ export interface LinkableRegistrationPreview {
   name: string;
   email: string;
   createdAt: string;
+}
+
+export interface LinkedScorePreview {
+  id: string;
+  shooterName: string;
+  club: string;
+  eventName: string;
+  date: string;
+  discipline: string;
+  stage: ScoreStage;
+  totalDisplay: string;
+}
+
+export function linkedScorePreviewFromData(
+  id: string,
+  data: Record<string, unknown>
+): LinkedScorePreview {
+  const stage = (data.stage as ScoreStage | undefined) ?? 'qualification';
+  const scoreLike = {
+    decimalTotal: data.decimalTotal as number | undefined,
+    integerTotal: data.integerTotal as number | undefined,
+    positions: data.positions as Score['positions'],
+    discipline: String(data.discipline || ''),
+    stage,
+  };
+  return {
+    id,
+    shooterName: String(data.shooterName || ''),
+    club: String(data.club || ''),
+    eventName: String(data.eventName || ''),
+    date: String(data.date || ''),
+    discipline: String(data.discipline || ''),
+    stage,
+    totalDisplay: formatScoreTotalDisplay(scoreLike as Pick<Score, 'decimalTotal' | 'integerTotal' | 'positions' | 'discipline' | 'stage'>),
+  };
+}
+
+export function filterScoresByLinkStatus<T extends { userId?: string | null }>(
+  scores: T[],
+  link: 'all' | 'linked' | 'unlinked'
+): T[] {
+  if (link === 'linked') return scores.filter((s) => Boolean(s.userId));
+  if (link === 'unlinked') return scores.filter((s) => !s.userId);
+  return scores;
 }
 
 export function memberDisplayName(user: { firstName?: string; lastName?: string }): string {
@@ -175,21 +222,35 @@ export function scoreMatchesMemberProfile(
   const scoreName = (score.shooterName || '').trim().toLowerCase();
   if (!memberName || memberName !== scoreName) return false;
 
-  const memberClub = (member.club || '').trim().toLowerCase();
-  const scoreClub = (score.club || '').trim().toLowerCase();
-  if (memberClub && scoreClub && memberClub !== scoreClub) return false;
-
   return true;
 }
 
-function toScorePreview(id: string, data: Record<string, unknown>): LinkableScorePreview {
-  return {
-    id,
+export function scoreClubDiffersFromMember(
+  score: { club?: string },
+  member: { club?: string }
+): boolean {
+  const memberClub = (member.club || '').trim().toLowerCase();
+  const scoreClub = (score.club || '').trim().toLowerCase();
+  if (!memberClub || !scoreClub) return false;
+  return memberClub !== scoreClub;
+}
+
+function toScorePreview(
+  id: string,
+  data: Record<string, unknown>,
+  member: MemberLinkProfile
+): LinkableScorePreview {
+  const score = {
     shooterName: String(data.shooterName || ''),
     club: String(data.club || ''),
+  };
+  return {
+    id,
+    ...score,
     eventName: String(data.eventName || ''),
     date: String(data.date || ''),
     discipline: String(data.discipline || ''),
+    clubMismatch: scoreClubDiffersFromMember(score, member),
   };
 }
 
@@ -211,7 +272,7 @@ function toRegistrationPreview(id: string, data: Record<string, unknown>): Linka
   };
 }
 
-/** Find guest scores that match a member profile (name + club when both set). */
+/** Find guest scores that match a member profile by shooter name. */
 export async function findUnlinkedScoresForMember(
   db: Firestore,
   member: MemberLinkProfile
@@ -219,7 +280,28 @@ export async function findUnlinkedScoresForMember(
   const snap = await db.collection('scores').where('userId', '==', null).get();
   return snap.docs
     .filter((doc) => scoreMatchesMemberProfile(doc.data() as Record<string, unknown>, member))
-    .map((doc) => toScorePreview(doc.id, doc.data() as Record<string, unknown>));
+    .map((doc) => toScorePreview(doc.id, doc.data() as Record<string, unknown>, member));
+}
+
+/** Find scores already linked to a member account. */
+export async function findLinkedScoresForMember(
+  db: Firestore,
+  userId: string
+): Promise<LinkedScorePreview[]> {
+  const snap = await db.collection('scores').where('userId', '==', userId).get();
+  return snap.docs
+    .filter((doc) => !(doc.data() as Record<string, unknown>).deleted)
+    .map((doc) => linkedScorePreviewFromData(doc.id, doc.data() as Record<string, unknown>))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+/** Find registrations already linked to a member account. */
+export async function findLinkedRegistrationsForMember(
+  db: Firestore,
+  userId: string
+): Promise<LinkableRegistrationPreview[]> {
+  const snap = await db.collection('registrations').where('memberId', '==', userId).get();
+  return snap.docs.map((doc) => toRegistrationPreview(doc.id, doc.data() as Record<string, unknown>));
 }
 
 /** Find guest registrations for the member's email. */

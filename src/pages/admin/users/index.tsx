@@ -37,7 +37,7 @@ import {
   FormLabel,
   FormHelperText,
 } from '@chakra-ui/react';
-import { FiSearch, FiShield, FiCheck, FiX, FiSlash, FiRotateCcw, FiUsers, FiLink } from 'react-icons/fi';
+import { FiSearch, FiShield, FiCheck, FiX, FiSlash, FiRotateCcw, FiUsers, FiLink, FiTarget } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import AdminTableCard from '@/components/admin/AdminTableCard';
@@ -45,11 +45,13 @@ import AdminEmptyState from '@/components/admin/AdminEmptyState';
 import AdminTableSkeleton from '@/components/admin/AdminTableSkeleton';
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge';
 import AdminIconActions from '@/components/admin/AdminIconActions';
+import MemberLinkedScoresTable from '@/components/admin/MemberLinkedScoresTable';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { UserProfile } from '@/lib/auth';
 import { formatIsoDate } from '@/lib/firestoreSerialize';
+import type { LinkedScorePreview } from '@/lib/memberLink';
 
 interface LinkHistoryPreview {
   memberId: string;
@@ -63,7 +65,31 @@ interface LinkHistoryPreview {
     eventName: string;
     date: string;
     discipline: string;
+    clubMismatch?: boolean;
   }>;
+  registrations: Array<{
+    id: string;
+    eventTitle: string;
+    name: string;
+    email: string;
+    createdAt: string;
+  }>;
+  linkedScoreCount: number;
+  linkedRegistrationCount: number;
+  linkedScores: LinkedScorePreview[];
+  linkedRegistrations: Array<{
+    id: string;
+    eventTitle: string;
+    name: string;
+    email: string;
+    createdAt: string;
+  }>;
+}
+
+interface LinkedScoresView {
+  memberId: string;
+  memberName: string;
+  scores: LinkedScorePreview[];
   registrations: Array<{
     id: string;
     eventTitle: string;
@@ -92,6 +118,11 @@ export default function AdminUsers() {
     onOpen: onLinkOpen,
     onClose: onLinkClose,
   } = useDisclosure();
+  const {
+    isOpen: isScoresOpen,
+    onOpen: onScoresOpen,
+    onClose: onScoresClose,
+  } = useDisclosure();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,6 +137,9 @@ export default function AdminUsers() {
   const [linkPreview, setLinkPreview] = useState<LinkHistoryPreview | null>(null);
   const [linkLoading, setLinkLoading] = useState(false);
   const [linkApplying, setLinkApplying] = useState(false);
+  const [scoresUser, setScoresUser] = useState<UserProfile | null>(null);
+  const [linkedScoresView, setLinkedScoresView] = useState<LinkedScoresView | null>(null);
+  const [scoresViewLoading, setScoresViewLoading] = useState(false);
 
   useEffect(() => {
     if (isAdmin) fetchUsers();
@@ -230,6 +264,31 @@ export default function AdminUsers() {
       onLinkClose();
     } finally {
       setLinkLoading(false);
+    }
+  };
+
+  const openLinkedScoresView = async (user: UserProfile) => {
+    setScoresUser(user);
+    setLinkedScoresView(null);
+    onScoresOpen();
+    setScoresViewLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await fetch(`/api/admin/users/${user.id}/linked-scores`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load linked scores');
+      }
+      setLinkedScoresView(data);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load linked scores';
+      toast({ title: 'Error', description: message, status: 'error', duration: 4000 });
+      onScoresClose();
+    } finally {
+      setScoresViewLoading(false);
     }
   };
 
@@ -404,6 +463,16 @@ export default function AdminUsers() {
                         )}
                         {s === 'active' && (
                           <>
+                            <Tooltip label="View linked scores">
+                              <IconButton
+                                aria-label="View linked scores"
+                                icon={<FiTarget />}
+                                size="sm"
+                                colorScheme="blue"
+                                variant="ghost"
+                                onClick={() => openLinkedScoresView(user)}
+                              />
+                            </Tooltip>
                             <Tooltip label="Link historical scores & registrations">
                               <IconButton
                                 aria-label="Link history"
@@ -487,7 +556,7 @@ export default function AdminUsers() {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isLinkOpen} onClose={() => !linkApplying && onLinkClose()} size="lg">
+      <Modal isOpen={isLinkOpen} onClose={() => !linkApplying && onLinkClose()} size="lg" scrollBehavior="inside">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Link historical data</ModalHeader>
@@ -504,42 +573,91 @@ export default function AdminUsers() {
                   <strong>
                     {linkUser?.firstName} {linkUser?.lastName}
                   </strong>
-                  . Matches use name + club (scores) and email (registrations).
+                  . Scores match by name; registrations match by email.
                 </Text>
-                {linkPreview && linkPreview.scoreCount === 0 && linkPreview.registrationCount === 0 ? (
-                  <Text color="gray.500">No matching unlinked scores or registrations found.</Text>
-                ) : (
-                  <>
-                    {linkPreview && linkPreview.scoreCount > 0 && (
-                      <Box>
-                        <Text fontWeight="semibold" mb={2}>
-                          Scores ({linkPreview.scoreCount})
+
+                {linkPreview && linkPreview.linkedScoreCount > 0 && (
+                  <Box>
+                    <Text fontWeight="semibold" mb={2} color="teal.600">
+                      Already linked — scores ({linkPreview.linkedScoreCount})
+                    </Text>
+                    <MemberLinkedScoresTable scores={linkPreview.linkedScores} />
+                  </Box>
+                )}
+                {linkPreview && linkPreview.linkedRegistrationCount > 0 && (
+                  <Box>
+                    <Text fontWeight="semibold" mb={2} color="teal.600">
+                      Already linked — registrations ({linkPreview.linkedRegistrationCount})
+                    </Text>
+                    <VStack align="stretch" spacing={1} maxH="120px" overflowY="auto">
+                      {linkPreview.linkedRegistrations.map((reg) => (
+                        <Text key={reg.id} fontSize="sm">
+                          {reg.eventTitle || 'Event'} · {reg.email}
                         </Text>
-                        <VStack align="stretch" spacing={1} maxH="200px" overflowY="auto">
-                          {linkPreview.scores.map((score) => (
-                            <Text key={score.id} fontSize="sm">
-                              {score.eventName || 'Event'} · {score.discipline} ·{' '}
-                              {score.date ? new Date(score.date).toLocaleDateString() : '—'}
-                            </Text>
-                          ))}
-                        </VStack>
-                      </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {linkPreview &&
+                  linkPreview.scoreCount === 0 &&
+                  linkPreview.registrationCount === 0 &&
+                  linkPreview.linkedScoreCount === 0 &&
+                  linkPreview.linkedRegistrationCount === 0 && (
+                    <Text color="gray.500">No matching unlinked scores or registrations found.</Text>
+                  )}
+
+                {linkPreview &&
+                  linkPreview.scoreCount === 0 &&
+                  linkPreview.registrationCount === 0 &&
+                  (linkPreview.linkedScoreCount > 0 || linkPreview.linkedRegistrationCount > 0) && (
+                    <Text fontSize="sm" color="gray.600">
+                      Nothing new to link.
+                    </Text>
+                  )}
+
+                {linkPreview && linkPreview.scoreCount > 0 && (
+                  <Box>
+                    <Text fontWeight="semibold" mb={2}>
+                      Ready to link — scores ({linkPreview.scoreCount})
+                    </Text>
+                    {linkPreview.scores.some((s) => s.clubMismatch) && (
+                      <Text fontSize="sm" color="orange.600" mb={2}>
+                        {linkPreview.scores.filter((s) => s.clubMismatch).length} score(s) have a
+                        different club than this member — review before linking.
+                      </Text>
                     )}
-                    {linkPreview && linkPreview.registrationCount > 0 && (
-                      <Box>
-                        <Text fontWeight="semibold" mb={2}>
-                          Registrations ({linkPreview.registrationCount})
+                    <VStack align="stretch" spacing={1} maxH="200px" overflowY="auto">
+                      {linkPreview.scores.map((score) => (
+                        <HStack key={score.id} fontSize="sm" spacing={2} flexWrap="wrap">
+                          <Text>
+                            {score.eventName || 'Event'} · {score.discipline} ·{' '}
+                            {score.date ? new Date(score.date).toLocaleDateString() : '—'}
+                            {score.club ? ` · ${score.club}` : ''}
+                          </Text>
+                          {score.clubMismatch && (
+                            <Badge colorScheme="orange" fontSize="0.65em">
+                              Club differs
+                            </Badge>
+                          )}
+                        </HStack>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+                {linkPreview && linkPreview.registrationCount > 0 && (
+                  <Box>
+                    <Text fontWeight="semibold" mb={2}>
+                      Ready to link — registrations ({linkPreview.registrationCount})
+                    </Text>
+                    <VStack align="stretch" spacing={1} maxH="160px" overflowY="auto">
+                      {linkPreview.registrations.map((reg) => (
+                        <Text key={reg.id} fontSize="sm">
+                          {reg.eventTitle || 'Event'} · {reg.email}
                         </Text>
-                        <VStack align="stretch" spacing={1} maxH="160px" overflowY="auto">
-                          {linkPreview.registrations.map((reg) => (
-                            <Text key={reg.id} fontSize="sm">
-                              {reg.eventTitle || 'Event'} · {reg.email}
-                            </Text>
-                          ))}
-                        </VStack>
-                      </Box>
-                    )}
-                  </>
+                      ))}
+                    </VStack>
+                  </Box>
                 )}
               </VStack>
             )}
@@ -559,6 +677,54 @@ export default function AdminUsers() {
               }
             >
               Link data
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isScoresOpen} onClose={onScoresClose} size="4xl" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent maxW="960px">
+          <ModalHeader>Linked scores &amp; registrations</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            {scoresViewLoading ? (
+              <Center py={8}>
+                <Spinner color="satrf.navy" />
+              </Center>
+            ) : (
+              <VStack align="stretch" spacing={4}>
+                <Text>
+                  Scores and registrations linked to{' '}
+                  <strong>
+                    {scoresUser?.firstName} {scoresUser?.lastName}
+                  </strong>
+                  .
+                </Text>
+                <MemberLinkedScoresTable scores={linkedScoresView?.scores ?? []} />
+                {linkedScoresView && linkedScoresView.registrations.length > 0 && (
+                  <Box>
+                    <Text fontWeight="semibold" mb={2}>
+                      Registrations ({linkedScoresView.registrations.length})
+                    </Text>
+                    <VStack align="stretch" spacing={1}>
+                      {linkedScoresView.registrations.map((reg) => (
+                        <Text key={reg.id} fontSize="sm">
+                          {reg.eventTitle || 'Event'} · {reg.name} · {reg.email}
+                          {reg.createdAt
+                            ? ` · ${new Date(reg.createdAt).toLocaleDateString()}`
+                            : ''}
+                        </Text>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onScoresClose}>
+              Close
             </Button>
           </ModalFooter>
         </ModalContent>
