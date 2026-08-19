@@ -1,17 +1,26 @@
 import React from 'react';
 import Head from 'next/head';
 import { Box, SimpleGrid, Icon, Text, VStack, Card, CardBody } from '@chakra-ui/react';
-import { FiMail, FiPhone, FiMapPin, FiClock } from 'react-icons/fi';
+import { FiMail, FiClock } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import ContactForm from '@/components/ContactForm';
+import SocialLinks from '@/components/layout/SocialLinks';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
 
 const contactInfo = [
-  { icon: FiMail, title: 'Email', content: 'support@satrf.org.za', description: 'Send us an email anytime' },
-  { icon: FiPhone, title: 'Phone', content: '+27 (0) 11 123 4567', description: 'Mon–Fri 8am–5pm' },
-  { icon: FiMapPin, title: 'Address', content: 'Johannesburg, South Africa', description: 'SATRF Headquarters' },
-  { icon: FiClock, title: 'Response Time', content: '24–48 hours', description: 'During business days' },
+  {
+    icon: FiMail,
+    title: 'Email',
+    content: 'support@satrf.org.za',
+    description: 'Send us an email anytime',
+  },
+  {
+    icon: FiClock,
+    title: 'Response Time',
+    content: 'During business days',
+    description: 'Use the form below and we will reply as soon as we can',
+  },
 ];
 
 export default function ContactPage() {
@@ -26,10 +35,10 @@ export default function ContactPage() {
           <PublicPageHeader
             eyebrow="Support"
             title="Get in Touch"
-            subtitle="Questions, technical support, or feedback — we're here to help you get the most out of your SATRF experience."
+            subtitle="Questions, technical support, or feedback — use the form or email. SATRF does not currently publish a public office address or telephone number."
           />
 
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             {contactInfo.map((info) => (
               <Card key={info.title}>
                 <CardBody textAlign="center">
@@ -47,6 +56,13 @@ export default function ContactPage() {
               </Card>
             ))}
           </SimpleGrid>
+
+          <Box textAlign="center">
+            <Text fontWeight="semibold" mb={3}>
+              Official social channels
+            </Text>
+            <SocialLinks size={6} color="brand" hoverColor="satrf.gold.500" />
+          </Box>
 
           <Box>
             <ContactForm showTitle={false} />

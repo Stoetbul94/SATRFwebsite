@@ -90,7 +90,7 @@ export default function Navbar() {
                   <NavLink href="/login">Login</NavLink>
                   <Link href="/register">
                     <Button size="md" variant="satrfGold">
-                      Join SATRF
+                      Create account
                     </Button>
                   </Link>
                 </HStack>
@@ -138,7 +138,7 @@ export default function Navbar() {
                 <NavLink href="/login" onClick={closeMobileMenu}>Login</NavLink>
                 <Link href="/register" onClick={closeMobileMenu}>
                   <Button variant="satrfGold" w="full" mx={2} mt={2}>
-                    Join SATRF
+                    Create account
                   </Button>
                 </Link>
               </>

@@ -208,7 +208,7 @@ const RegisterPage: NextPage = () => {
 
       <AuthPageLayout
         title="Create Account"
-        subtitle="Join the South African Target Rifle Federation"
+        subtitle="Create your SATRF website account"
         headerIcon={
           <AuthHeaderIcon>
             <Icon as={FiLock} boxSize={5} aria-hidden />

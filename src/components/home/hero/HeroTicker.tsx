@@ -3,14 +3,16 @@
 import { usePrefersReducedMotion } from '@chakra-ui/react';
 import styles from './hero.module.css';
 
-const TICKER_ITEMS = [
-  { text: 'GAUTENG OPEN', suffix: ' — FINALS RANGE, 14 JUN', gold: false },
-  { text: 'PROTEA TRIALS', suffix: ' — BLOEMFONTEIN, 02 AUG', gold: true },
-  { text: 'NATIONAL RANKING R3', suffix: ' — 50M PRONE / 300M', gold: false },
-  { text: 'BEGINNER INTRO DAYS', suffix: ' — EVERY PROVINCE, MONTHLY', gold: false },
-  { text: 'JUNIOR DEVELOPMENT CAMP', suffix: ' — NORTH WEST, JUL', gold: false },
-  { text: 'LA28 OLYMPIC CYCLE', suffix: ' — SQUAD ANNOUNCEMENTS SEP', gold: true },
-];
+/** Evergreen federation topics — not live event names. */
+export const EVERGREEN_TICKER_ITEMS = [
+  { text: 'TARGET RIFLE', suffix: '', gold: false },
+  { text: 'PRONE', suffix: '', gold: false },
+  { text: '3-POSITION', suffix: '', gold: false },
+  { text: 'F-CLASS', suffix: '', gold: true },
+  { text: 'EVENTS', suffix: '', gold: false },
+  { text: 'SCORES', suffix: '', gold: false },
+  { text: 'COACHING', suffix: '', gold: true },
+] as const;
 
 function TickerItem({
   text,
@@ -31,7 +33,7 @@ function TickerItem({
 
 export default function HeroTicker() {
   const reduceMotion = usePrefersReducedMotion();
-  const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
+  const items = [...EVERGREEN_TICKER_ITEMS, ...EVERGREEN_TICKER_ITEMS];
 
   return (
     <div className={styles.ticker} aria-hidden>
