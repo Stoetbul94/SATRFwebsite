@@ -48,6 +48,8 @@ export default function Footer() {
                   ['/about', 'About SATRF'],
                   ['/events', 'Events'],
                   ['/scores', 'Scores'],
+                  ['/faq', 'FAQ'],
+                  ['/rules', 'Rules'],
                   ['/insights', 'From the Firing Line'],
                   ['/leaderboard', 'Leaderboard'],
                   ['/media', 'Media'],

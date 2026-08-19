@@ -1,3 +1,4 @@
+import NextLink from 'next/link';
 import {
   Box,
   Container,
@@ -103,6 +104,13 @@ export default function About() {
             </Heading>
             <Text fontSize="lg" color={textColor}>
               SATRF welcomes members of all ages and skill levels—from beginners to elite athletes. Whether you are looking to compete, learn, or contribute to the shooting community, we invite you to become part of our federation. Membership offers access to exclusive events, training resources, and a vibrant community of fellow shooting enthusiasts.
+            </Text>
+            <Text fontSize="lg" color={textColor} mt={4}>
+              For concise answers on disciplines, events, scores and getting started, see the{' '}
+              <Link as={NextLink} href="/faq" color="blue.500">
+                target rifle shooting FAQs
+              </Link>
+              .
             </Text>
           </Box>
 
