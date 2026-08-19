@@ -37,7 +37,13 @@ export function mapEventStatusToCalendar(
   if (normalised === 'cancelled' || normalised === 'canceled') return 'CANCELLED';
   if (['completed', 'closed', 'concluded', 'past'].includes(normalised)) return 'CLOSED';
   if (maxSpots > 0 && currentSpots >= maxSpots) return 'FULL';
+  // Firestore currently uses `open` (also `upcoming` as serializer default).
+  // Unknown values stay OPEN so registration is not silently closed.
   return 'OPEN';
+}
+
+function parseExplicitSource(raw: unknown): Event['source'] | undefined {
+  return raw === 'SATRF' || raw === 'ISSF' ? raw : undefined;
 }
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -92,8 +98,7 @@ export function normalizeCalendarEvent(raw: unknown): CalendarEvent | null {
 
   const maxSpots = Number(event.maxParticipants ?? event.maxSpots) || 0;
   const currentSpots = Number(event.currentParticipants ?? event.currentSpots) || 0;
-
-  const source = event.source === 'ISSF' ? 'ISSF' : 'SATRF';
+  const source = parseExplicitSource(event.source);
 
   return {
     id,
@@ -113,7 +118,7 @@ export function normalizeCalendarEvent(raw: unknown): CalendarEvent | null {
       (typeof event.imageUrl === 'string' && event.imageUrl) ||
       (typeof event.image === 'string' && event.image) ||
       undefined,
-    isLocal: source === 'SATRF',
+    isLocal: source !== 'ISSF',
     source,
     createdAt: typeof event.createdAt === 'string' ? event.createdAt : undefined,
     updatedAt: typeof event.updatedAt === 'string' ? event.updatedAt : undefined,

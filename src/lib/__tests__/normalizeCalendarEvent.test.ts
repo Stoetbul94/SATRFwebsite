@@ -12,6 +12,7 @@ describe('civilDateInJohannesburg', () => {
 
   it('does not shift a date-only string onto the previous day', () => {
     expect(civilDateInJohannesburg('2026-09-05')).toBe('2026-09-05');
+    expect(civilDateInJohannesburg('2026-09-05')).not.toBe('2026-09-04');
   });
 
   it('uses Africa/Johannesburg when UTC instant is the previous evening', () => {
@@ -25,6 +26,11 @@ describe('mapEventStatusToCalendar', () => {
     expect(mapEventStatusToCalendar('open', 20, 20)).toBe('FULL');
     expect(mapEventStatusToCalendar('completed', 5, 20)).toBe('CLOSED');
     expect(mapEventStatusToCalendar('cancelled', 0, 20)).toBe('CANCELLED');
+    expect(mapEventStatusToCalendar('unknown-status', 0, 20)).toBe('OPEN');
+  });
+
+  it('treats maxParticipants = 0 as unlimited even with current entries', () => {
+    expect(mapEventStatusToCalendar('open', 12, 0)).toBe('OPEN');
   });
 
   it('does not treat unlimited capacity (max 0) as FULL', () => {
@@ -56,7 +62,6 @@ describe('normalizeCalendarEvent', () => {
       location: 'Cape Town',
       discipline: 'Prone',
       status: 'OPEN',
-      source: 'SATRF',
       maxSpots: 40,
       currentSpots: 12,
       price: 250,
@@ -66,6 +71,7 @@ describe('normalizeCalendarEvent', () => {
       payfastUrl: 'https://pay.example/evt-1',
     });
     expect(event?.disciplines).toEqual(['prone_50m']);
+    expect(event?.source).toBeUndefined();
   });
 
   it('fills optional fields with safe defaults', () => {
@@ -81,12 +87,12 @@ describe('normalizeCalendarEvent', () => {
       location: '',
       allDay: true,
       start: '2026-10-10',
-      source: 'SATRF',
       price: 0,
       maxSpots: 0,
       currentSpots: 0,
       status: 'OPEN',
     });
+    expect(event?.source).toBeUndefined();
   });
 
   it('treats Firestore date-only events as all-day on the Johannesburg civil date', () => {
@@ -101,6 +107,17 @@ describe('normalizeCalendarEvent', () => {
     expect(event?.end).toBe('2026-09-05');
   });
 
+  it('keeps 10 October as 2026-10-10 in Johannesburg', () => {
+    const event = normalizeCalendarEvent({
+      id: 'champs',
+      title: 'SATRF SA CHAMPIONSHIPS',
+      date: '2026-10-10T00:00:00.000Z',
+    });
+
+    expect(event?.start).toBe('2026-10-10');
+    expect(event?.start).not.toBe('2026-10-09');
+  });
+
   it('combines civil date with startTime/endTime for timed events', () => {
     const event = normalizeCalendarEvent({
       id: 'timed',
@@ -113,6 +130,27 @@ describe('normalizeCalendarEvent', () => {
     expect(event?.allDay).toBe(false);
     expect(event?.start).toBe('2026-09-05T18:30:00+02:00');
     expect(event?.end).toBe('2026-09-05T21:00:00+02:00');
+  });
+
+  it('does not infer ISSF from title or description text', () => {
+    const event = normalizeCalendarEvent({
+      id: 'prone-4',
+      title: 'SATRF PRONE EVENT #4',
+      description: 'ISSF 50m Prone Event #4 World Cup',
+      date: '2026-09-05T00:00:00.000Z',
+    });
+    expect(event?.source).toBeUndefined();
+  });
+
+  it('preserves an explicit source only when the API provides it', () => {
+    const event = normalizeCalendarEvent({
+      id: 'issf-1',
+      title: 'International',
+      date: '2026-09-05T00:00:00.000Z',
+      source: 'ISSF',
+    });
+    expect(event?.source).toBe('ISSF');
+    expect(event?.isLocal).toBe(false);
   });
 
   it('drops events with no parseable date', () => {

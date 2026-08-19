@@ -56,6 +56,7 @@ jest.mock('@fullcalendar/react', () => ({
     const { events, eventClick, ...otherProps } = props;
     return React.createElement('div', {
       'data-testid': 'fullcalendar',
+      'data-calendar-view': props.initialView,
       ...otherProps,
     }, events && events.map(function(event) {
       return React.createElement('div', {

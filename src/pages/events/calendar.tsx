@@ -38,8 +38,6 @@ import {
   FaClock, 
   FaRegCalendarAlt,
   FaCheckCircle,
-  FaGlobe,
-  FaHome,
   FaDownload,
   FaShare,
   FaRedo
@@ -137,10 +135,6 @@ const EventsCalendarPage: NextPage = () => {
     setRefreshing(false);
   };
 
-  const isUserRegistered = (_eventId: string) => {
-    return false;
-  };
-
   const getUpcomingEvents = () => {
     const today = civilDateInJohannesburg(new Date());
     if (!today) return [];
@@ -151,14 +145,6 @@ const EventsCalendarPage: NextPage = () => {
       })
       .sort((a, b) => a.start.localeCompare(b.start))
       .slice(0, 5);
-  };
-
-  const getISSFEvents = () => {
-    return events.filter(event => event.source === 'ISSF');
-  };
-
-  const getSATRFEvents = () => {
-    return events.filter(event => event.source === 'SATRF');
   };
 
   const exportCalendar = () => {
@@ -243,7 +229,7 @@ END:VCALENDAR`;
     <Layout>
       <Head>
         <title>Events Calendar - SATRF</title>
-        <meta name="description" content="Interactive calendar of SATRF and ISSF shooting events. View, filter, and register for upcoming competitions and training sessions." />
+        <meta name="description" content="Interactive calendar of SATRF shooting events. View, filter, and register for upcoming competitions and training sessions." />
         <meta name="keywords" content="SATRF, shooting events, calendar, competitions, ISSF, target rifle, air rifle, prone, 3P" />
       </Head>
 
@@ -258,7 +244,7 @@ END:VCALENDAR`;
               </HStack>
             </Heading>
             <Text color={textColorSecondary} fontSize="lg">
-              Interactive calendar featuring SATRF local events and ISSF international competitions
+              Interactive calendar of SATRF shooting events
             </Text>
           </Box>
 
@@ -273,18 +259,10 @@ END:VCALENDAR`;
           >
             <Flex direction={{ base: 'column', md: 'row' }} gap={6} justify="space-between">
               <HStack>
-                <FaHome color="#2C5282" />
+                <FaCalendar color="#2C5282" />
                 <VStack align="start" spacing={0}>
-                  <Text fontWeight="bold" fontSize="lg">{getSATRFEvents().length}</Text>
-                  <Text fontSize="sm" color="gray.500">SATRF Events</Text>
-                </VStack>
-              </HStack>
-              
-              <HStack>
-                <FaGlobe color="#3182CE" />
-                <VStack align="start" spacing={0}>
-                  <Text fontWeight="bold" fontSize="lg">{getISSFEvents().length}</Text>
-                  <Text fontSize="sm" color="gray.500">ISSF Events</Text>
+                  <Text fontWeight="bold" fontSize="lg">{events.length}</Text>
+                  <Text fontSize="sm" color="gray.500">Events</Text>
                 </VStack>
               </HStack>
               
@@ -293,14 +271,6 @@ END:VCALENDAR`;
                 <VStack align="start" spacing={0}>
                   <Text fontWeight="bold" fontSize="lg">{getUpcomingEvents().length}</Text>
                   <Text fontSize="sm" color="gray.500">Upcoming</Text>
-                </VStack>
-              </HStack>
-              
-              <HStack>
-                <FaUsers color="#E53E3E" />
-                <VStack align="start" spacing={0}>
-                  <Text fontWeight="bold" fontSize="lg">0</Text>
-                  <Text fontSize="sm" color="gray.500">Your Registrations</Text>
                 </VStack>
               </HStack>
             </Flex>
@@ -399,11 +369,10 @@ END:VCALENDAR`;
                       <VStack align="start" spacing={1} flex={1}>
                         <HStack>
                           <Text fontWeight="bold">{event.title}</Text>
-                          <Badge colorScheme={event.source === 'ISSF' ? 'blue' : 'satrf'}>
-                            {event.source}
-                          </Badge>
-                          {isUserRegistered(event.id) && (
-                            <Badge colorScheme="green">Registered</Badge>
+                          {event.source && (
+                            <Badge colorScheme={event.source === 'ISSF' ? 'blue' : 'satrf'}>
+                              {event.source}
+                            </Badge>
                           )}
                         </HStack>
                         
@@ -452,9 +421,11 @@ END:VCALENDAR`;
                       <Badge colorScheme={selectedEvent.status === 'OPEN' ? 'blue' : 'gray'}>
                         {selectedEvent.status}
                       </Badge>
-                      <Badge colorScheme={selectedEvent.source === 'ISSF' ? 'blue' : 'satrf'}>
-                        {selectedEvent.source}
-                      </Badge>
+                      {selectedEvent.source && (
+                        <Badge colorScheme={selectedEvent.source === 'ISSF' ? 'blue' : 'satrf'}>
+                          {selectedEvent.source}
+                        </Badge>
+                      )}
                     </HStack>
 
                     {/* Event Details */}
@@ -558,7 +529,7 @@ END:VCALENDAR`;
                               <Text>{selectedEvent.maxSpots - selectedEvent.currentSpots} remaining</Text>
                             </Box>
 
-                            {eventUtils.getRegistrationStatus(selectedEvent) === 'open' && isAuthenticated && !isUserRegistered(selectedEvent.id) && (
+                            {eventUtils.getRegistrationStatus(selectedEvent) === 'open' && isAuthenticated && (
                               <Button
                                 colorScheme="satrf"
                                 size="lg"
@@ -567,15 +538,6 @@ END:VCALENDAR`;
                               >
                                 Register for Event
                               </Button>
-                            )}
-
-                            {isUserRegistered(selectedEvent.id) && (
-                              <VStack spacing={3}>
-                                <Alert status="success">
-                                  <AlertIcon />
-                                  <Text>You are registered for this event!</Text>
-                                </Alert>
-                              </VStack>
                             )}
 
                             {!isAuthenticated && (

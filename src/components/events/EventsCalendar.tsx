@@ -128,8 +128,15 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
       // Apply discipline filter
       if (localFilters.discipline && event.discipline !== localFilters.discipline) return false;
       
-      // Apply source filter
-      if (localFilters.source && localFilters.source !== 'all' && event.source !== localFilters.source) return false;
+      // Apply source filter only when real source metadata exists on events
+      if (
+        localFilters.source &&
+        localFilters.source !== 'all' &&
+        event.source &&
+        event.source !== localFilters.source
+      ) {
+        return false;
+      }
       
       // Apply status filter
       if (localFilters.status && event.status !== localFilters.status) return false;
@@ -380,20 +387,6 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
                   </Select>
                 </FormControl>
 
-                {/* Source Filter */}
-                <FormControl maxW="150px">
-                  <FormLabel fontSize="sm">Source</FormLabel>
-                  <Select
-                    size="sm"
-                    value={localFilters.source || 'all'}
-                    onChange={(e) => handleFilterChange('source', e.target.value)}
-                  >
-                    <option value="all">All Events</option>
-                    <option value="SATRF">SATRF</option>
-                    <option value="ISSF">ISSF</option>
-                  </Select>
-                </FormControl>
-
                 {/* Status Filter */}
                 <FormControl maxW="150px">
                   <FormLabel fontSize="sm">Status</FormLabel>
@@ -502,6 +495,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
         borderColor={borderColor}
       >
         <FullCalendar
+          key={calendarView}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
           headerToolbar={false} // We're using custom controls
           initialView={calendarView}
@@ -552,9 +546,11 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
                   <Badge colorScheme={getStatusBadgeColor(selectedEvent.status)}>
                     {selectedEvent.status}
                   </Badge>
-                  <Badge colorScheme={selectedEvent.source === 'ISSF' ? 'blue' : 'satrf'}>
-                    {selectedEvent.source}
-                  </Badge>
+                  {selectedEvent.source && (
+                    <Badge colorScheme={selectedEvent.source === 'ISSF' ? 'blue' : 'satrf'}>
+                      {selectedEvent.source}
+                    </Badge>
+                  )}
                 </HStack>
 
                 {/* Event Details */}

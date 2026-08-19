@@ -94,7 +94,7 @@ export interface Event {
     phone: string;
   };
   isLocal: boolean;
-  source: 'SATRF' | 'ISSF';
+  source?: 'SATRF' | 'ISSF';
   createdAt?: string;
   updatedAt?: string;
   allDay?: boolean;
