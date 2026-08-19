@@ -17,7 +17,7 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
-import { FiDownload, FiExternalLink, FiSearch } from 'react-icons/fi';
+import { FiSearch } from 'react-icons/fi';
 import {
   CLOTHING_SUBTOPICS,
   DISCIPLINE_SHORTCUTS,
@@ -35,6 +35,8 @@ import {
   type RuleSearchEntry,
   type RulesIndexPayload,
 } from '@/lib/rulesSearch';
+import { downloadLabelForDocument, officialSourceHref, stripHash } from '@/lib/rulesDownloads';
+import PdfActionButtons from '@/components/rules/PdfActionButtons';
 
 type Props = {
   onOpenLibrary?: () => void;
@@ -367,34 +369,29 @@ function ResultCard({ entry, query }: { entry: RuleSearchEntry; query: string })
             </Badge>
           ))}
         </HStack>
-        <HStack mt={4} spacing={2} flexWrap="wrap">
-          <Button
-            as="a"
-            href={pdfPageHref(entry)}
-            target="_blank"
-            rel="noopener noreferrer"
-            size="sm"
-            variant="satrf"
-            leftIcon={<FiDownload />}
-            minH="40px"
-          >
-            Open PDF
-          </Button>
-          {entry.officialUrl && (
-            <Button
-              as="a"
-              href={entry.officialUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              size="sm"
-              variant="satrfOutline"
-              leftIcon={<FiExternalLink />}
-              minH="40px"
-            >
-              Official ISSF
-            </Button>
-          )}
-        </HStack>
+        <Box mt={4}>
+          <PdfActionButtons
+            openHref={pdfPageHref(entry)}
+            openLabel={
+              entry.page ? (
+                <>
+                  <Box as="span" display={{ base: 'inline', md: 'none' }}>
+                    Open rule
+                  </Box>
+                  <Box as="span" display={{ base: 'none', md: 'inline' }}>
+                    Open PDF at page {entry.page}
+                  </Box>
+                </>
+              ) : (
+                'Open PDF'
+              )
+            }
+            downloadHref={stripHash(entry.pdfUrl)}
+            downloadLabel={downloadLabelForDocument(entry.documentTitle)}
+            officialHref={officialSourceHref(entry)}
+            officialLabel="Official ISSF Source"
+          />
+        </Box>
       </CardBody>
     </Card>
   );

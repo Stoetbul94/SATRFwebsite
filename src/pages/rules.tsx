@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import type { GetStaticProps } from 'next';
 import {
   Accordion,
   AccordionButton,
@@ -19,10 +20,11 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
-import { FiDownload, FiExternalLink, FiFileText, FiShield, FiTarget, FiAlertTriangle } from 'react-icons/fi';
+import { FiDownload, FiFileText, FiShield, FiTarget, FiAlertTriangle } from 'react-icons/fi';
 import Layout from '../components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import RuleFinder from '@/components/rules/RuleFinder';
+import PdfActionButtons from '@/components/rules/PdfActionButtons';
 import { RULES_INDEX_META } from '@/data/rulesIndexMeta';
 import {
   issfRuleCategories,
@@ -30,6 +32,8 @@ import {
   issfSourceUrl,
   type IssfRuleDocument,
 } from '@/data/issf-rules';
+import { downloadLabelForDocument, formatFileSize } from '@/lib/rulesDownloads';
+import { readIssfLocalFileSizes } from '@/lib/issfRuleFileSizes';
 
 function displayTitle(title: string) {
   return title.replace(/\.(pdf|docx|xlsx|zip)$/i, '');
@@ -55,8 +59,20 @@ function pdfHref(doc: IssfRuleDocument) {
 }
 
 const PRIORITY_CATEGORIES = ['rulebook', 'rifle', 'technical'];
+const CURRENT_RULEBOOK_PATH =
+  '/documents/issf/issf-rule-book-2026-edition-2025-second-print-07-2026-effective-1-july-2026.pdf';
 
-export default function RulesPage() {
+function statusRank(status?: IssfRuleDocument['status']) {
+  if (status === 'current') return 0;
+  if (status === 'superseded') return 2;
+  return 1;
+}
+
+type RulesPageProps = {
+  fileSizes?: Record<string, number>;
+};
+
+export default function RulesPage({ fileSizes = {} }: RulesPageProps) {
   const libraryRef = useRef<HTMLDivElement>(null);
   const [libraryFilter, setLibraryFilter] = useState('all');
   const [showAllInCategory, setShowAllInCategory] = useState<Record<string, boolean>>({});
@@ -89,14 +105,22 @@ export default function RulesPage() {
       .map((id) => ({
         id,
         name: categories.find((c) => c.id === id)?.name || id,
-        docs: map.get(id) || [],
+        docs: (map.get(id) || []).slice().sort((a, b) => statusRank(a.status) - statusRank(b.status)),
       }));
   }, [categories, libraryFilter]);
 
   const handleDownloadAll = () => {
-    issfRuleDocuments.forEach((doc) => {
-      const href = pdfHref(doc);
-      if (href) window.open(href, '_blank', 'noopener,noreferrer');
+    const hrefs = issfRuleDocuments.map((doc) => doc.localPath).filter((href): href is string => Boolean(href));
+    hrefs.forEach((href, i) => {
+      window.setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = href.split('/').pop() || 'document.pdf';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 200);
     });
   };
 
@@ -146,13 +170,16 @@ export default function RulesPage() {
           </Box>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <Card>
+            <Card data-testid="current-rulebook">
               <CardBody>
                 <HStack justify="space-between" mb={2}>
                   <Heading size="sm">Current ISSF Rule Book</Heading>
                   <Badge colorScheme="green">CURRENT</Badge>
                 </HStack>
-                <Text fontWeight="medium">{rb.edition}</Text>
+                <Text fontWeight="medium">{rb.title}</Text>
+                <Text fontSize="sm" color="text.muted">
+                  {rb.edition}
+                </Text>
                 <Text fontSize="sm" color="text.muted">
                   {rb.print} · Effective {rb.effectiveDate}
                 </Text>
@@ -160,22 +187,16 @@ export default function RulesPage() {
                   Last checked against ISSF: {RULES_INDEX_META.lastCheckedAgainstIssf} (manual
                   check, not live sync)
                 </Text>
-                <HStack mt={4} spacing={2} flexWrap="wrap">
-                  <Button as="a" href={rb.localPath} target="_blank" rel="noopener noreferrer" size="sm" variant="satrf">
-                    Open Rule Book
-                  </Button>
-                  <Button
-                    as="a"
-                    href={issfSourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="sm"
-                    variant="satrfOutline"
-                    leftIcon={<FiExternalLink />}
-                  >
-                    View on ISSF
-                  </Button>
-                </HStack>
+                <Box mt={4}>
+                  <PdfActionButtons
+                    openHref={CURRENT_RULEBOOK_PATH}
+                    openLabel="Open Rule Book"
+                    downloadHref={CURRENT_RULEBOOK_PATH}
+                    downloadLabel="Download PDF"
+                    officialHref={issfSourceUrl}
+                    officialLabel="View on ISSF"
+                  />
+                </Box>
               </CardBody>
             </Card>
             <Card>
@@ -221,9 +242,20 @@ export default function RulesPage() {
                 </Button>
               ))}
             </HStack>
-            <Button size="sm" variant="satrfOutline" leftIcon={<FiDownload />} mb={4} onClick={handleDownloadAll}>
+            <Button
+              size="sm"
+              variant="satrfOutline"
+              leftIcon={<FiDownload />}
+              mb={2}
+              minH="44px"
+              onClick={handleDownloadAll}
+            >
               Download all PDFs
             </Button>
+            <Text fontSize="xs" color="text.muted" mb={4}>
+              Starts a separate browser download for each locally hosted file. Browsers may ask you
+              to allow multiple downloads.
+            </Text>
             <Accordion allowMultiple defaultIndex={[0, 1, 2]}>
               {grouped.map((group) => {
                 const expanded = showAllInCategory[group.id];
@@ -241,60 +273,47 @@ export default function RulesPage() {
                     </AccordionButton>
                     <AccordionPanel pb={4}>
                       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                        {visible.map((doc) => (
-                          <Card key={doc.id} size="sm">
-                            <CardBody>
-                              <HStack align="start" spacing={3}>
-                                <Icon as={categoryIcon(doc.category)} mt={1} color="brand" />
-                                <Box minW={0}>
-                                  <Heading size="xs">{displayTitle(doc.title)}</Heading>
-                                  <Text fontSize="xs" color="text.muted" mt={1}>
-                                    {doc.section}
-                                    {doc.edition ? ` · ${doc.edition}` : ''}
-                                  </Text>
-                                  {doc.status === 'superseded' && (
-                                    <Badge mt={1} colorScheme="orange">
-                                      ARCHIVE
-                                    </Badge>
-                                  )}
-                                  {doc.status === 'current' && (
-                                    <Badge mt={1} colorScheme="green">
-                                      CURRENT
-                                    </Badge>
-                                  )}
-                                  <HStack mt={3} spacing={2} flexWrap="wrap">
-                                    {pdfHref(doc) && (
-                                      <Button
-                                        as="a"
-                                        href={pdfHref(doc)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        size="sm"
-                                        variant="satrf"
-                                        minH="40px"
-                                      >
-                                        Open PDF
-                                      </Button>
+                        {visible.map((doc) => {
+                          const sizeLabel = formatFileSize(fileSizes[doc.id]);
+                          return (
+                            <Card key={doc.id} size="sm">
+                              <CardBody>
+                                <HStack align="start" spacing={3}>
+                                  <Icon as={categoryIcon(doc.category)} mt={1} color="brand" />
+                                  <Box minW={0}>
+                                    <Heading size="xs">{displayTitle(doc.title)}</Heading>
+                                    <Text fontSize="xs" color="text.muted" mt={1}>
+                                      {doc.section}
+                                      {doc.edition ? ` · ${doc.edition}` : ''}
+                                      {doc.effectiveDate ? ` · Effective ${doc.effectiveDate}` : ''}
+                                      {sizeLabel ? ` · ${sizeLabel}` : ''}
+                                    </Text>
+                                    {doc.status === 'superseded' && (
+                                      <Badge mt={1} colorScheme="orange">
+                                        ARCHIVE / SUPERSEDED
+                                      </Badge>
                                     )}
-                                    {doc.webUrl && (
-                                      <Button
-                                        as="a"
-                                        href={doc.webUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        size="sm"
-                                        variant="satrfOutline"
-                                        minH="40px"
-                                      >
-                                        Official source
-                                      </Button>
+                                    {doc.status === 'current' && (
+                                      <Badge mt={1} colorScheme="green">
+                                        CURRENT
+                                      </Badge>
                                     )}
-                                  </HStack>
-                                </Box>
-                              </HStack>
-                            </CardBody>
-                          </Card>
-                        ))}
+                                    <Box mt={3}>
+                                      <PdfActionButtons
+                                        openHref={pdfHref(doc)}
+                                        openLabel="Open"
+                                        downloadHref={doc.localPath}
+                                        downloadLabel={downloadLabelForDocument(doc.title)}
+                                        officialHref={doc.webUrl}
+                                        officialLabel="Official Source"
+                                      />
+                                    </Box>
+                                  </Box>
+                                </HStack>
+                              </CardBody>
+                            </Card>
+                          );
+                        })}
                       </SimpleGrid>
                       {group.docs.length > 8 && (
                         <Button
@@ -319,3 +338,8 @@ export default function RulesPage() {
     </Layout>
   );
 }
+
+export const getStaticProps: GetStaticProps<RulesPageProps> = async () => {
+  return { props: { fileSizes: readIssfLocalFileSizes() } };
+};
+
