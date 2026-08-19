@@ -247,7 +247,7 @@ export default function RulesPage() {
                   ],
                   [
                     'Local Copies',
-                    'PDFs are hosted on satrf.org.za for faster access. Always confirm the latest version on issf-sports.org/rules if in doubt.',
+                    'PDFs are hosted on this website for faster access. Always confirm the latest version on issf-sports.org/rules if in doubt.',
                   ],
                   [
                     'Contact Support',

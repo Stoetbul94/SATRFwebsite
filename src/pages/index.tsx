@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import SatrfHero from '@/components/home/hero/SatrfHero';
+import { absoluteUrl } from '@/lib/siteUrl';
 import { dashboardAPI, eventsAPI } from '@/lib/api';
 import type { Event, DashboardStats } from '@/lib/api';
 import {
@@ -72,7 +73,7 @@ export default function Home({ initialStats, initialEvents }: HomeProps) {
           name="description"
           content="Join SATRF — target rifle shooting South Africa. Beginner coaching, smallbore, prone and 300m rifle clubs in every province. Join a shooting club and compete on the Olympic pathway."
         />
-        <link rel="canonical" href="https://satrf.org.za/" />
+        <link rel="canonical" href={absoluteUrl('/')} />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="SATRF — South African Target Rifle Federation" />
         <meta property="og:title" content="The home of ISSF target rifle shooting in South Africa" />
@@ -80,8 +81,8 @@ export default function Home({ initialStats, initialEvents }: HomeProps) {
           property="og:description"
           content="Become a SATRF member: learn target shooting with beginner-friendly coaches, find a rifle club in your province, and compete on the national Olympic pathway."
         />
-        <meta property="og:url" content="https://satrf.org.za/" />
-        <meta property="og:image" content="https://satrf.org.za/brand/satrf-brand-banner.png" />
+        <meta property="og:url" content={absoluteUrl('/')} />
+        <meta property="og:image" content={absoluteUrl('/brand/satrf-brand-banner.png')} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="theme-color" content="#070D1E" />
         <script
@@ -93,8 +94,8 @@ export default function Home({ initialStats, initialEvents }: HomeProps) {
               name: 'South African Target Rifle Federation',
               alternateName: 'SATRF',
               sport: 'ISSF Target Rifle Shooting',
-              url: 'https://satrf.org.za/',
-              logo: 'https://satrf.org.za/brand/satrf-emblem-transparent.png',
+              url: absoluteUrl('/'),
+              logo: absoluteUrl('/brand/satrf-emblem-transparent.png'),
               description:
                 'National federation for ISSF target rifle shooting in South Africa: membership, beginner coaching, club development, national competitions and Olympic-pathway athlete rankings.',
               memberOf: {

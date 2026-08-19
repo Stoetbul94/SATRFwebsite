@@ -25,8 +25,8 @@ import { FiDownload, FiExternalLink } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import FlagStripe from '@/components/brand/FlagStripe';
+import { absoluteUrl } from '@/lib/siteUrl';
 
-const SITE_URL = 'https://satrf.org.za';
 const PAGE_PATH = '/notices/satrf-governance-clarification';
 const OG_IMAGE = '/images/notices/satrf-governance-communique-page-1.png';
 const SCAN_PAGE_1 = '/images/notices/satrf-governance-communique-page-1.png';
@@ -110,8 +110,8 @@ function CommuniqueScan({
 }
 
 export default function SatrfGovernanceClarificationPage({ showPdfDownload }: PageProps) {
-  const pageUrl = `${SITE_URL}${PAGE_PATH}`;
-  const ogImageUrl = `${SITE_URL}${OG_IMAGE}`;
+  const pageUrl = absoluteUrl(PAGE_PATH);
+  const ogImageUrl = absoluteUrl(OG_IMAGE);
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const mutedText = useColorModeValue('gray.600', 'gray.300');
