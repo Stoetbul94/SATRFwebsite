@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /** Isolated Rule Finder E2E — skips auth globalSetup (networkidle on `/` is flaky). */
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /rules-finder\.spec\.ts/,
+  testMatch: /(rules-finder|faq|coaching)\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   timeout: 45000,
