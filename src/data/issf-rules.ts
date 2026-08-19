@@ -8,6 +8,9 @@ export interface IssfRuleDocument {
   webUrl?: string;
   pdfUrl?: string;
   localPath?: string;
+  status?: 'current' | 'superseded' | 'reference';
+  edition?: string;
+  effectiveDate?: string;
 }
 
 export const issfRuleCategories = [
@@ -69,13 +72,28 @@ export const issfSourceUrl = 'https://www.issf-sports.org/rules';
 
 export const issfRuleDocuments: IssfRuleDocument[] = [
   {
+    "id": "issf-rule-book-2026-edition-2025-second-print-07-2026-effective-1-july-2026",
+    "title": "ISSF Rule Book 2026 Edition 2025 Second Print 07 2026 Effective 1 July 2026.pdf",
+    "category": "rulebook",
+    "section": "ISSF Rule Book 2026",
+    "webUrl": "https://www.issf-sports.org/rules",
+    "pdfUrl": "https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=455&file=ISSF-Rule-Book-2026-Edition-2025-Second-Print-07-2026-Effective-1-July-2026.pdf",
+    "localPath": "/documents/issf/issf-rule-book-2026-edition-2025-second-print-07-2026-effective-1-july-2026.pdf",
+    "status": "current",
+    "edition": "2026 Edition 2025 — Second Print 07/2026",
+    "effectiveDate": "1 July 2026"
+  },
+  {
     "id": "issf-rule-book-2026-edition-2025-first-print-12-2025-effective-1-january-2026",
     "title": "ISSF Rule Book 2026 Edition 2025 First Print 12 2025 Effective 1 January 2026.pdf",
     "category": "rulebook",
     "section": "ISSF Rule Book 2026",
     "webUrl": "https://www.issf-sports.org/rules",
     "pdfUrl": "https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=455&file=ISSF-Rule-Book-2026-Edition-2025-First-Print-12-2025-Effective-1-January-2026.pdf",
-    "localPath": "/documents/issf/issf-rule-book-2026-edition-2025-first-print-12-2025-effective-1-january-2026.pdf"
+    "localPath": "/documents/issf/issf-rule-book-2026-edition-2025-first-print-12-2025-effective-1-january-2026.pdf",
+    "status": "superseded",
+    "edition": "2026 Edition 2025 — First Print 12/2025",
+    "effectiveDate": "1 January 2026"
   },
   {
     "id": "update-article-3-13-3-13-annex-ac-athletes-committee-edition-2026",
