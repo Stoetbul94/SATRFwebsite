@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import SatrfHero from '@/components/home/hero/SatrfHero';
+import HomeFaqSection from '@/components/home/HomeFaqSection';
 import { absoluteUrl } from '@/lib/siteUrl';
 import { dashboardAPI, eventsAPI } from '@/lib/api';
 import type { Event, DashboardStats } from '@/lib/api';
@@ -275,6 +276,8 @@ export default function Home({ initialStats, initialEvents }: HomeProps) {
       <SportCollageSection />
 
       <FromTheFiringLineSection />
+
+      <HomeFaqSection />
 
       <section className="py-16 bg-satrf-navy text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
