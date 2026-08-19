@@ -54,6 +54,12 @@ export function getAdminDb(): Firestore {
   return getFirestore(getAdminApp());
 }
 
+/** Read-only connectivity probe. Does not write or scan collections. */
+export async function pingFirestore(): Promise<void> {
+  const db = getAdminDb();
+  await db.collection('events').limit(1).get();
+}
+
 /**
  * Verify a Firebase ID token from an Authorization: Bearer header.
  * Returns the decoded uid + email, or null if missing/invalid.

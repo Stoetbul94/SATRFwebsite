@@ -1,50 +1,43 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { pingFirestore } from '@/lib/firebaseAdmin';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const healthCheck = {
-    status: 'healthy',
-    uptime: process.uptime(),
-    message: 'SATRF Website is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    version: process.env.npm_package_version || '1.0.0',
-    checks: {
-      database: 'ok',
-      external_services: 'ok',
-      file_system: 'ok'
-    }
+type ServiceState = 'healthy' | 'unhealthy';
+
+interface HealthResponse {
+  status: 'healthy' | 'unhealthy';
+  services: {
+    application: ServiceState;
+    database: ServiceState;
+  };
+  timestamp: string;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<HealthResponse>) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).end();
   }
-  
+
+  const timestamp = new Date().toISOString();
+
   try {
-    // Check database connectivity (if applicable)
-    // This would check your Firebase connection or other database
-    if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-      healthCheck.checks.database = 'ok'
-    } else {
-      healthCheck.checks.database = 'not_configured'
-    }
-    
-    // Check external services
-    // This would check PayFast, Firebase, etc.
-    healthCheck.checks.external_services = 'ok'
-    
-    // Check file system access
-    // This would check if the app can read/write files
-    healthCheck.checks.file_system = 'ok'
-    
-    // Set appropriate status code
-    const allChecksOk = Object.values(healthCheck.checks).every(check => check === 'ok')
-    
-    if (allChecksOk) {
-      res.status(200).json(healthCheck)
-    } else {
-      healthCheck.status = 'degraded'
-      res.status(503).json(healthCheck)
-    }
-    
-  } catch (error) {
-    healthCheck.status = 'unhealthy'
-    healthCheck.message = error instanceof Error ? error.message : 'Unknown error'
-    res.status(503).json(healthCheck)
+    await pingFirestore();
+    return res.status(200).json({
+      status: 'healthy',
+      services: {
+        application: 'healthy',
+        database: 'healthy',
+      },
+      timestamp,
+    });
+  } catch {
+    return res.status(503).json({
+      status: 'unhealthy',
+      services: {
+        application: 'healthy',
+        database: 'unhealthy',
+      },
+      timestamp,
+    });
   }
-} 
+}
