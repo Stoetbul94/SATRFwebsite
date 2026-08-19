@@ -41,5 +41,7 @@ test.describe('Homepage FAQ', () => {
     ).toBeVisible();
     const viewAll = page.getByRole('link', { name: 'View all FAQs' });
     await expect(viewAll).toHaveAttribute('href', '/faq');
+    await expect(page.getByText('Meet our Olympic athletes')).toHaveCount(0);
+    await expect(page.getByText('OLYMPIC TEAM')).toHaveCount(0);
   });
 });

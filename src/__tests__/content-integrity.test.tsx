@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import React from 'react';
 import { render, screen } from './setup';
 import About from '@/pages/about';
@@ -93,4 +95,34 @@ describe('public runtime content integrity', () => {
     ]);
     expect(screen.getAllByText('PRONE').length).toBeGreaterThan(0);
   });
+
+  it('does not publish an unverified SATRF Olympic team tile or athlete roster', () => {
+    const roots = [
+      path.join(process.cwd(), 'src', 'pages'),
+      path.join(process.cwd(), 'src', 'components'),
+    ];
+    const blob = roots
+      .flatMap((root) => collectSourceFiles(root))
+      .join('\n');
+
+    expect(blob).not.toContain('Meet our Olympic athletes');
+    expect(blob).not.toContain('OLYMPIC TEAM');
+    expect(fs.existsSync(path.join(process.cwd(), 'src', 'pages', 'olympic-team.tsx'))).toBe(
+      false
+    );
+  });
 });
+
+function collectSourceFiles(dir: string, acc: string[] = []): string[] {
+  if (!fs.existsSync(dir)) return acc;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '__tests__') continue;
+      collectSourceFiles(full, acc);
+    } else if (/\.(tsx|ts)$/.test(entry.name)) {
+      acc.push(fs.readFileSync(full, 'utf8'));
+    }
+  }
+  return acc;
+}
