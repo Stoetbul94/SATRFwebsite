@@ -1,44 +1,8 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { getLegacyApiBaseUrl } from '@/lib/legacyApiBase';
 
-// ============================================================================
-// ROOT CAUSE IDENTIFIED: Network Error in ALL Axios Calls
-// ============================================================================
-// 
-// SINGLE ROOT CAUSE: Axios baseURL construction and environment variable access
-// 
-// Issues:
-// 1. process.env.NEXT_PUBLIC_API_BASE_URL may be undefined in browser at runtime
-// 2. baseURL construction `${API_BASE_URL}/${API_VERSION}` can create malformed URLs
-// 3. No runtime validation that baseURL is valid before making requests
-// 4. External backend may not be running or accessible (CORS, network issues)
-//
-// SOLUTION: Add runtime validation, defensive baseURL construction, and better error handling
-// ============================================================================
-
-// API Configuration with runtime validation
-// ROOT CAUSE FIX: Ensure baseURL is always valid and properly constructed
 function getApiBaseUrl(): string {
-  // In browser, process.env is available but may be undefined
-  const envUrl = typeof window !== 'undefined' 
-    ? (window as any).__NEXT_DATA__?.env?.NEXT_PUBLIC_API_BASE_URL 
-    : process.env.NEXT_PUBLIC_API_BASE_URL;
-  
-  // Fallback to direct env access (works in both server and client)
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || envUrl || 'http://localhost:8000/api';
-  
-  // Remove trailing slash if present
-  const cleanUrl = apiBaseUrl.replace(/\/$/, '');
-  
-  // Validate URL format
-  try {
-    new URL(cleanUrl);
-  } catch (e) {
-    console.error('Invalid API_BASE_URL:', cleanUrl);
-    // Fallback to localhost if invalid
-    return 'http://localhost:8000/api';
-  }
-  
-  return cleanUrl;
+  return getLegacyApiBaseUrl();
 }
 
 const API_BASE_URL = getApiBaseUrl();
@@ -799,22 +763,6 @@ export const dashboardAPI = {
       console.warn('Dashboard notifications endpoint error:', error.message);
       throw error;
     }
-  },
-};
-
-// Results API
-export const resultsAPI = {
-  getResults: async (filters?: { event?: string; match?: string }) => {
-    const params = new URLSearchParams();
-    if (filters?.event && filters.event !== 'all') {
-      params.append('event', filters.event);
-    }
-    if (filters?.match && filters.match !== 'all') {
-      params.append('match', filters.match);
-    }
-    
-    const response = await api.get(`/results?${params.toString()}`);
-    return response.data;
   },
 };
 

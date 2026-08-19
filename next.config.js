@@ -18,31 +18,36 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/leaderboard',
+        destination: '/scores/leaderboard',
+        permanent: true,
+      },
+      {
+        source: '/results',
+        destination: '/scores',
+        permanent: true,
+      },
+    ];
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
-    // Migrate from deprecated images.domains to images.remotePatterns
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
       },
-      // Add additional remote hosts here as needed
     ],
   },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors. Only use this if you need to.
-    // Temporarily enabled to allow build to pass while fixing ESLint issues
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
     // ignoreBuildErrors: true,
   },
   webpack: (config, { isServer }) => {
-    // Exclude firebase-admin from client bundle
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -57,5 +62,4 @@ const nextConfig = {
   },
 };
 
-// Sentry Webpack plugin temporarily disabled for local build troubleshooting
 module.exports = nextConfig;
