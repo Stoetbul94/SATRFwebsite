@@ -97,6 +97,7 @@ export interface Event {
   source: 'SATRF' | 'ISSF';
   createdAt?: string;
   updatedAt?: string;
+  allDay?: boolean;
 }
 
 export interface EventRegistration {
@@ -423,7 +424,7 @@ export const eventUtils = {
     if (event.status === 'CANCELLED') return 'cancelled';
     if (event.status === 'CLOSED') return 'closed';
     if (new Date(event.registrationDeadline) < new Date()) return 'closed';
-    if (event.currentSpots >= event.maxSpots) return 'full';
+    if (event.maxSpots > 0 && event.currentSpots >= event.maxSpots) return 'full';
     return 'open';
   },
 

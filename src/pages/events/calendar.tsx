@@ -12,14 +12,9 @@ import {
   useToast,
   Alert,
   AlertIcon,
-  AlertTitle,
-  AlertDescription,
   useColorModeValue,
   Flex,
   Badge,
-  Divider,
-  IconButton,
-  Tooltip,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -35,22 +30,14 @@ import {
   List,
   ListItem,
   ListIcon,
-  Spinner,
-  Center,
 } from '@chakra-ui/react';
 import { 
   FaCalendar, 
   FaMapMarkerAlt, 
   FaUsers, 
   FaClock, 
-  FaInfoCircle, 
   FaRegCalendarAlt,
-  FaFilter,
-  FaEye,
-  FaEyeSlash,
   FaCheckCircle,
-  FaExclamationTriangle,
-  FaTimesCircle,
   FaGlobe,
   FaHome,
   FaDownload,
@@ -59,9 +46,16 @@ import {
 } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
 import EventsCalendar from '@/components/events/EventsCalendar';
+import EventRegistrationModal from '@/components/events/EventRegistrationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { GetServerSideProps } from 'next';
-import { eventsAPI, MOCK_EVENTS, Event, EventFilters, EventRegistration, eventUtils } from '@/lib/events';
+import { Event, EventFilters, eventUtils } from '@/lib/events';
+import { fetchCalendarEvents } from '@/lib/events/fetchCalendarEvents';
+import {
+  civilDateInJohannesburg,
+  type CalendarEvent,
+} from '@/lib/events/normalizeCalendarEvent';
+import type { EventRegistrationTarget } from '@/components/events/EventRegistrationModal';
 
 const EventsCalendarPage: NextPage = () => {
   // All useColorModeValue calls must be at the very top, before any other hooks
@@ -71,73 +65,44 @@ const EventsCalendarPage: NextPage = () => {
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const hoverBg = useColorModeValue('gray.50', 'gray.700');
   
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userRegistrations, setUserRegistrations] = useState<EventRegistration[]>([]);
   const [filters, setFilters] = useState<EventFilters>({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [registrationEvent, setRegistrationEvent] = useState<EventRegistrationTarget | null>(null);
   const toast = useToast();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
-  // Load events on component mount and when filters change
-  useEffect(() => {
-    loadEvents();
-  }, [filters, currentPage]);
-
-  // Load user registrations when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadUserRegistrations();
-    } else {
-      setUserRegistrations([]);
-    }
-  }, [isAuthenticated]);
-
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // In development, use mock data if API is not available
-      if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_API_BASE_URL) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setEvents(MOCK_EVENTS);
-        setHasMore(false);
-      } else {
-        // Fetch from backend API
-        const response = await eventsAPI.getEvents(filters, currentPage, 20);
-        
-        if (currentPage === 1) {
-          setEvents(response.events);
-        } else {
-          setEvents(prev => [...prev, ...response.events]);
-        }
-        
-        setHasMore(response.hasMore);
-      }
-    } catch (err: any) {
+      const nextEvents = await fetchCalendarEvents();
+      setEvents(nextEvents);
+    } catch (err: unknown) {
       console.error('Error loading events:', err);
+      setEvents([]);
       setError('Failed to load events. Please try again later.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadUserRegistrations = async () => {
-    try {
-      const registrations = await eventsAPI.getUserRegistrations();
-      setUserRegistrations(registrations);
-    } catch (err) {
-      console.error('Error loading user registrations:', err);
-      // Don't show error toast for registrations as it's not critical
-    }
-  };
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+
+  const toRegistrationTarget = (event: CalendarEvent): EventRegistrationTarget => ({
+    id: event.id,
+    title: event.title,
+    price: event.price,
+    disciplines: event.disciplines,
+    payfastUrl: event.payfastUrl,
+    eftInstructions: event.eftInstructions,
+  });
 
   const handleEventRegister = async (event: Event) => {
     if (!isAuthenticated) {
@@ -151,104 +116,40 @@ const EventsCalendarPage: NextPage = () => {
       return;
     }
 
-    try {
-      const registration = await eventsAPI.registerForEvent(event.id);
-      
-      toast({
-        title: 'Registration Successful',
-        description: `You have been registered for ${event.title}`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-
-      // Update local state
-      setUserRegistrations(prev => [...prev, registration]);
-      
-      // Refresh events to update spot counts
-      await refreshEvents();
-      
-      onClose();
-    } catch (err: any) {
-      console.error('Error registering for event:', err);
-      
-      toast({
-        title: 'Registration Failed',
-        description: err.response?.data?.detail || 'Failed to register for event. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
+    const full = events.find((item) => item.id === event.id);
+    if (!full) return;
+    setRegistrationEvent(toRegistrationTarget(full));
+    onClose();
   };
 
-  const handleEventUnregister = async (event: Event) => {
-    try {
-      await eventsAPI.cancelRegistration(event.id);
-      
-      toast({
-        title: 'Registration Cancelled',
-        description: `Your registration for ${event.title} has been cancelled`,
-        status: 'info',
-        duration: 5000,
-        isClosable: true,
-      });
-
-      // Update local state
-      setUserRegistrations(prev => prev.filter(reg => reg.eventId !== event.id));
-      
-      // Refresh events to update spot counts
-      await refreshEvents();
-      
-      onClose();
-    } catch (err: any) {
-      console.error('Error cancelling registration:', err);
-      
-      toast({
-        title: 'Cancellation Failed',
-        description: err.response?.data?.detail || 'Failed to cancel registration. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
-  const handleEventClick = (event: Event) => {
+  const handleEventClick = (event: CalendarEvent) => {
     setSelectedEvent(event);
     onOpen();
   };
 
   const handleFiltersChange = (newFilters: EventFilters) => {
     setFilters(newFilters);
-    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const refreshEvents = async () => {
     setRefreshing(true);
-    setCurrentPage(1);
     await loadEvents();
-    if (isAuthenticated) {
-      await loadUserRegistrations();
-    }
     setRefreshing(false);
   };
 
-  const loadMoreEvents = () => {
-    if (hasMore && !loading) {
-      setCurrentPage(prev => prev + 1);
-    }
-  };
-
-  const isUserRegistered = (eventId: string) => {
-    return userRegistrations.some(reg => reg.eventId === eventId && reg.status === 'REGISTERED');
+  const isUserRegistered = (_eventId: string) => {
+    return false;
   };
 
   const getUpcomingEvents = () => {
-    const now = new Date();
+    const today = civilDateInJohannesburg(new Date());
+    if (!today) return [];
     return events
-      .filter(event => new Date(event.start) > now && event.status === 'OPEN')
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+      .filter((event) => {
+        const civil = event.allDay ? event.start.slice(0, 10) : civilDateInJohannesburg(event.start);
+        return Boolean(civil && civil >= today && event.status === 'OPEN');
+      })
+      .sort((a, b) => a.start.localeCompare(b.start))
       .slice(0, 5);
   };
 
@@ -261,13 +162,27 @@ const EventsCalendarPage: NextPage = () => {
   };
 
   const exportCalendar = () => {
-    // Generate iCal format for calendar export
     const icalContent = events
       .filter(event => event.status === 'OPEN')
       .map(event => {
+        if (event.allDay) {
+          const start = event.start.replace(/-/g, '');
+          const [year, month, day] = event.start.split('-').map(Number);
+          const next = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+          const endCivil = next.replace(/-/g, '');
+          return `BEGIN:VEVENT
+UID:${event.id}@satrf.org.za
+DTSTART;VALUE=DATE:${start}
+DTEND;VALUE=DATE:${endCivil}
+SUMMARY:${event.title}
+DESCRIPTION:${event.description.replace(/\n/g, '\\n')}
+LOCATION:${event.location}
+END:VEVENT`;
+        }
+
         const start = new Date(event.start).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
         const end = new Date(event.end).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-        
+
         return `BEGIN:VEVENT
 UID:${event.id}@satrf.org.za
 DTSTART:${start}
@@ -384,7 +299,7 @@ END:VCALENDAR`;
               <HStack>
                 <FaUsers color="#E53E3E" />
                 <VStack align="start" spacing={0}>
-                  <Text fontWeight="bold" fontSize="lg">{userRegistrations.length}</Text>
+                  <Text fontWeight="bold" fontSize="lg">0</Text>
                   <Text fontSize="sm" color="gray.500">Your Registrations</Text>
                 </VStack>
               </HStack>
@@ -444,27 +359,12 @@ END:VCALENDAR`;
           <EventsCalendar
             events={events}
             onEventRegister={handleEventRegister}
-            onEventUnregister={handleEventUnregister}
             loading={loading}
             error={error}
-            userRegistrations={userRegistrations.map(reg => reg.eventId)}
+            userRegistrations={[]}
             onFiltersChange={handleFiltersChange}
             filters={filters}
           />
-
-          {/* Load More Button */}
-          {hasMore && !loading && (
-            <Center>
-              <Button
-                colorScheme="satrf"
-                variant="outline"
-                onClick={loadMoreEvents}
-                isLoading={loading}
-              >
-                Load More Events
-              </Button>
-            </Center>
-          )}
 
           {/* Upcoming Events Summary */}
           {getUpcomingEvents().length > 0 && (
@@ -675,14 +575,6 @@ END:VCALENDAR`;
                                   <AlertIcon />
                                   <Text>You are registered for this event!</Text>
                                 </Alert>
-                                <Button
-                                  colorScheme="red"
-                                  variant="outline"
-                                  onClick={() => handleEventUnregister(selectedEvent)}
-                                  leftIcon={<FaTimesCircle />}
-                                >
-                                  Cancel Registration
-                                </Button>
                               </VStack>
                             )}
 
@@ -715,6 +607,17 @@ END:VCALENDAR`;
               </ModalBody>
             </ModalContent>
           </Modal>
+          {registrationEvent && (
+            <EventRegistrationModal
+              isOpen
+              onClose={() => setRegistrationEvent(null)}
+              event={registrationEvent}
+              onSuccess={() => {
+                setRegistrationEvent(null);
+                void refreshEvents();
+              }}
+            />
+          )}
         </VStack>
       </Container>
     </Layout>

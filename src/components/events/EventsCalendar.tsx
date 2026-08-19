@@ -152,6 +152,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
       title: event.title,
       start: event.start,
       end: event.end,
+      allDay: event.allDay === true || /^\d{4}-\d{2}-\d{2}$/.test(event.start),
       backgroundColor: getEventColor(event),
       borderColor: getEventColor(event),
       textColor: 'white',
@@ -180,15 +181,8 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
     if (selectedEvent && onEventRegister) {
       try {
         await onEventRegister(selectedEvent);
-        toast({
-          title: 'Registration Successful',
-          description: `You have been registered for ${selectedEvent.title}`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
         onClose();
-      } catch (error) {
+      } catch {
         toast({
           title: 'Registration Failed',
           description: 'Failed to register for event. Please try again.',
@@ -293,6 +287,13 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
 
   return (
     <Box>
+      {events.length === 0 && (
+        <Alert status="info" borderRadius="md" mb={4}>
+          <AlertIcon />
+          <Text>No events available for this period</Text>
+        </Alert>
+      )}
+
       {/* Search and Filter Controls */}
       <Box
         bg={bgColor}
