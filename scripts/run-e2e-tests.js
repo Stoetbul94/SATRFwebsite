@@ -33,10 +33,11 @@ const CONFIG = {
 const TEST_SUITES = {
   smoke: ['auth.spec.ts', 'events-calendar.spec.ts'],
   critical: ['auth.spec.ts', 'events-calendar.spec.ts', 'leaderboard.spec.ts'],
-  full: ['auth.spec.ts', 'events-calendar.spec.ts', 'coaching.spec.ts', 'leaderboard.spec.ts', 'rules.spec.ts', 'donate.spec.ts'],
+  full: ['auth.spec.ts', 'events-calendar.spec.ts', 'coaching.spec.ts', 'faq.spec.ts', 'leaderboard.spec.ts', 'rules.spec.ts', 'donate.spec.ts'],
   auth: ['auth.spec.ts'],
   events: ['events-calendar.spec.ts'],
   coaching: ['coaching.spec.ts'],
+  faq: ['faq.spec.ts'],
   leaderboard: ['leaderboard.spec.ts'],
   rules: ['rules.spec.ts'],
   donate: ['donate.spec.ts']
