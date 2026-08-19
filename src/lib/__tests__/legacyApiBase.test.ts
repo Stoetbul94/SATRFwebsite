@@ -1,23 +1,35 @@
-import fs from 'fs';
-import path from 'path';
-import { getLegacyApiBaseUrl } from '@/lib/legacyApiBase';
+import {
+  resolveLegacyApiBase,
+  resolveLegacyBackendOrigin,
+} from '@/lib/legacyApiBase';
 
-describe('legacyApiBase', () => {
-  const originalBase = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-  afterEach(() => {
-    if (originalBase === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
-    else process.env.NEXT_PUBLIC_API_BASE_URL = originalBase;
+describe('resolveLegacyApiBase', () => {
+  it('uses the configured URL in production', () => {
+    expect(resolveLegacyApiBase('production', 'https://example.test/api/')).toBe(
+      'https://example.test/api'
+    );
   });
 
-  it('uses NEXT_PUBLIC_API_BASE_URL when set', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://example.test/api/';
-    expect(getLegacyApiBaseUrl()).toBe('https://example.test/api');
+  it('never falls back to localhost in production when unset', () => {
+    expect(resolveLegacyApiBase('production', undefined)).toBeUndefined();
+    expect(resolveLegacyApiBase('production', '')).toBeUndefined();
+    expect(resolveLegacyApiBase('production', '   ')).toBeUndefined();
+    expect(String(resolveLegacyApiBase('production', undefined) ?? '')).not.toContain('localhost');
   });
 
-  it('only allows localhost as a non-production fallback', () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/legacyApiBase.ts'), 'utf8');
-    expect(src).toContain("process.env.NODE_ENV !== 'production'");
-    expect(src).toMatch(/return 'http:\/\/localhost:8000\/api'/);
+  it('allows localhost only outside production', () => {
+    expect(resolveLegacyApiBase('development', undefined)).toBe('http://localhost:8000/api');
+    expect(resolveLegacyApiBase('test', undefined)).toBe('http://localhost:8000/api');
+  });
+});
+
+describe('resolveLegacyBackendOrigin', () => {
+  it('never falls back to localhost in production when unset', () => {
+    expect(resolveLegacyBackendOrigin('production', undefined)).toBeUndefined();
+    expect(String(resolveLegacyBackendOrigin('production', undefined) ?? '')).not.toContain('localhost:8000');
+  });
+
+  it('allows localhost origin only outside production', () => {
+    expect(resolveLegacyBackendOrigin('development', undefined)).toBe('http://localhost:8000');
   });
 });

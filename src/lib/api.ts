@@ -1,15 +1,16 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { getLegacyApiBaseUrl } from '@/lib/legacyApiBase';
 
-function getApiBaseUrl(): string {
+function getApiBaseUrl(): string | undefined {
   return getLegacyApiBaseUrl();
 }
 
 const API_BASE_URL = getApiBaseUrl();
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
-// Construct baseURL safely
-const baseURL = `${API_BASE_URL}/${API_VERSION}`.replace(/\/+/g, '/').replace(/:\//, '://');
+const baseURL = API_BASE_URL
+  ? `${API_BASE_URL}/${API_VERSION}`.replace(/\/+/g, '/').replace(/:\//, '://')
+  : undefined;
 
 // Log configuration in development (helps debug)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -34,6 +35,9 @@ const api: AxiosInstance = axios.create({
 // ROOT CAUSE FIX: Changed from 'authToken' to 'access_token' to match tokenManager in auth.ts
 api.interceptors.request.use(
   (config) => {
+    if (!API_BASE_URL) {
+      return Promise.reject(new Error('Legacy backend is not configured'));
+    }
     // Only access localStorage in browser environment
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('access_token');

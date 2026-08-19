@@ -12,6 +12,7 @@ function mockRes() {
   const res = {
     statusCode: 200,
     body: null as unknown,
+    headers: {} as Record<string, string>,
     status(code: number) {
       this.statusCode = code;
       return this;
@@ -20,7 +21,8 @@ function mockRes() {
       this.body = payload;
       return this;
     },
-    setHeader() {
+    setHeader(name: string, value: string) {
+      this.headers[name] = value;
       return this;
     },
     end() {
@@ -43,6 +45,7 @@ describe('/api/health', () => {
     await handler(req, res);
 
     expect(res.statusCode).toBe(200);
+    expect(res.headers['Cache-Control']).toBe('no-store');
     expect(res.body).toMatchObject({
       status: 'healthy',
       services: { application: 'healthy', database: 'healthy' },

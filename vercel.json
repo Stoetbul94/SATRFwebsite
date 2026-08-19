@@ -15,11 +15,6 @@
       "source": "/leaderboard",
       "destination": "/scores/leaderboard",
       "permanent": true
-    },
-    {
-      "source": "/results",
-      "destination": "/scores",
-      "permanent": true
     }
   ],
   "headers": [

@@ -35,13 +35,12 @@ describe('runtime SEO artefacts', () => {
     expect(sitemap).not.toContain('satrf.org.za');
   });
 
-  it('redirects /results to /scores', () => {
-    const vercel = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'vercel.json'), 'utf8'));
+  it('redirects /results to /scores via next.config.js', () => {
     const nextConfig = fs.readFileSync(path.join(process.cwd(), 'next.config.js'), 'utf8');
-    const resultsRedirect = vercel.redirects.find((r: { source: string }) => r.source === '/results');
-    expect(resultsRedirect.destination).toBe('/scores');
-    expect(resultsRedirect.permanent).toBe(true);
     expect(nextConfig).toContain("source: '/results'");
     expect(nextConfig).toContain("destination: '/scores'");
+    const vercel = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'vercel.json'), 'utf8'));
+    const duplicate = (vercel.redirects || []).find((r: { source: string }) => r.source === '/results');
+    expect(duplicate).toBeUndefined();
   });
 });

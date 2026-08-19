@@ -18,6 +18,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     return res.status(405).end();
   }
 
+  res.setHeader('Cache-Control', 'no-store');
+
   const timestamp = new Date().toISOString();
 
   try {

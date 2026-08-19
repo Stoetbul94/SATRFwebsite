@@ -124,12 +124,6 @@ const EventsCalendarPage: NextPage = () => {
     } catch (err: any) {
       console.error('Error loading events:', err);
       setError('Failed to load events. Please try again later.');
-      
-      // Fallback to mock data in case of API failure
-      if (currentPage === 1) {
-        setEvents(MOCK_EVENTS);
-        setHasMore(false);
-      }
     } finally {
       setLoading(false);
     }

@@ -1,22 +1,36 @@
 /**
  * Base URL for the abandoned FastAPI backend.
- * Production must never fall back to localhost — that string must not appear
- * in the client bundle (webpack dead-code-eliminates the development branch).
+ * Production must never fall back to localhost.
  */
-export function getLegacyApiBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
+
+export function resolveLegacyApiBase(
+  nodeEnv: string | undefined,
+  configuredUrl: string | undefined
+): string | undefined {
+  const configured = configuredUrl?.trim().replace(/\/$/, '');
   if (configured) return configured;
-  if (process.env.NODE_ENV !== 'production') {
+  if (nodeEnv !== 'production') {
     return 'http://localhost:8000/api';
   }
-  return '';
+  return undefined;
 }
 
-export function getLegacyBackendOrigin(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+export function resolveLegacyBackendOrigin(
+  nodeEnv: string | undefined,
+  configuredUrl: string | undefined
+): string | undefined {
+  const configured = configuredUrl?.trim().replace(/\/$/, '');
   if (configured) return configured;
-  if (process.env.NODE_ENV !== 'production') {
+  if (nodeEnv !== 'production') {
     return 'http://localhost:8000';
   }
-  return '';
+  return undefined;
+}
+
+export function getLegacyApiBaseUrl(): string | undefined {
+  return resolveLegacyApiBase(process.env.NODE_ENV, process.env.NEXT_PUBLIC_API_BASE_URL);
+}
+
+export function getLegacyBackendOrigin(): string | undefined {
+  return resolveLegacyBackendOrigin(process.env.NODE_ENV, process.env.NEXT_PUBLIC_API_URL);
 }
