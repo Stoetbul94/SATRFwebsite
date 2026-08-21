@@ -30,12 +30,11 @@ import {
 import {
   excerptAround,
   highlightParts,
-  pdfPageHref,
   searchRules,
   type RuleSearchEntry,
   type RulesIndexPayload,
 } from '@/lib/rulesSearch';
-import { downloadLabelForDocument, officialSourceHref, stripHash } from '@/lib/rulesDownloads';
+import { downloadLabelForDocument, officialSourceHref, ruleViewerHref, stripHash } from '@/lib/rulesDownloads';
 import PdfActionButtons from '@/components/rules/PdfActionButtons';
 
 type Props = {
@@ -371,19 +370,25 @@ function ResultCard({ entry, query }: { entry: RuleSearchEntry; query: string })
         </HStack>
         <Box mt={4}>
           <PdfActionButtons
-            openHref={pdfPageHref(entry)}
+            openHref={ruleViewerHref({
+              pdfUrl: entry.pdfUrl,
+              page: entry.page,
+              ruleNumber: entry.ruleNumber,
+              heading: entry.heading,
+            })}
+            openInNewTab={false}
             openLabel={
               entry.page ? (
                 <>
                   <Box as="span" display={{ base: 'inline', md: 'none' }}>
-                    Open rule
+                    Open rule (page {entry.page})
                   </Box>
                   <Box as="span" display={{ base: 'none', md: 'inline' }}>
-                    Open PDF at page {entry.page}
+                    Open at page {entry.page}
                   </Box>
                 </>
               ) : (
-                'Open PDF'
+                'Open rule'
               )
             }
             downloadHref={stripHash(entry.pdfUrl)}

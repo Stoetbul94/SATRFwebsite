@@ -27,3 +27,31 @@ export function formatFileSize(bytes?: number) {
 export function officialSourceHref(entry: { officialPdfUrl?: string; officialUrl?: string }) {
   return entry.officialPdfUrl || entry.officialUrl || '';
 }
+
+/** Only allow same-origin ISSF mirrors — prevents open-redirect via ?file=. */
+export function isAllowedRulesPdfPath(href?: string | null): href is string {
+  if (!isLocalAsset(href)) return false;
+  const clean = stripHash(href);
+  return clean.startsWith('/documents/issf/') && clean.toLowerCase().endsWith('.pdf');
+}
+
+/**
+ * In-app viewer URL. Mobile Safari / Android / PWA native PDF viewers ignore `#page=`,
+ * so Open should use this instead of a raw PDF hash link.
+ */
+export function ruleViewerHref(opts: {
+  pdfUrl: string;
+  page?: number;
+  ruleNumber?: string;
+  heading?: string;
+}) {
+  const file = stripHash(opts.pdfUrl);
+  if (!isAllowedRulesPdfPath(file)) {
+    return opts.page ? `${file}#page=${opts.page}` : file;
+  }
+  const params = new URLSearchParams({ file });
+  if (opts.page && opts.page > 0) params.set('page', String(opts.page));
+  if (opts.ruleNumber) params.set('rule', opts.ruleNumber);
+  if (opts.heading) params.set('heading', opts.heading.slice(0, 120));
+  return `/rules/view?${params.toString()}`;
+}

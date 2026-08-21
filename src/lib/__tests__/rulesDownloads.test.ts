@@ -6,6 +6,7 @@ import {
   formatFileSize,
   isLocalAsset,
   officialSourceHref,
+  ruleViewerHref,
   stripHash,
 } from '@/lib/rulesDownloads';
 import { pdfPageHref, type RuleSearchEntry } from '@/lib/rulesSearch';
@@ -25,6 +26,21 @@ describe('rules downloads', () => {
     } as RuleSearchEntry;
     expect(pdfPageHref(entry)).toBe(`${SECOND_PRINT}#page=342`);
     expect(stripHash(pdfPageHref(entry))).toBe(SECOND_PRINT);
+  });
+
+  it('opens rules through the in-app viewer with page query (mobile-safe)', () => {
+    const href = ruleViewerHref({
+      pdfUrl: SECOND_PRINT,
+      page: 342,
+      ruleNumber: '7.7.4',
+      heading: 'Rifle Events Qualification Table',
+    });
+    expect(href.startsWith('/rules/view?')).toBe(true);
+    const q = new URL(href, 'https://www.rifleshooting.co.za').searchParams;
+    expect(q.get('file')).toBe(SECOND_PRINT);
+    expect(q.get('page')).toBe('342');
+    expect(q.get('rule')).toBe('7.7.4');
+    expect(href).not.toContain('#page=');
   });
 
   it('labels complete rulebook downloads, not individual rule numbers', () => {

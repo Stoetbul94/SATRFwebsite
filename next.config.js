@@ -56,6 +56,7 @@ const nextConfig = {
         fs: false,
         child_process: false,
         'firebase-admin': false,
+        canvas: false,
       };
     }
     return config;

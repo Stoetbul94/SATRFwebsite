@@ -12,6 +12,8 @@ const tapProps = {
 type Props = {
   openHref?: string;
   openLabel: ReactNode;
+  /** When true (default), Open opens a new tab. Use false for in-app PDF viewer. */
+  openInNewTab?: boolean;
   downloadHref?: string;
   downloadLabel: string;
   officialHref?: string;
@@ -21,6 +23,7 @@ type Props = {
 export default function PdfActionButtons({
   openHref,
   openLabel,
+  openInNewTab = true,
   downloadHref,
   downloadLabel,
   officialHref,
@@ -39,8 +42,8 @@ export default function PdfActionButtons({
         <Button
           as="a"
           href={openHref}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={openInNewTab ? '_blank' : undefined}
+          rel={openInNewTab ? 'noopener noreferrer' : undefined}
           variant="satrf"
           {...tapProps}
         >
