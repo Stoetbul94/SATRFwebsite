@@ -35,6 +35,7 @@
     "test:e2e:leaderboard": "node scripts/run-e2e-tests.js --suite leaderboard",
     "test:e2e:rules": "node scripts/run-e2e-tests.js --suite rules",
     "test:e2e:rules-finder": "playwright test --config playwright.rules-finder.config.ts",
+    "test:e2e:event-hub": "playwright test --config playwright.event-hub.config.ts",
     "sync:issf-rules": "node scripts/scrape-issf-rules.mjs && node scripts/generate-issf-rules-data.mjs",
     "rules:index": "node scripts/build-rule-index.mjs",
     "test:e2e:donate": "node scripts/run-e2e-tests.js --suite donate",

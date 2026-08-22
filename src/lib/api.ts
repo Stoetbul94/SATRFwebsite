@@ -236,6 +236,9 @@ export const eventsAPI = {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Event not found');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
