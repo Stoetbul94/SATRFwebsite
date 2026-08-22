@@ -14,7 +14,7 @@ const PUBLIC_PAGE_PREFIXES = [
   '/',
   '/about',
   '/events',
-  '/results',
+  '/scores',
   '/rules',
   '/contact',
   '/donate',

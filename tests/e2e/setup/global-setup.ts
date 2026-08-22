@@ -10,10 +10,7 @@ async function globalSetup(config: FullConfig) {
   
   try {
     // Navigate to the application
-    await page.goto(baseURL || 'http://localhost:3000');
-    
-    // Wait for the application to load
-    await page.waitForLoadState('networkidle');
+    await page.goto(baseURL || 'http://localhost:3000', { waitUntil: 'load' });
     
     // Check if the application is running
     const isAppRunning = await page.locator('body').isVisible();

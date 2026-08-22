@@ -1,5 +1,8 @@
 ,# 🚀 SATRF Website Production Deployment Guide
 
+**Current production domain:** https://www.rifleshooting.co.za  
+**Apex:** https://rifleshooting.co.za redirects to www.
+
 **Version:** 1.0  
 **Last Updated:** December 2024  
 **Status:** Ready for Production

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
+import { absoluteUrl } from '@/lib/siteUrl';
 import { FiringLineCard } from '@/components/home/FromTheFiringLineSection';
 import {
   FIRING_LINE_ITEMS,
@@ -45,7 +46,7 @@ export default function InsightsIndexPage() {
           name="description"
           content="Short reads, Inner Tens podcast episodes, and practical insights from South African target rifle shooting."
         />
-        <link rel="canonical" href="https://satrf.org.za/insights" />
+        <link rel="canonical" href={absoluteUrl('/insights')} />
       </Head>
 
       <div className="bg-gray-50 py-12 sm:py-16">

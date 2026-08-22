@@ -86,9 +86,13 @@ describe('AnalyticsDashboard Simple Tests', () => {
     setupMockAPI();
   });
 
+  afterEach(() => {
+    setupMockAPI();
+  });
+
   it('renders loading state initially', () => {
     const { analyticsAPI } = require('../../lib/analytics');
-    analyticsAPI.getUserAnalytics.mockImplementation(() => new Promise(() => {}));
+    analyticsAPI.getUserAnalytics.mockImplementationOnce(() => new Promise(() => {}));
 
     render(<AnalyticsDashboard />);
     expect(screen.getByText('Loading analytics...')).toBeInTheDocument();

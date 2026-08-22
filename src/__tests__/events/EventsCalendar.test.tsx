@@ -118,18 +118,31 @@ describe('EventsCalendar', () => {
       expect(screen.getByRole('status')).toBeInTheDocument();
     });
 
-    it('shows error message when there is an error', () => {
-      const errorMessage = 'Failed to load events';
+    it('shows an empty state when there are no events and no error', () => {
       renderWithProviders(
         <EventsCalendar
           events={[]}
           loading={false}
-          error={errorMessage}
+          error={null}
+        />
+      );
+
+      expect(screen.getByText(/no events available for this period/i)).toBeInTheDocument();
+      expect(screen.queryByText('Error loading events')).not.toBeInTheDocument();
+    });
+
+    it('does not render sample events when the API error state is set', () => {
+      renderWithProviders(
+        <EventsCalendar
+          events={[]}
+          loading={false}
+          error="Failed to load events. Please try again later."
         />
       );
 
       expect(screen.getByText('Error loading events')).toBeInTheDocument();
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+      expect(screen.queryByText('SATRF National Championship 2024')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('calendar-event-1')).not.toBeInTheDocument();
     });
   });
 
@@ -179,7 +192,7 @@ describe('EventsCalendar', () => {
       fireEvent.click(filterButton);
 
       expect(screen.getByText('Discipline')).toBeInTheDocument();
-      expect(screen.getByText('Source')).toBeInTheDocument();
+      expect(screen.queryByText('Source')).not.toBeInTheDocument();
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
@@ -208,7 +221,7 @@ describe('EventsCalendar', () => {
       });
     });
 
-    it('filters events by source', async () => {
+    it('filters events by status', async () => {
       const onFiltersChange = jest.fn();
       renderWithProviders(
         <EventsCalendar
@@ -219,18 +232,31 @@ describe('EventsCalendar', () => {
         />
       );
 
-      // Show filters
       fireEvent.click(screen.getByText(/show filters/i));
 
-      // Select source filter
-      const sourceSelect = screen.getByDisplayValue('All Events');
-      fireEvent.change(sourceSelect, { target: { value: 'SATRF' } });
+      const statusSelect = screen.getByDisplayValue('All Status');
+      fireEvent.change(statusSelect, { target: { value: 'OPEN' } });
 
       await waitFor(() => {
         expect(onFiltersChange).toHaveBeenCalledWith(
-          expect.objectContaining({ source: 'SATRF' })
+          expect.objectContaining({ status: 'OPEN' })
         );
       });
+    });
+
+    it('does not offer an ISSF/SATRF source filter', () => {
+      renderWithProviders(
+        <EventsCalendar
+          events={mockEvents}
+          loading={false}
+          error={null}
+        />
+      );
+
+      fireEvent.click(screen.getByText(/show filters/i));
+
+      expect(screen.queryByText('Source')).not.toBeInTheDocument();
+      expect(screen.queryByDisplayValue('All Events')).not.toBeInTheDocument();
     });
 
     it('clears all filters when clear button is clicked', async () => {
@@ -241,7 +267,7 @@ describe('EventsCalendar', () => {
           loading={false}
           error={null}
           onFiltersChange={onFiltersChange}
-          filters={{ discipline: 'Target Rifle', source: 'SATRF' }}
+          filters={{ discipline: 'Target Rifle' }}
         />
       );
 
@@ -278,12 +304,16 @@ describe('EventsCalendar', () => {
         />
       );
 
-      const weekButton = screen.getByText('Week');
-      fireEvent.click(weekButton);
+      expect(screen.getByTestId('fullcalendar')).toHaveAttribute('data-calendar-view', 'dayGridMonth');
 
-      // Check that the button is clickable and has proper styling
-      expect(weekButton).toBeInTheDocument();
-      expect(weekButton).toHaveAttribute('type', 'button');
+      fireEvent.click(screen.getByText('Week'));
+      expect(screen.getByTestId('fullcalendar')).toHaveAttribute('data-calendar-view', 'timeGridWeek');
+
+      fireEvent.click(screen.getByText('List'));
+      expect(screen.getByTestId('fullcalendar')).toHaveAttribute('data-calendar-view', 'listWeek');
+
+      fireEvent.click(screen.getByText('Month'));
+      expect(screen.getByTestId('fullcalendar')).toHaveAttribute('data-calendar-view', 'dayGridMonth');
     });
 
     it('shows results count', () => {

@@ -128,8 +128,15 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
       // Apply discipline filter
       if (localFilters.discipline && event.discipline !== localFilters.discipline) return false;
       
-      // Apply source filter
-      if (localFilters.source && localFilters.source !== 'all' && event.source !== localFilters.source) return false;
+      // Apply source filter only when real source metadata exists on events
+      if (
+        localFilters.source &&
+        localFilters.source !== 'all' &&
+        event.source &&
+        event.source !== localFilters.source
+      ) {
+        return false;
+      }
       
       // Apply status filter
       if (localFilters.status && event.status !== localFilters.status) return false;
@@ -152,6 +159,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
       title: event.title,
       start: event.start,
       end: event.end,
+      allDay: event.allDay === true || /^\d{4}-\d{2}-\d{2}$/.test(event.start),
       backgroundColor: getEventColor(event),
       borderColor: getEventColor(event),
       textColor: 'white',
@@ -180,15 +188,8 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
     if (selectedEvent && onEventRegister) {
       try {
         await onEventRegister(selectedEvent);
-        toast({
-          title: 'Registration Successful',
-          description: `You have been registered for ${selectedEvent.title}`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
         onClose();
-      } catch (error) {
+      } catch {
         toast({
           title: 'Registration Failed',
           description: 'Failed to register for event. Please try again.',
@@ -293,6 +294,13 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
 
   return (
     <Box>
+      {events.length === 0 && (
+        <Alert status="info" borderRadius="md" mb={4}>
+          <AlertIcon />
+          <Text>No events available for this period</Text>
+        </Alert>
+      )}
+
       {/* Search and Filter Controls */}
       <Box
         bg={bgColor}
@@ -376,20 +384,6 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
                     <option value="Air Rifle">Air Rifle</option>
                     <option value="Air Pistol">Air Pistol</option>
                     <option value="Target Rifle">Target Rifle</option>
-                  </Select>
-                </FormControl>
-
-                {/* Source Filter */}
-                <FormControl maxW="150px">
-                  <FormLabel fontSize="sm">Source</FormLabel>
-                  <Select
-                    size="sm"
-                    value={localFilters.source || 'all'}
-                    onChange={(e) => handleFilterChange('source', e.target.value)}
-                  >
-                    <option value="all">All Events</option>
-                    <option value="SATRF">SATRF</option>
-                    <option value="ISSF">ISSF</option>
                   </Select>
                 </FormControl>
 
@@ -501,6 +495,7 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
         borderColor={borderColor}
       >
         <FullCalendar
+          key={calendarView}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
           headerToolbar={false} // We're using custom controls
           initialView={calendarView}
@@ -551,9 +546,11 @@ const EventsCalendar: React.FC<EventsCalendarProps> = ({
                   <Badge colorScheme={getStatusBadgeColor(selectedEvent.status)}>
                     {selectedEvent.status}
                   </Badge>
-                  <Badge colorScheme={selectedEvent.source === 'ISSF' ? 'blue' : 'satrf'}>
-                    {selectedEvent.source}
-                  </Badge>
+                  {selectedEvent.source && (
+                    <Badge colorScheme={selectedEvent.source === 'ISSF' ? 'blue' : 'satrf'}>
+                      {selectedEvent.source}
+                    </Badge>
+                  )}
                 </HStack>
 
                 {/* Event Details */}

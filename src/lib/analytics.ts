@@ -1,21 +1,23 @@
 import axios, { AxiosInstance } from 'axios';
+import { getLegacyApiBaseUrl } from '@/lib/legacyApiBase';
 
-// API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = getLegacyApiBaseUrl();
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
 // Create axios instance for analytics
 const analyticsApi: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}/${API_VERSION}`,
+  ...(API_BASE_URL ? { baseURL: `${API_BASE_URL}/${API_VERSION}` } : {}),
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor for adding auth token
 analyticsApi.interceptors.request.use(
   (config) => {
+    if (!API_BASE_URL) {
+      return Promise.reject(new Error('Legacy backend is not configured'));
+    }
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -39,6 +41,9 @@ analyticsApi.interceptors.response.use(
       try {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
         if (refreshToken) {
+          if (!API_BASE_URL) {
+            throw new Error('Legacy backend is not configured');
+          }
           const response = await axios.post(`${API_BASE_URL}/${API_VERSION}/users/refresh`, {
             refresh_token: refreshToken
           });

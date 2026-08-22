@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import * as Sentry from '@sentry/nextjs';
+import { getLegacyBackendOrigin } from '@/lib/legacyApiBase';
 
 export default async function handler(
   req: NextApiRequest,
@@ -24,7 +25,13 @@ export default async function handler(
     }
 
     // Forward to backend API
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const backendUrl = getLegacyBackendOrigin();
+    if (!backendUrl) {
+      return res.status(503).json({
+        success: false,
+        message: 'Contact service is not configured',
+      });
+    }
     const response = await fetch(`${backendUrl}/api/v1/contact`, {
       method: 'POST',
       headers: {

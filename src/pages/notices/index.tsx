@@ -11,6 +11,7 @@ import {
 import Layout from '@/components/layout/Layout';
 import PublicPageShell from '@/components/layout/PublicPageShell';
 import PublicPageHeader from '@/components/layout/PublicPageHeader';
+import { absoluteUrl } from '@/lib/siteUrl';
 
 const NOTICES = [
   {
@@ -37,7 +38,7 @@ export default function NoticesIndexPage() {
           name="description"
           content="Official SATRF notices and governance clarifications for members, clubs and the public."
         />
-        <link rel="canonical" href="https://satrf.org.za/notices" />
+        <link rel="canonical" href={absoluteUrl('/notices')} />
       </Head>
 
       <PublicPageShell>

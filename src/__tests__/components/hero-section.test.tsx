@@ -23,19 +23,22 @@ describe('SatrfHero', () => {
   it('renders the locked H1 headline', () => {
     render(<SatrfHero />);
     const headline = screen.getByRole('heading', { level: 1 });
-    expect(headline).toHaveTextContent(/The home of ISSF target rifle shooting in South Africa/i);
+    expect(headline).toHaveTextContent(/The home of competitive target rifle shooting in South Africa/i);
   });
 
   it('renders the lede with SATRF and coaching link', () => {
     render(<SatrfHero />);
-    expect(screen.getByText(/SATRF/)).toBeInTheDocument();
+    expect(screen.getAllByText(/SATRF/).length).toBeGreaterThan(0);
     expect(screen.getByText(/develops the sport from first shot to final/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /coaching/i })).toHaveAttribute('href', '/coaching');
   });
 
   it('renders both CTAs with correct links', () => {
     render(<SatrfHero />);
-    expect(screen.getByRole('link', { name: /Become a member/i })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: /Create an account/i })).toHaveAttribute(
+      'href',
+      '/register'
+    );
     expect(screen.getByRole('link', { name: /Learn to shoot/i })).toHaveAttribute('href', '/coaching');
   });
 
@@ -44,9 +47,11 @@ describe('SatrfHero', () => {
     expect(screen.getByTestId('hero-3d-stage')).toBeInTheDocument();
   });
 
-  it('renders ticker content', () => {
+  it('renders evergreen ticker topics instead of mock events', () => {
     render(<SatrfHero />);
-    expect(screen.getAllByText(/GAUTENG OPEN/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/PROTEA TRIALS/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/TARGET RIFLE/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/F-CLASS/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/GAUTENG OPEN/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/PROTEA TRIALS/i)).not.toBeInTheDocument();
   });
 });

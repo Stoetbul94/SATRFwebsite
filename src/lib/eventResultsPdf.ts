@@ -7,6 +7,7 @@ import {
   formatSeriesScoreDisplay,
   qualScoreVariant,
 } from '@/lib/rankingsDisplay';
+import { getSiteUrl } from '@/lib/siteUrl';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PdfDoc = any;
@@ -316,7 +317,7 @@ export async function generateEventResultsPdf(input: EventResultsPdfInput): Prom
 
     doc.font('Helvetica').fontSize(7).fillColor('#999999');
     doc.text(
-      `Generated ${new Date().toLocaleString('en-ZA')} · satrf.org.za`,
+      `Generated ${new Date().toLocaleString('en-ZA')} · ${getSiteUrl().replace(/^https:\/\//, '')}`,
       MARGIN,
       PAGE_H - MARGIN - 10,
       { width: PAGE_W - MARGIN * 2, align: 'center' }

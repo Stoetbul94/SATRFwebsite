@@ -2,80 +2,48 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import {
-  Box,
+  Button,
   Container,
-  Heading,
+  Spinner,
   Text,
   VStack,
-  HStack,
-  Badge,
-  Button,
-  useColorModeValue,
-  SimpleGrid,
-  Divider,
-  Spinner,
   Alert,
   AlertIcon,
-  Image,
 } from '@chakra-ui/react';
-import { FaCalendar, FaMapMarkerAlt, FaUsers, FaClock, FaRegCalendarAlt, FaInfoCircle } from 'react-icons/fa';
 import Layout from '@/components/layout/Layout';
-import EventResultsSection from '@/components/events/results/EventResultsSection';
-import EventDisciplinePills from '@/components/events/EventDisciplinePills';
-import EventImageFallback from '@/components/events/EventImageFallback';
-import { formatEntryFee, parseEventDisciplines } from '@/lib/eventDisciplines';
-import type { Discipline } from '@/types/scores';
-import { eventsAPI } from '@/lib/api';
+import PublicPageShell from '@/components/layout/PublicPageShell';
 import EventRegistrationModal from '@/components/events/EventRegistrationModal';
-import { getPublicRegistrationStatus } from '@/lib/eventRegistrationUi';
+import EventHubShell from '@/components/events/hub/EventHubShell';
+import { eventsAPI } from '@/lib/api';
+import { transformApiEventToHub } from '@/lib/eventHub/transformEvent';
+import type { CalendarEventInput } from '@/lib/eventCalendarLinks';
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  startDate: Date;
-  endDate: Date;
-  location: string;
-  disciplines: Discipline[];
-  price: number | null;
-  maxSpots: number;
-  currentSpots: number;
-  status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
-  registrationDeadline: Date;
-  image?: string;
-  payfastUrl?: string | null;
-  eftInstructions?: string | null;
-  requirements?: string[];
-  schedule?: string[];
-  contactInfo?: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-  latitude?: number;
-  longitude?: number;
+const SITE_ORIGIN = 'https://www.rifleshooting.co.za';
+
+function registerLabel(status: 'open' | 'full' | 'closed'): string {
+  switch (status) {
+    case 'open':
+      return 'Register';
+    case 'full':
+      return 'Event Full';
+    case 'closed':
+      return 'Registration Closed';
+    default:
+      return 'Register';
+  }
 }
 
-export default function EventDetail() {
-  // All useColorModeValue calls must be at the very top, before any other hooks
-  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
-  const cardBg = useColorModeValue('white', 'gray.700');
-  const textColorMuted = useColorModeValue('gray.500', 'gray.500');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
-  const bgLight = useColorModeValue('gray.50', 'gray.800');
-  const textColorLight = useColorModeValue('gray.700', 'gray.200');
-  
+export default function EventDetailPage() {
   const router = useRouter();
   const { id } = router.query;
-  const [event, setEvent] = useState<Event | null>(null);
+  const [hubEvent, setHubEvent] = useState<ReturnType<typeof transformApiEventToHub> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
 
   useEffect(() => {
     if (id && typeof id === 'string') {
-      fetchEvent(id);
+      void fetchEvent(id);
     }
   }, [id]);
 
@@ -84,328 +52,114 @@ export default function EventDetail() {
       setLoading(true);
       setError(null);
       const eventData = await eventsAPI.getById(eventId);
-      
-      // Transform API response to match our Event interface
-      const transformedEvent: Event = {
-        id: eventData.id,
-        title: eventData.title || eventData.name,
-        description: eventData.description || '',
-        date: eventData.date || eventData.startDate,
-        startDate: new Date(eventData.startDate || eventData.date),
-        endDate: new Date(eventData.endDate || eventData.date),
-        location: eventData.location || '',
-        disciplines: Array.isArray(eventData.disciplines)
-          ? eventData.disciplines
-          : parseEventDisciplines(eventData),
-        price: eventData.price ?? null,
-        maxSpots: eventData.maxParticipants || eventData.maxSpots || 0,
-        currentSpots: eventData.currentParticipants || eventData.currentSpots || 0,
-        status: eventData.status || 'upcoming',
-        registrationDeadline: new Date(eventData.registrationDeadline || eventData.deadline || eventData.date),
-        image: eventData.image || eventData.imageUrl || eventData.imageURL || null,
-        payfastUrl: eventData.payfastUrl || null,
-        eftInstructions: eventData.eftInstructions || null,
-        requirements: eventData.requirements || [],
-        schedule: eventData.schedule || [],
-        contactInfo: eventData.contactInfo,
-        latitude: eventData.latitude || eventData.lat,
-        longitude: eventData.longitude || eventData.lng,
-      };
-      
-      setEvent(transformedEvent);
-    } catch (err: any) {
+      setHubEvent(transformApiEventToHub(eventData as Record<string, unknown>));
+    } catch (err: unknown) {
       console.error('Error fetching event:', err);
-      setError(err.message || 'Failed to load event details');
+      setError(err instanceof Error ? err.message : 'Failed to load event details');
     } finally {
       setLoading(false);
     }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'upcoming': return 'blue';
-      case 'ongoing': return 'green';
-      case 'completed': return 'gray';
-      case 'cancelled': return 'red';
-      default: return 'gray';
-    }
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
   };
 
   if (loading) {
     return (
       <Layout>
         <Head>
-          <title>Loading Event - SATRF</title>
+          <title>Loading Event | SATRF</title>
         </Head>
-        <Container maxW="container.xl" py={8}>
-          <Box textAlign="center" py={12}>
-            <Spinner size="xl" color="blue.500" />
-            <Text mt={4} color={textColorSecondary}>
-              Loading event details...
-            </Text>
-          </Box>
-        </Container>
+        <PublicPageShell>
+          <VStack py={12}>
+            <Spinner size="lg" />
+            <Text fontSize="sm">Loading event…</Text>
+          </VStack>
+        </PublicPageShell>
       </Layout>
     );
   }
 
-  if (error || !event) {
+  if (error || !hubEvent) {
     return (
       <Layout>
         <Head>
-          <title>Event Not Found - SATRF</title>
+          <title>Event Not Found | SATRF</title>
         </Head>
-        <Container maxW="container.xl" py={8}>
-          <Alert status="error" borderRadius="lg">
+        <PublicPageShell>
+          <Alert status="error" borderRadius="lg" data-testid="event-not-found">
             <AlertIcon />
-            <Box>
-              <AlertIcon />
-              <Text>{error || 'Event not found'}</Text>
-            </Box>
+            {error || 'Event not found'}
           </Alert>
           <Button mt={4} onClick={() => router.push('/events')}>
             Back to Events
           </Button>
-        </Container>
+        </PublicPageShell>
       </Layout>
     );
   }
 
-  const registrationStatus = event ? getPublicRegistrationStatus(event) : 'closed';
-  const capacityLabel =
-    event && event.maxSpots > 0
-      ? `${event.currentSpots} / ${event.maxSpots} spots filled`
-      : event
-        ? `${event.currentSpots} registered`
-        : '';
+  const calendarInput: CalendarEventInput = {
+    title: hubEvent.title,
+    description: hubEvent.description,
+    location: hubEvent.location,
+    eventUrl: `${SITE_ORIGIN}/events/${hubEvent.id}`,
+    start: hubEvent.eventDate,
+    startTime: hubEvent.startTime,
+    endTime: hubEvent.endTime,
+  };
+
+  const registrationStatus = hubEvent.registrationStatus;
+  const canonical = `${SITE_ORIGIN}/events/${hubEvent.id}`;
+  const description =
+    hubEvent.description.trim().slice(0, 160) ||
+    `${hubEvent.title} — SATRF target rifle competition.`;
 
   return (
     <Layout>
       <Head>
-        <title>{event.title} - SATRF Events</title>
-        <meta name="description" content={event.description.substring(0, 160)} />
-        <meta property="og:title" content={`${event.title} - SATRF Events`} />
-        <meta property="og:description" content={event.description.substring(0, 160)} />
+        <title>{`${hubEvent.title} | SATRF Events`}</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={canonical} />
+        <meta property="og:title" content={`${hubEvent.title} | SATRF Events`} />
+        <meta property="og:description" content={description} />
         <meta property="og:type" content="website" />
-        {event.image && <meta property="og:image" content={event.image} />}
+        <meta property="og:url" content={canonical} />
+        {hubEvent.imageUrl && <meta property="og:image" content={hubEvent.imageUrl} />}
       </Head>
 
-      <Container maxW="container.xl" py={8}>
-        <VStack spacing={8} align="stretch">
-          {/* Back Button */}
+      <PublicPageShell>
+        <Container maxW="container.lg" py={{ base: 4, md: 8 }} px={{ base: 4, md: 6 }}>
           <Button
             variant="ghost"
             onClick={() => router.push('/events')}
             alignSelf="flex-start"
+            mb={4}
+            minH="44px"
           >
             ← Back to Events
           </Button>
 
-          {/* Event Image */}
-          <Box w="100%" h="400px" borderRadius="lg" overflow="hidden" position="relative">
-            {event.image ? (
-              <Image
-                src={event.image}
-                alt={event.title}
-                objectFit="cover"
-                objectPosition="center"
-                bg="gray.100"
-                w="100%"
-                h="100%"
-              />
-            ) : (
-              <EventImageFallback height="400px" title={event.title} />
-            )}
-          </Box>
+          <EventHubShell
+            event={hubEvent}
+            calendarInput={calendarInput}
+            onRegister={() => setRegistrationOpen(true)}
+            registerDisabled={registrationStatus !== 'open'}
+            registerLabel={registerLabel(registrationStatus)}
+          />
+        </Container>
+      </PublicPageShell>
 
-          {/* Event Header */}
-          <Box>
-            <HStack spacing={4} mb={4} flexWrap="wrap">
-              <Badge colorScheme={getStatusBadgeColor(event.status)} fontSize="md" px={3} py={1}>
-                {event.status}
-              </Badge>
-              <EventDisciplinePills disciplines={event.disciplines} size="md" />
-            </HStack>
-            <Heading size="2xl" mb={4} color="satrf.navy">
-              {event.title}
-            </Heading>
-            <Text fontSize="lg" color={textColorSecondary}>
-              {event.description}
-            </Text>
-          </Box>
-
-          {/* Event Details Grid */}
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-            <VStack align="start" spacing={4} bg={cardBg} p={6} borderRadius="lg" shadow="md">
-              <Heading size="md" color="satrf.navy">
-                Event Information
-              </Heading>
-              
-              <HStack spacing={2}>
-                <FaRegCalendarAlt color="#4a5568" />
-                <Text fontSize="sm">
-                  <strong>Date:</strong> {formatDate(event.startDate)}
-                  {event.endDate && event.startDate.getTime() !== event.endDate.getTime() && 
-                    ` - ${formatDate(event.endDate)}`}
-                </Text>
-              </HStack>
-              
-              <HStack spacing={2}>
-                <FaMapMarkerAlt color="#4a5568" />
-                <Text fontSize="sm">
-                  <strong>Location:</strong> {event.location}
-                </Text>
-              </HStack>
-              
-              <HStack spacing={2}>
-                <FaUsers color="#4a5568" />
-                <Text fontSize="sm">
-                  <strong>Capacity:</strong> {capacityLabel}
-                </Text>
-              </HStack>
-              
-              <HStack spacing={2}>
-                <FaClock color="#4a5568" />
-                <Text fontSize="sm">
-                  <strong>Registration Deadline:</strong> {formatDate(event.registrationDeadline)}
-                </Text>
-              </HStack>
-              
-              <Text fontSize="sm">
-                <strong>{formatEntryFee(event.price)}</strong>
-              </Text>
-
-              {/* Google Map if coordinates available */}
-              {event.latitude && event.longitude && (
-                <Box w="100%" mt={4}>
-                  <iframe
-                    width="100%"
-                    height="200"
-                    style={{ border: 0, borderRadius: '8px' }}
-                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}&q=${event.latitude},${event.longitude}`}
-                    allowFullScreen
-                  />
-                </Box>
-              )}
-            </VStack>
-
-            <VStack align="start" spacing={4} bg={cardBg} p={6} borderRadius="lg" shadow="md">
-              <Heading size="md" color="satrf.navy">
-                Requirements
-              </Heading>
-              {event.requirements && event.requirements.length > 0 ? (
-                <VStack align="start" spacing={1}>
-                  {event.requirements.map((req, index) => (
-                    <Text key={index} fontSize="sm" color={textColorSecondary}>
-                      • {req}
-                    </Text>
-                  ))}
-                </VStack>
-              ) : (
-                <Text fontSize="sm" color={textColorMuted}>
-                  No specific requirements listed.
-                </Text>
-              )}
-            </VStack>
-          </SimpleGrid>
-
-          {/* Schedule */}
-          {event.schedule && event.schedule.length > 0 && (
-            <Box bg={cardBg} p={6} borderRadius="lg" shadow="md">
-              <Heading size="md" mb={4} color="satrf.navy">
-                Schedule
-              </Heading>
-              <VStack align="start" spacing={2}>
-                {event.schedule.map((item, index) => (
-                  <Text key={index} fontSize="sm" color={textColorSecondary}>
-                    {item}
-                  </Text>
-                ))}
-              </VStack>
-            </Box>
-          )}
-
-          {/* Contact Information */}
-          {event.contactInfo && (
-            <Box bg={cardBg} p={6} borderRadius="lg" shadow="md">
-              <Heading size="md" mb={4} color="satrf.navy">
-                Contact Information
-              </Heading>
-              <VStack align="start" spacing={2}>
-                <Text fontSize="sm">
-                  <strong>Contact:</strong> {event.contactInfo.name}
-                </Text>
-                <Text fontSize="sm">
-                  <strong>Email:</strong> {event.contactInfo.email}
-                </Text>
-                <Text fontSize="sm">
-                  <strong>Phone:</strong> {event.contactInfo.phone}
-                </Text>
-              </VStack>
-            </Box>
-          )}
-
-          <Divider />
-
-          {id && typeof id === 'string' && (
-            <EventResultsSection eventId={id} eventTitle={event.title} />
-          )}
-
-          <Divider />
-
-          {/* Registration Action */}
-          <VStack spacing={4} w="100%">
-            <Text fontSize="lg" fontWeight="bold" color="satrf.navy">
-              {formatEntryFee(event.price)}
-            </Text>
-            
-            <Button
-              variant={registrationStatus === 'open' ? 'satrf' : 'solid'}
-              colorScheme={registrationStatus === 'open' ? undefined : 'gray'}
-              size="lg"
-              w="100%"
-              onClick={() => setRegistrationOpen(true)}
-              disabled={registrationStatus !== 'open'}
-            >
-              {registrationStatus === 'open'
-                ? 'Register Now'
-                : registrationStatus === 'full'
-                  ? 'Event Full'
-                  : 'Registration Closed'}
-            </Button>
-
-            <Text fontSize="xs" color="text.muted" textAlign="center">
-              No login required · Payment details shown after registration
-            </Text>
-          </VStack>
-        </VStack>
-      </Container>
-
-      {event && (
-        <EventRegistrationModal
-          isOpen={registrationOpen}
-          onClose={() => setRegistrationOpen(false)}
-          event={{
-            id: event.id,
-            title: event.title,
-            price: event.price,
-            disciplines: event.disciplines,
-            payfastUrl: event.payfastUrl,
-            eftInstructions: event.eftInstructions,
-          }}
-          onSuccess={() => id && typeof id === 'string' && fetchEvent(id)}
-        />
-      )}
+      <EventRegistrationModal
+        isOpen={registrationOpen}
+        onClose={() => setRegistrationOpen(false)}
+        event={{
+          id: hubEvent.id,
+          title: hubEvent.title,
+          price: hubEvent.price,
+          disciplines: hubEvent.disciplines,
+          payfastUrl: hubEvent.payfastUrl,
+          eftInstructions: hubEvent.eftInstructions,
+        }}
+        onSuccess={() => id && typeof id === 'string' && fetchEvent(id)}
+      />
     </Layout>
   );
 }
-
-

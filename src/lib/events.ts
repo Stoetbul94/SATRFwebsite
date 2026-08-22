@@ -1,21 +1,23 @@
 import axios from 'axios';
+import { getLegacyApiBaseUrl } from '@/lib/legacyApiBase';
 
-// API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = getLegacyApiBaseUrl();
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
 // Create axios instance for events
 const eventsApi = axios.create({
-  baseURL: `${API_BASE_URL}/${API_VERSION}`,
+  ...(API_BASE_URL ? { baseURL: `${API_BASE_URL}/${API_VERSION}` } : {}),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor for adding auth token
 eventsApi.interceptors.request.use(
   (config) => {
+    if (!API_BASE_URL) {
+      return Promise.reject(new Error('Legacy backend is not configured'));
+    }
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -40,6 +42,9 @@ eventsApi.interceptors.response.use(
         // Try to refresh the token
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
+          if (!API_BASE_URL) {
+            throw new Error('Legacy backend is not configured');
+          }
           const refreshResponse = await axios.post(`${API_BASE_URL}/${API_VERSION}/users/refresh`, {
             refresh_token: refreshToken
           });
@@ -89,9 +94,10 @@ export interface Event {
     phone: string;
   };
   isLocal: boolean;
-  source: 'SATRF' | 'ISSF';
+  source?: 'SATRF' | 'ISSF';
   createdAt?: string;
   updatedAt?: string;
+  allDay?: boolean;
 }
 
 export interface EventRegistration {
@@ -418,7 +424,7 @@ export const eventUtils = {
     if (event.status === 'CANCELLED') return 'cancelled';
     if (event.status === 'CLOSED') return 'closed';
     if (new Date(event.registrationDeadline) < new Date()) return 'closed';
-    if (event.currentSpots >= event.maxSpots) return 'full';
+    if (event.maxSpots > 0 && event.currentSpots >= event.maxSpots) return 'full';
     return 'open';
   },
 

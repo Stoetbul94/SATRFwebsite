@@ -7,6 +7,9 @@ import Image from 'next/image';
 import { FiCalendar, FiUsers, FiTarget, FiTrendingUp, FiArrowRight } from 'react-icons/fi';
 import Layout from '@/components/layout/Layout';
 import SatrfHero from '@/components/home/hero/SatrfHero';
+import HomeFaqSection from '@/components/home/HomeFaqSection';
+import { absoluteUrl } from '@/lib/siteUrl';
+import { buildSportsOrganizationJsonLd } from '@/lib/organizationJsonLd';
 import { dashboardAPI, eventsAPI } from '@/lib/api';
 import type { Event, DashboardStats } from '@/lib/api';
 import {
@@ -67,52 +70,27 @@ export default function Home({ initialStats, initialEvents }: HomeProps) {
   return (
     <Layout>
       <Head>
-        <title>SATRF – South African Target Rifle Federation | ISSF Target Rifle Shooting, Clubs &amp; Membership</title>
+        <title>SATRF – South African Target Rifle Federation | Target Rifle Shooting</title>
         <meta
           name="description"
-          content="Join SATRF — target rifle shooting South Africa. Beginner coaching, smallbore, prone and 300m rifle clubs in every province. Join a shooting club and compete on the Olympic pathway."
+          content="SATRF — competitive target rifle shooting in South Africa. Events, scores, coaching and development resources for prone, 3-position and F-Class."
         />
-        <link rel="canonical" href="https://satrf.org.za/" />
+        <link rel="canonical" href={absoluteUrl('/')} />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="SATRF — South African Target Rifle Federation" />
-        <meta property="og:title" content="The home of ISSF target rifle shooting in South Africa" />
+        <meta property="og:title" content="The home of competitive target rifle shooting in South Africa" />
         <meta
           property="og:description"
-          content="Become a SATRF member: learn target shooting with beginner-friendly coaches, find a rifle club in your province, and compete on the national Olympic pathway."
+          content="Create a SATRF website account to follow competitions, scores, coaching and development resources for target rifle shooting in South Africa."
         />
-        <meta property="og:url" content="https://satrf.org.za/" />
-        <meta property="og:image" content="https://satrf.org.za/brand/satrf-brand-banner.png" />
+        <meta property="og:url" content={absoluteUrl('/')} />
+        <meta property="og:image" content={absoluteUrl('/brand/satrf-brand-banner.png')} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="theme-color" content="#070D1E" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'SportsOrganization',
-              name: 'South African Target Rifle Federation',
-              alternateName: 'SATRF',
-              sport: 'ISSF Target Rifle Shooting',
-              url: 'https://satrf.org.za/',
-              logo: 'https://satrf.org.za/brand/satrf-emblem-transparent.png',
-              description:
-                'National federation for ISSF target rifle shooting in South Africa: membership, beginner coaching, club development, national competitions and Olympic-pathway athlete rankings.',
-              memberOf: {
-                '@type': 'SportsOrganization',
-                name: 'International Shooting Sport Federation (ISSF)',
-              },
-              areaServed: [
-                'Gauteng',
-                'Western Cape',
-                'KwaZulu-Natal',
-                'North West',
-                'Free State',
-                'Eastern Cape',
-                'Mpumalanga',
-                'Limpopo',
-                'Northern Cape',
-              ].map((name) => ({ '@type': 'State', name })),
-            }),
+            __html: JSON.stringify(buildSportsOrganizationJsonLd()),
           }}
         />
       </Head>
@@ -275,16 +253,18 @@ export default function Home({ initialStats, initialEvents }: HomeProps) {
 
       <FromTheFiringLineSection />
 
+      <HomeFaqSection />
+
       <section className="py-16 bg-satrf-navy text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Join the SATRF Community?</h2>
           <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            Become part of South Africa&apos;s premier target rifle shooting federation. Access exclusive
-            events, training programs, and connect with fellow shooters.
+            Create a SATRF website account to follow events, scores and development resources, and
+            connect with fellow target rifle shooters.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register" className="btn-primary text-lg px-8 py-4">
-              Register Now
+              Create an Account
             </Link>
             <Link href="/contact" className="btn-secondary text-lg px-8 py-4">
               Contact Us

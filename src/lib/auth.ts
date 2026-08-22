@@ -1,14 +1,14 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { toIsoString } from '@/lib/firestoreSerialize';
+import { getLegacyApiBaseUrl } from '@/lib/legacyApiBase';
 
-// API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = getLegacyApiBaseUrl();
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
 
 // Create axios instance for auth
 // CRITICAL: Reduce timeout to prevent dev server hangs when backend is unavailable
 const authApi: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}/${API_VERSION}`,
+  ...(API_BASE_URL ? { baseURL: `${API_BASE_URL}/${API_VERSION}` } : {}),
   timeout: 3000, // Reduced from 10000 to 3000ms to prevent hanging
   headers: {
     'Content-Type': 'application/json',
@@ -18,6 +18,9 @@ const authApi: AxiosInstance = axios.create({
 // Request interceptor for adding auth token
 authApi.interceptors.request.use(
   (config) => {
+    if (!API_BASE_URL) {
+      return Promise.reject(new Error('Legacy backend is not configured'));
+    }
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     const sessionId = typeof window !== 'undefined' ? localStorage.getItem('session_id') : null;
     

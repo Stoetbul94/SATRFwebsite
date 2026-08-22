@@ -13,6 +13,7 @@ import {
 } from '@/lib/firingLineContent';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { getPublishedInsightBySlug } from '@/lib/insightsServer';
+import { absoluteUrl } from '@/lib/siteUrl';
 
 interface InsightPageProps {
   item: FiringLineItem;
@@ -20,8 +21,6 @@ interface InsightPageProps {
   ogImage: string;
   pageUrl: string;
 }
-
-const SITE_URL = 'https://satrf.org.za';
 
 export default function InsightArticlePage({ item, bodyMarkdown, ogImage, pageUrl }: InsightPageProps) {
   return (
@@ -89,10 +88,10 @@ export default function InsightArticlePage({ item, bodyMarkdown, ogImage, pageUr
 
 export const getServerSideProps: GetServerSideProps<InsightPageProps> = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
-  const pageUrl = `${SITE_URL}/insights/${slug}`;
+  const pageUrl = absoluteUrl(`/insights/${slug}`);
 
   const toOgImage = (image: string) =>
-    image.startsWith('http') ? image : `${SITE_URL}${image.startsWith('/') ? image : `/${image}`}`;
+    image.startsWith('http') ? image : absoluteUrl(image.startsWith('/') ? image : `/${image}`);
 
   try {
     const db = getAdminDb();
