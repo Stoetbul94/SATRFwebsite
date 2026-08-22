@@ -1,13 +1,6 @@
 import type { CallForEntriesData } from '@/lib/eventDocuments/callForEntries/types';
 import { getSiteUrl } from '@/lib/siteUrl';
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml, sanitizeHttpUrl } from '@/lib/eventDocuments/urlSafety';
 
 export function renderCallForEntriesPreviewHtml(data: CallForEntriesData): string {
   const eventsHtml = data.events
@@ -32,6 +25,16 @@ export function renderCallForEntriesPreviewHtml(data: CallForEntriesData): strin
       </section>`,
     )
     .join('<hr />');
+
+  const registrationLinks = data.events
+    .map((event) => {
+      const href = sanitizeHttpUrl(event.eventUrl);
+      if (!href) {
+        return `<p>${escapeHtml(event.title)}</p>`;
+      }
+      return `<p><a href="${escapeHtml(href)}">${escapeHtml(event.title)}</a></p>`;
+    })
+    .join('');
 
   return `<!DOCTYPE html>
 <html lang="en-ZA">
@@ -62,7 +65,7 @@ export function renderCallForEntriesPreviewHtml(data: CallForEntriesData): strin
     <p class="section-title">ENTRY INFORMATION</p>
     ${data.entryFeeLabel ? `<p><strong>Entry fee</strong><br />${escapeHtml(data.entryFeeLabel)}</p>` : ''}
     <p><strong>Registration</strong><br />${escapeHtml(data.registrationInfo || `Register online at ${getSiteUrl()}`)}</p>
-    ${data.events.map((event) => `<p><a href="${escapeHtml(event.eventUrl)}">${escapeHtml(event.title)}</a></p>`).join('')}
+    ${registrationLinks}
     ${data.paymentInfo ? `<p><strong>Payment information</strong></p><pre>${escapeHtml(data.paymentInfo)}</pre>` : ''}
     ${
       data.contactName || data.contactPhone || data.contactEmail

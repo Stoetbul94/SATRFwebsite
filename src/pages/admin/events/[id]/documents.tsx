@@ -258,6 +258,37 @@ export default function AdminEventDocumentsPage() {
     }
   };
 
+  const openDocumentFile = async (documentId: string, mode: 'view' | 'download') => {
+    const token = await getToken();
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/admin/events/documents/${documentId}/file`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Could not open file');
+      }
+      const payload = await response.json();
+      if (mode === 'download') {
+        const anchor = document.createElement('a');
+        anchor.href = payload.fileUrl;
+        anchor.download = payload.downloadFileName || 'document.pdf';
+        anchor.rel = 'noopener noreferrer';
+        anchor.target = '_blank';
+        anchor.click();
+      } else {
+        window.open(payload.fileUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error: unknown) {
+      toast({
+        title: 'File unavailable',
+        description: error instanceof Error ? error.message : 'Could not open file',
+        status: 'error',
+      });
+    }
+  };
+
   if (authLoading) {
     return (
       <AdminLayout title="Event Documents">
@@ -364,24 +395,19 @@ export default function AdminEventDocumentsPage() {
                           )}
                         </Box>
                         <HStack flexWrap="wrap">
-                          {doc.fileUrl && (
+                          {(doc.storagePath || doc.fileUrl) && (
                             <>
                               <Button
-                                as="a"
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
                                 size="sm"
                                 leftIcon={<FiExternalLink />}
+                                onClick={() => openDocumentFile(doc.id, 'view')}
                               >
                                 View
                               </Button>
                               <Button
-                                as="a"
-                                href={doc.fileUrl}
-                                download={doc.downloadFileName || undefined}
                                 size="sm"
                                 leftIcon={<FiDownload />}
+                                onClick={() => openDocumentFile(doc.id, 'download')}
                               >
                                 Download
                               </Button>
@@ -635,6 +661,8 @@ export default function AdminEventDocumentsPage() {
                     <iframe
                       title="Call for Entries preview"
                       srcDoc={previewHtml}
+                      sandbox=""
+                      referrerPolicy="no-referrer"
                       style={{ width: '100%', minHeight: '480px', border: 0 }}
                     />
                   </Box>

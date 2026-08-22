@@ -1,22 +1,24 @@
 import { getStorage } from 'firebase-admin/storage';
 import { getAdminApp, getStorageBucket } from '@/lib/firebaseAdmin';
+import {
+  assertSafeStoragePath,
+  buildEventDocumentStoragePath,
+  DRAFT_SIGNED_URL_TTL_MS,
+  PUBLISHED_SIGNED_URL_TTL_MS,
+} from '@/lib/eventDocuments/storagePaths';
 
-const SAFE_SEGMENT = /^[a-zA-Z0-9._-]+$/;
+export {
+  assertSafeDocumentId,
+  assertSafeStoragePath,
+  buildEventDocumentStoragePath,
+  DRAFT_SIGNED_URL_TTL_MS,
+  PUBLISHED_SIGNED_URL_TTL_MS,
+} from '@/lib/eventDocuments/storagePaths';
 
-export function assertSafeDocumentId(documentId: string): void {
-  if (!SAFE_SEGMENT.test(documentId)) {
-    throw new Error('Invalid document ID');
-  }
-}
-
-export function buildEventDocumentStoragePath(
-  documentId: string,
-  version: number,
-  type: string,
-): string {
-  assertSafeDocumentId(documentId);
-  const safeType = type.replace(/[^a-z0-9-]/gi, '') || 'document';
-  return `eventDocuments/${documentId}/${safeType}-v${version}.pdf`;
+function getBucketFile(storagePath: string) {
+  assertSafeStoragePath(storagePath);
+  const bucket = getStorage(getAdminApp()).bucket(getStorageBucket());
+  return bucket.file(storagePath);
 }
 
 export async function uploadEventDocumentPdf(input: {
@@ -24,7 +26,9 @@ export async function uploadEventDocumentPdf(input: {
   version: number;
   type: string;
   buffer: Buffer;
-}): Promise<{ storagePath: string; fileUrl: string }> {
+  /** When true, returns a short-lived URL for immediate admin use only. */
+  includeDraftSignedUrl?: boolean;
+}): Promise<{ storagePath: string; fileUrl: string | null }> {
   if (!input.buffer.length) throw new Error('PDF buffer is empty');
 
   const storagePath = buildEventDocumentStoragePath(
@@ -32,23 +36,69 @@ export async function uploadEventDocumentPdf(input: {
     input.version,
     input.type,
   );
-  const bucket = getStorage(getAdminApp()).bucket(getStorageBucket());
-  const file = bucket.file(storagePath);
+  const file = getBucketFile(storagePath);
 
   await file.save(input.buffer, {
     metadata: {
       contentType: 'application/pdf',
-      cacheControl: 'public, max-age=3600',
+      cacheControl: 'private, max-age=3600',
     },
     resumable: false,
   });
 
+  if (!input.includeDraftSignedUrl) {
+    return { storagePath, fileUrl: null };
+  }
+
   const [fileUrl] = await file.getSignedUrl({
     action: 'read',
-    expires: Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
+    expires: Date.now() + DRAFT_SIGNED_URL_TTL_MS,
   });
 
   return { storagePath, fileUrl };
+}
+
+export async function createSignedReadUrl(
+  storagePath: string,
+  ttlMs: number,
+): Promise<string> {
+  const file = getBucketFile(storagePath);
+  const [fileUrl] = await file.getSignedUrl({
+    action: 'read',
+    expires: Date.now() + ttlMs,
+  });
+  return fileUrl;
+}
+
+export async function createPublishedReadUrl(storagePath: string): Promise<string> {
+  return createSignedReadUrl(storagePath, PUBLISHED_SIGNED_URL_TTL_MS);
+}
+
+export async function createDraftReadUrl(storagePath: string): Promise<string> {
+  return createSignedReadUrl(storagePath, DRAFT_SIGNED_URL_TTL_MS);
+}
+
+/**
+ * Idempotent Storage delete. Missing objects are treated as success.
+ */
+export async function deleteEventDocumentStorageObject(
+  storagePath: string | null | undefined,
+): Promise<{ deleted: boolean; missing: boolean }> {
+  if (!storagePath) return { deleted: false, missing: true };
+  assertSafeStoragePath(storagePath);
+
+  const file = getBucketFile(storagePath);
+  try {
+    await file.delete({ ignoreNotFound: true });
+    return { deleted: true, missing: false };
+  } catch (error: unknown) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? Number((error as { code: unknown }).code)
+        : null;
+    if (code === 404) return { deleted: false, missing: true };
+    throw error;
+  }
 }
 
 export function isSafeExternalFileUrl(url: string): boolean {

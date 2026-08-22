@@ -7,6 +7,7 @@ import {
   getOrganisationContactDefaults,
 } from '@/lib/organisationDefaults';
 import { getSiteUrl } from '@/lib/siteUrl';
+import { resolveTrustedEventUrl, sanitizeHttpUrl } from '@/lib/eventDocuments/urlSafety';
 
 function formatTime(value: unknown): string | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined;
@@ -92,7 +93,7 @@ export function buildCallForEntriesEventBlock(
     equipmentInspectionTime: formatTime(data.equipmentInspectionTime),
     venue: String(data.location || data.venue || ''),
     registrationDeadlineLabel: formatDeadline(data.registrationDeadline),
-    eventUrl: `${site}/events/${eventId}`,
+    eventUrl: resolveTrustedEventUrl({ eventId, siteUrl: site }),
   };
 }
 
@@ -119,20 +120,33 @@ export function prefillCallForEntriesData(input: {
       .filter(Boolean) as string[],
   );
 
+  const resolvedEvents = (
+    input.overrides?.events?.length ? input.overrides.events : events
+  ).map((event) => ({
+    ...event,
+    eventUrl: resolveTrustedEventUrl({
+      eventId: event.eventId,
+      siteUrl: getSiteUrl(),
+      candidateUrl: event.eventUrl,
+    }),
+  }));
+
+  const mapDirectionsRaw =
+    input.overrides?.mapDirections ??
+    (typeof primary.mapUrl === 'string' && primary.mapUrl.trim()
+      ? primary.mapUrl.trim()
+      : primary.location
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(String(primary.location))}`
+        : undefined);
+
   return {
     documentTitle: input.overrides?.documentTitle ?? defaultTitle,
     linkedEventIds: input.overrides?.linkedEventIds || input.linkedEventIds,
-    events: input.overrides?.events?.length ? input.overrides.events : events,
+    events: resolvedEvents,
     entryFeeLabel:
       input.overrides?.entryFeeLabel ??
       (uniqueFees.size === 1 ? Array.from(uniqueFees)[0] : undefined),
-    mapDirections:
-      input.overrides?.mapDirections ??
-      (typeof primary.mapUrl === 'string' && primary.mapUrl.trim()
-        ? primary.mapUrl.trim()
-        : primary.location
-          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(String(primary.location))}`
-          : undefined),
+    mapDirections: sanitizeHttpUrl(mapDirectionsRaw) || mapDirectionsRaw,
     registrationInfo:
       input.overrides?.registrationInfo ??
       `Register online at ${getSiteUrl().replace(/^https:\/\//, '')}`,

@@ -1,9 +1,18 @@
-import { Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { Timestamp, type Firestore, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import type { CallForEntriesData } from '@/lib/eventDocuments/callForEntries/types';
 import { CALL_FOR_ENTRIES_TEMPLATE_VERSION } from '@/lib/eventDocuments/callForEntries/types';
 import { buildDownloadFileName } from '@/lib/eventDocuments/staleCheck';
-import { uploadEventDocumentPdf } from '@/lib/eventDocuments/storage';
+import {
+  createPublishedReadUrl,
+  deleteEventDocumentStorageObject,
+  uploadEventDocumentPdf,
+} from '@/lib/eventDocuments/storage';
 import { generateCallForEntriesPdf } from '@/lib/eventDocuments/callForEntries/pdf';
+import {
+  computeNextDocumentVersion,
+  selectDocumentsToArchiveOnPublish,
+  type DocumentVersionCandidate,
+} from '@/lib/eventDocuments/publishSemantics';
 import {
   filterPublishedDocuments,
   serializeEventDocument,
@@ -14,6 +23,50 @@ const COLLECTION = 'eventDocuments';
 
 function collection(db: Firestore) {
   return db.collection(COLLECTION);
+}
+
+function toCandidate(doc: QueryDocumentSnapshot): DocumentVersionCandidate {
+  const data = doc.data();
+  const linkedEventIds = Array.isArray(data.linkedEventIds)
+    ? data.linkedEventIds.filter((item): item is string => typeof item === 'string')
+    : [];
+  return {
+    id: doc.id,
+    linkedEventIds,
+    type: String(data.type || 'other'),
+    status: String(data.status || 'draft'),
+    version: Number(data.version) || 0,
+  };
+}
+
+/**
+ * Load unique eventDocuments that reference ANY of the given event IDs.
+ * Uses per-event array-contains queries (de-duped) — correct for multi-event
+ * Call for Entries and avoids relying on linkedEventIds[0].
+ */
+export async function loadDocumentsIntersectingEvents(
+  db: Firestore,
+  eventIds: string[],
+  options: { type?: string; status?: string } = {},
+): Promise<QueryDocumentSnapshot[]> {
+  const uniqueEventIds = Array.from(new Set(eventIds.filter(Boolean)));
+  const byId = new Map<string, QueryDocumentSnapshot>();
+
+  await Promise.all(
+    uniqueEventIds.map(async (eventId) => {
+      let query = collection(db).where('linkedEventIds', 'array-contains', eventId);
+      if (options.type) {
+        query = query.where('type', '==', options.type);
+      }
+      if (options.status) {
+        query = query.where('status', '==', options.status);
+      }
+      const snap = await query.get();
+      snap.docs.forEach((doc) => byId.set(doc.id, doc));
+    }),
+  );
+
+  return Array.from(byId.values());
 }
 
 export async function listDocumentsForEvent(
@@ -41,7 +94,19 @@ export async function listPublishedDocumentsForEvent(db: Firestore, eventId: str
     .where('status', '==', 'published')
     .get();
 
-  const docs = snap.docs.map((doc) => serializeEventDocument(doc.id, doc.data()));
+  const docs = await Promise.all(
+    snap.docs.map(async (docSnap) => {
+      const serialized = serializeEventDocument(docSnap.id, docSnap.data());
+      if (!serialized.storagePath) return serialized;
+      try {
+        const freshUrl = await createPublishedReadUrl(serialized.storagePath);
+        return { ...serialized, fileUrl: freshUrl };
+      } catch {
+        return serialized;
+      }
+    }),
+  );
+
   return filterPublishedDocuments(docs);
 }
 
@@ -54,47 +119,23 @@ export async function getEventDocument(
   return serializeEventDocument(doc.id, doc.data() as Record<string, unknown>);
 }
 
+/**
+ * Max Call for Entries version among documents intersecting ANY linked event.
+ */
 export async function getLatestDocumentVersion(
   db: Firestore,
   linkedEventIds: string[],
   type: string,
 ): Promise<number> {
-  const primaryEventId = linkedEventIds[0];
-  if (!primaryEventId) return 0;
-
-  const snap = await collection(db)
-    .where('linkedEventIds', 'array-contains', primaryEventId)
-    .where('type', '==', type)
-    .get();
-
-  return snap.docs.reduce((max, doc) => {
-    const version = Number(doc.data().version) || 0;
-    return Math.max(max, version);
-  }, 0);
-}
-
-async function archivePublishedDocuments(
-  db: Firestore,
-  linkedEventIds: string[],
-  type: string,
-): Promise<void> {
-  const primaryEventId = linkedEventIds[0];
-  if (!primaryEventId) return;
-
-  const snap = await collection(db)
-    .where('linkedEventIds', 'array-contains', primaryEventId)
-    .where('type', '==', type)
-    .where('status', '==', 'published')
-    .get();
-
-  const batch = db.batch();
-  snap.docs.forEach((doc) => {
-    batch.update(doc.ref, {
-      status: 'archived',
-      updatedAt: Timestamp.now(),
-    });
-  });
-  if (!snap.empty) await batch.commit();
+  if (!linkedEventIds.length) return 0;
+  const snaps = await loadDocumentsIntersectingEvents(db, linkedEventIds, { type });
+  return (
+    computeNextDocumentVersion({
+      linkedEventIds,
+      type,
+      candidates: snaps.map(toCandidate),
+    }) - 1
+  );
 }
 
 export async function createCallForEntriesDraft(input: {
@@ -108,11 +149,12 @@ export async function createCallForEntriesDraft(input: {
 
   const docRef = collection(input.db).doc();
   const pdfBuffer = await generateCallForEntriesPdf(input.data);
-  const { storagePath, fileUrl } = await uploadEventDocumentPdf({
+  const { storagePath } = await uploadEventDocumentPdf({
     documentId: docRef.id,
     version: nextVersion,
     type: 'call-for-entries',
     buffer: pdfBuffer,
+    includeDraftSignedUrl: false,
   });
 
   const now = Timestamp.now();
@@ -129,7 +171,8 @@ export async function createCallForEntriesDraft(input: {
     title: input.data.documentTitle,
     status: 'draft',
     version: nextVersion,
-    fileUrl,
+    // Drafts intentionally omit durable public fileUrl — admin uses signed file API.
+    fileUrl: null,
     storagePath,
     downloadFileName: buildDownloadFileName(input.data, nextVersion),
     createdAt: now,
@@ -148,6 +191,12 @@ export async function createCallForEntriesDraft(input: {
   return serializeEventDocument(docRef.id, payload);
 }
 
+/**
+ * Atomic publish:
+ * 1) find overlapping published docs across ALL linked events
+ * 2) archive them + publish target in a single batch
+ * 3) attach published signed URL
+ */
 export async function publishEventDocument(
   db: Firestore,
   documentId: string,
@@ -156,16 +205,39 @@ export async function publishEventDocument(
   if (!doc) throw new Error('Document not found');
   if (doc.status === 'published') return doc;
   if (doc.status === 'archived') throw new Error('Archived documents cannot be published');
-  if (!doc.fileUrl) throw new Error('Document has no file');
+  if (!doc.storagePath) throw new Error('Document has no storage file');
 
-  await archivePublishedDocuments(db, doc.linkedEventIds, doc.type);
+  const overlapping = await loadDocumentsIntersectingEvents(db, doc.linkedEventIds, {
+    type: doc.type,
+    status: 'published',
+  });
 
+  const toArchive = selectDocumentsToArchiveOnPublish({
+    publishingDocumentId: documentId,
+    publishingLinkedEventIds: doc.linkedEventIds,
+    publishingType: doc.type,
+    candidates: overlapping.map(toCandidate),
+  });
+
+  const publishedUrl = await createPublishedReadUrl(doc.storagePath);
   const now = Timestamp.now();
-  await collection(db).doc(documentId).update({
+  const batch = db.batch();
+
+  toArchive.forEach((archiveId) => {
+    batch.update(collection(db).doc(archiveId), {
+      status: 'archived',
+      updatedAt: now,
+    });
+  });
+
+  batch.update(collection(db).doc(documentId), {
     status: 'published',
     publishedAt: now,
     updatedAt: now,
+    fileUrl: publishedUrl,
   });
+
+  await batch.commit();
 
   return (await getEventDocument(db, documentId)) as SerializedEventDocument;
 }
@@ -189,6 +261,8 @@ export async function deleteDraftEventDocument(db: Firestore, documentId: string
   const doc = await getEventDocument(db, documentId);
   if (!doc) throw new Error('Document not found');
   if (doc.status !== 'draft') throw new Error('Only draft documents can be deleted');
+
+  await deleteEventDocumentStorageObject(doc.storagePath);
   await collection(db).doc(documentId).delete();
 }
 
@@ -200,14 +274,23 @@ export async function regenerateCallForEntriesDraft(input: {
 }): Promise<SerializedEventDocument> {
   const existing = await getEventDocument(input.db, input.documentId);
   if (!existing) throw new Error('Document not found');
+  if (existing.status !== 'draft') {
+    throw new Error('Only draft documents can be regenerated in place');
+  }
 
   const pdfBuffer = await generateCallForEntriesPdf(input.data);
   const version = existing.version;
-  const { storagePath, fileUrl } = await uploadEventDocumentPdf({
+
+  if (existing.storagePath) {
+    await deleteEventDocumentStorageObject(existing.storagePath);
+  }
+
+  const { storagePath } = await uploadEventDocumentPdf({
     documentId: input.documentId,
     version,
     type: 'call-for-entries',
     buffer: pdfBuffer,
+    includeDraftSignedUrl: false,
   });
 
   const generatedFromEventUpdatedAt = Object.values(input.linkedEventUpdatedAt)
@@ -220,7 +303,7 @@ export async function regenerateCallForEntriesDraft(input: {
   await collection(input.db).doc(input.documentId).update({
     title: input.data.documentTitle,
     linkedEventIds: input.data.linkedEventIds,
-    fileUrl,
+    fileUrl: null,
     storagePath,
     downloadFileName: buildDownloadFileName(input.data, version),
     updatedAt: now,

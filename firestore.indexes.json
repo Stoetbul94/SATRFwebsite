@@ -1,0 +1,30 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "eventDocuments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "linkedEventIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "eventDocuments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "linkedEventIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "type", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "eventDocuments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "linkedEventIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
