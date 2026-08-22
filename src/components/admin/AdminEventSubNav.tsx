@@ -14,14 +14,20 @@ const tabs = [
     href: (id: string) => `/admin/events/${id}/registrations`,
   },
   { key: 'documents', label: 'Documents', href: (id: string) => `/admin/events/${id}/documents` },
+  {
+    key: 'communications',
+    label: 'Communications',
+    href: (id: string) => `/admin/events/${id}/communications`,
+  },
 ] as const;
 
 export default function AdminEventSubNav({ eventId }: Props) {
   const router = useRouter();
   const path = router.pathname;
 
-  const active =
-    path.endsWith('/documents')
+  const active = path.endsWith('/communications')
+    ? 'communications'
+    : path.endsWith('/documents')
       ? 'documents'
       : path.endsWith('/registrations')
         ? 'registrations'

@@ -37,6 +37,7 @@
     "test:e2e:rules-finder": "playwright test --config playwright.rules-finder.config.ts",
     "test:e2e:event-hub": "playwright test --config playwright.event-hub.config.ts",
     "test:e2e:event-documents": "playwright test --config playwright.event-documents.config.ts",
+    "test:e2e:notifications": "playwright test --config playwright.notifications.config.ts",
     "sync:issf-rules": "node scripts/scrape-issf-rules.mjs && node scripts/generate-issf-rules-data.mjs",
     "rules:index": "node scripts/build-rule-index.mjs",
     "test:e2e:donate": "node scripts/run-e2e-tests.js --suite donate",

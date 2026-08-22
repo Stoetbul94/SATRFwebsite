@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const action = typeof req.body?.action === 'string' ? req.body.action : 'publish';
 
       if (action === 'publish') {
-        const document = await publishEventDocument(db, documentId);
+        const document = await publishEventDocument(db, documentId, { createdBy: userId });
         if (userId) {
           await db.collection('adminActions').add({
             adminId: userId,

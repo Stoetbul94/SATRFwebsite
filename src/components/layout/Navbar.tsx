@@ -17,6 +17,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import FlagStripe from '@/components/brand/FlagStripe';
 import SatrfNavEmblem from '@/components/brand/SatrfNavEmblem';
 import UserNavMenu from '@/components/layout/UserNavMenu';
+import dynamic from 'next/dynamic';
+
+const NotificationBell = dynamic(
+  () => import('@/components/notifications/NotificationBell'),
+  { ssr: false },
+);
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -82,6 +88,9 @@ export default function Navbar() {
           </Box>
 
           <HStack spacing={2} flexShrink={0}>
+            {isAuthenticated && user ? (
+              <NotificationBell />
+            ) : null}
             <Box display={{ base: 'none', md: 'block' }}>
               {isAuthenticated && user ? (
                 <UserNavMenu user={user} onLogout={handleLogout} />

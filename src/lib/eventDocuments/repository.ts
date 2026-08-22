@@ -196,10 +196,12 @@ export async function createCallForEntriesDraft(input: {
  * 1) find overlapping published docs across ALL linked events
  * 2) archive them + publish target in a single batch
  * 3) attach published signed URL
+ * 4) for Call for Entries: enqueue idempotent in-app notification in the same batch
  */
 export async function publishEventDocument(
   db: Firestore,
   documentId: string,
+  options: { createdBy?: string | null } = {},
 ): Promise<SerializedEventDocument> {
   const doc = await getEventDocument(db, documentId);
   if (!doc) throw new Error('Document not found');
@@ -236,6 +238,13 @@ export async function publishEventDocument(
     updatedAt: now,
     fileUrl: publishedUrl,
   });
+
+  if (doc.type === 'call-for-entries') {
+    const { appendCallForEntriesPublishedNotification } = await import(
+      '@/lib/notifications/callForEntriesTrigger'
+    );
+    await appendCallForEntriesPublishedNotification(batch, db, doc, options.createdBy);
+  }
 
   await batch.commit();
 

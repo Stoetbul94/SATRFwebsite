@@ -92,6 +92,16 @@ service cloud.firestore {
     match /eventDocuments/{documentId} {
       allow read, write: if false;
     }
+
+    // In-app notifications — Admin SDK / API routes only (audience filtered server-side).
+    match /notifications/{notificationId} {
+      allow read, write: if false;
+    }
+
+    // Per-user read/dismiss state — Admin SDK / API routes only.
+    match /users/{userId}/notificationState/{notificationId} {
+      allow read, write: if false;
+    }
     
     // ============================================================================
     // DEFAULT DENY
