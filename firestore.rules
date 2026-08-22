@@ -87,6 +87,11 @@ service cloud.firestore {
     match /registrations/{regId} {
       allow read, write: if false;
     }
+
+    // Event documents — managed via Admin SDK / API routes only.
+    match /eventDocuments/{documentId} {
+      allow read, write: if false;
+    }
     
     // ============================================================================
     // DEFAULT DENY

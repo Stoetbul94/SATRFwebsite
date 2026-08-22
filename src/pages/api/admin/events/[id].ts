@@ -14,6 +14,8 @@ import {
   deleteDocsInBatches,
   eventDeleteBlockedMessage,
 } from '@/lib/eventDelete';
+import { applyOptionalEventFields, readOptionalEventFields } from '@/lib/eventDocuments/eventFields';
+import { serializeEventDoc } from '@/lib/firestoreEvents';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -38,6 +40,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!eventDoc.exists) {
       return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (req.method === 'GET') {
+      const data = eventDoc.data() as Record<string, unknown>;
+      return res.status(200).json({
+        event: {
+          ...serializeEventDoc(id, data),
+          ...readOptionalEventFields(data),
+        },
+      });
     }
 
     if (req.method === 'PUT') {
@@ -114,6 +126,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       if (body.payfastUrl !== undefined) updates.payfastUrl = body.payfastUrl || null;
       if (body.eftInstructions !== undefined) updates.eftInstructions = body.eftInstructions || null;
+
+      applyOptionalEventFields(body, updates);
 
       await eventRef.update(updates);
 

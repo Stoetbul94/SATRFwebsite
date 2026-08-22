@@ -1,4 +1,5 @@
 import type { Discipline } from '@/types/scores';
+import { applyOptionalEventFields } from '@/lib/eventDocuments/eventFields';
 import {
   disciplinesToLegacyType,
   isValidEventDiscipline,
@@ -22,6 +23,11 @@ export interface SerializedEvent {
   payfastUrl: string | null;
   eftInstructions: string | null;
   isTestEvent: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  registrationDeadline?: string | null;
+  equipmentInspectionTime?: string | null;
+  mapUrl?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -67,6 +73,12 @@ export function serializeEventDoc(id: string, data: Record<string, unknown>): Se
     payfastUrl: typeof data.payfastUrl === 'string' ? data.payfastUrl : null,
     eftInstructions: typeof data.eftInstructions === 'string' ? data.eftInstructions : null,
     isTestEvent: Boolean(data.isTestEvent),
+    startTime: typeof data.startTime === 'string' ? data.startTime : null,
+    endTime: typeof data.endTime === 'string' ? data.endTime : null,
+    registrationDeadline: toIso(data.registrationDeadline),
+    equipmentInspectionTime:
+      typeof data.equipmentInspectionTime === 'string' ? data.equipmentInspectionTime : null,
+    mapUrl: typeof data.mapUrl === 'string' ? data.mapUrl : null,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -164,6 +176,8 @@ export function buildFirestoreEventData(
   if (typeof body.eftInstructions === 'string' && body.eftInstructions.trim()) {
     data.eftInstructions = body.eftInstructions.trim();
   }
+
+  applyOptionalEventFields(body, data);
 
   return data;
 }

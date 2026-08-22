@@ -7,6 +7,21 @@ type Props = {
   documents: EventHubDocument[];
 };
 
+function documentTypeLabel(type: EventHubDocument['type']): string {
+  switch (type) {
+    case 'call-for-entries':
+      return 'Call for Entries';
+    case 'programme':
+      return 'Match Programme';
+    case 'range-instructions':
+      return 'Range Instructions';
+    case 'results':
+      return 'Official Results';
+    default:
+      return 'Document';
+  }
+}
+
 export default function EventHubDocuments({ documents }: Props) {
   if (documents.length === 0) return null;
 
@@ -16,48 +31,55 @@ export default function EventHubDocuments({ documents }: Props) {
         Documents
       </Heading>
       <VStack align="stretch" spacing={3}>
-        {documents.map((doc) => (
-          <Box
-            key={doc.id}
-            p={4}
-            borderWidth="1px"
-            borderRadius="lg"
-            bg="bg.surface"
-            borderColor="border.subtle"
-          >
-            <Text fontWeight="semibold">{doc.title}</Text>
-            {doc.publishedAt && (
-              <Text fontSize="sm" color="text.muted" mt={1}>
-                Published {formatEventDate(doc.publishedAt)}
-              </Text>
-            )}
-            <HStack mt={3} spacing={2} flexWrap="wrap">
-              <Button
-                as="a"
-                href={doc.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                size="sm"
-                variant="satrfOutline"
-                leftIcon={<FiExternalLink />}
-                minH="44px"
-              >
-                View
-              </Button>
-              <Button
-                as="a"
-                href={doc.fileUrl}
-                download
-                size="sm"
-                variant="ghost"
-                leftIcon={<FiDownload />}
-                minH="44px"
-              >
-                Download
-              </Button>
-            </HStack>
-          </Box>
-        ))}
+        {documents.map((doc) => {
+          const label = documentTypeLabel(doc.type);
+          const downloadName = doc.downloadFileName || `${doc.id}.pdf`;
+
+          return (
+            <Box
+              key={doc.id}
+              p={4}
+              borderWidth="1px"
+              borderRadius="lg"
+              bg="bg.surface"
+              borderColor="border.subtle"
+            >
+              <Text fontWeight="semibold">{doc.title || label}</Text>
+              {doc.publishedAt && (
+                <Text fontSize="sm" color="text.muted" mt={1}>
+                  Published {formatEventDate(doc.publishedAt)}
+                </Text>
+              )}
+              <HStack mt={3} spacing={2} flexWrap="wrap">
+                <Button
+                  as="a"
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="sm"
+                  variant="satrfOutline"
+                  leftIcon={<FiExternalLink />}
+                  minH="44px"
+                  aria-label={`View ${label}`}
+                >
+                  View {label}
+                </Button>
+                <Button
+                  as="a"
+                  href={doc.fileUrl}
+                  download={downloadName}
+                  size="sm"
+                  variant="ghost"
+                  leftIcon={<FiDownload />}
+                  minH="44px"
+                  aria-label={`Download ${label}`}
+                >
+                  Download {label}
+                </Button>
+              </HStack>
+            </Box>
+          );
+        })}
       </VStack>
     </Box>
   );

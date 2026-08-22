@@ -17,6 +17,7 @@ export type EventHubDocument = {
   fileUrl: string;
   publishedAt?: string | null;
   status?: 'draft' | 'published';
+  downloadFileName?: string;
 };
 
 export type EventHubStatusLabel =
@@ -51,4 +52,6 @@ export type EventHubViewModel = {
   registrationDeadline: Date | null;
   startTime?: string | null;
   endTime?: string | null;
+  equipmentInspectionTime?: string | null;
+  mapUrl?: string | null;
 };

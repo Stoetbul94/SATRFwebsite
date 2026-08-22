@@ -1,9 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/** Event Hub + FAQ/Coaching regression smoke. */
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /(event-hub|faq|coaching)\.spec\.ts/,
+  testMatch: /event-documents\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   timeout: 45000,

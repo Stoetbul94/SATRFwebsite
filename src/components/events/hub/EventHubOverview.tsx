@@ -14,6 +14,9 @@ function buildRows(event: EventHubViewModel): DetailRow[] {
   if (event.startTime) {
     rows.push({ label: 'Start time', value: event.startTime });
   }
+  if (event.equipmentInspectionTime) {
+    rows.push({ label: 'Equipment inspection', value: event.equipmentInspectionTime });
+  }
   if (event.endTime) {
     rows.push({ label: 'End time', value: event.endTime });
   }

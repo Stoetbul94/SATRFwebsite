@@ -35,6 +35,7 @@ import {
 } from '@chakra-ui/react';
 import { FiArrowLeft, FiLink, FiXCircle } from 'react-icons/fi';
 import AdminLayout from '@/components/admin/AdminLayout';
+import AdminEventSubNav from '@/components/admin/AdminEventSubNav';
 import { useAdminRoute } from '@/hooks/useAdminRoute';
 import { useProtectedRoute } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
@@ -235,6 +236,8 @@ export default function EventRegistrationsAdmin() {
             </Text>
           )}
         </Box>
+
+        <AdminEventSubNav eventId={eventId} />
 
         {loading ? (
           <Center py={16}>

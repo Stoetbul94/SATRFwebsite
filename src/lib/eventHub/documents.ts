@@ -1,4 +1,5 @@
 import type { EventHubDocument } from '@/lib/eventHub/types';
+import type { PublicEventDocument } from '@/lib/eventDocuments/types';
 
 const DOC_TYPES = new Set([
   'call-for-entries',
@@ -48,4 +49,20 @@ export function parseEventDocuments(
       } satisfies EventHubDocument;
     })
     .filter(Boolean) as EventHubDocument[];
+}
+
+export function mapPublicDocumentsToHub(
+  eventId: string,
+  docs: PublicEventDocument[],
+): EventHubDocument[] {
+  return docs.map((doc) => ({
+    id: doc.id,
+    eventId,
+    type: doc.type,
+    title: doc.title,
+    fileUrl: doc.fileUrl,
+    publishedAt: doc.publishedAt,
+    status: 'published',
+    downloadFileName: doc.downloadFileName,
+  }));
 }
