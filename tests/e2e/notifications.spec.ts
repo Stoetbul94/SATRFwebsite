@@ -89,7 +89,25 @@ async function mockNotificationsApi(page: Page, state: { items: MockNotification
     if (request.method() === 'GET' && /\/api\/notifications\/?(\?|$)/.test(url.replace(/^https?:\/\/[^/]+/, ''))) {
       const parsed = new URL(url);
       const unreadOnly = parsed.searchParams.get('unread') === '1';
-      const list = unreadOnly ? state.items.filter((n) => n.unread) : state.items;
+      const cursor = parsed.searchParams.get('cursor');
+      const view = parsed.searchParams.get('view');
+      let list = unreadOnly ? state.items.filter((n) => n.unread) : [...state.items];
+      let nextCursor: string | null = null;
+
+      if (view !== 'dropdown' && !cursor && list.length > 1) {
+        nextCursor = 'page-2';
+        list = list.slice(0, 1);
+      } else if (cursor === 'page-2') {
+        list = unreadOnly
+          ? state.items.filter((n) => n.unread).slice(1)
+          : state.items.slice(1);
+        nextCursor = null;
+      }
+
+      if (view === 'dropdown') {
+        list = list.slice(0, 8);
+      }
+
       const unreadCount = state.items.filter((n) => n.unread).length;
       await route.fulfill({
         status: 200,
@@ -98,7 +116,8 @@ async function mockNotificationsApi(page: Page, state: { items: MockNotification
           notifications: list,
           unreadCount,
           badge: unreadCount <= 0 ? null : unreadCount > 99 ? '99+' : String(unreadCount),
-          limit: 8,
+          nextCursor,
+          limit: view === 'dropdown' ? 8 : 25,
         }),
       });
       return;
@@ -221,7 +240,7 @@ test.describe('Notifications — logged in with unread (mocked)', () => {
     expect(state.items.find((n) => n.id === 'n-unread-1')?.unread).toBe(false);
   });
 
-  test('empty state on notifications history', async ({ page }) => {
+  test('empty state hides Mark all as read', async ({ page }) => {
     const state = { items: [] as MockNotification[] };
     await mockWebsiteUser(page, 'user');
     await mockNotificationsApi(page, state);
@@ -229,7 +248,40 @@ test.describe('Notifications — logged in with unread (mocked)', () => {
     await page.goto('/notifications');
     await dismissNextOverlay(page);
     await expect(page.getByTestId('notifications-empty')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('No notifications yet.')).toBeVisible();
+    await expect(page.getByTestId('mark-all-read')).toHaveCount(0);
+  });
+
+  test('history Load more appends without duplicates', async ({ page }) => {
+    const state = { items: structuredClone(seedNotifications) };
+    await mockWebsiteUser(page, 'user');
+    await mockNotificationsApi(page, state);
+
+    await page.goto('/notifications');
+    await dismissNextOverlay(page);
+    await expect(page.getByTestId('notifications-list')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Call for Entries Published')).toBeVisible();
+    await expect(page.getByTestId('notifications-load-more')).toBeVisible();
+    await page.getByTestId('notifications-load-more').click({ force: true });
+    await expect(page.getByText('Event Update')).toBeVisible();
+    await expect(page.getByText('Call for Entries Published')).toHaveCount(1);
+  });
+
+  test('bell IconButton is the popover trigger', async ({ page }) => {
+    const state = { items: structuredClone(seedNotifications) };
+    await mockWebsiteUser(page, 'user');
+    await mockNotificationsApi(page, state);
+
+    await page.goto('/scores');
+    await dismissNextOverlay(page);
+    const bell = page.getByTestId('notification-bell');
+    await expect(bell).toBeVisible({ timeout: 20000 });
+    await expect(bell).toHaveAttribute('aria-label', /Notifications/);
+    await expect(bell).toHaveAttribute('aria-haspopup', /.+|true|menu|dialog/);
+    await bell.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('notification-dropdown')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('notification-dropdown')).toBeHidden();
   });
 
   test('375px bell remains usable', async ({ page }) => {

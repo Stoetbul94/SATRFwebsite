@@ -32,32 +32,57 @@ export default function NotificationsPage() {
   const toast = useToast();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [items, setItems] = useState<UserNotificationView[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchNotifications = useCallback(async () => {
-    const token = await getToken();
-    if (!token) return;
-    try {
-      setLoading(true);
-      const query = filter === 'unread' ? '?unread=1' : '';
-      const response = await fetch(`/api/notifications${query}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to load');
-      const data = await response.json();
-      setItems(data.notifications || []);
-    } catch {
-      toast({ title: 'Could not load notifications', status: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [filter, toast]);
+  const fetchPage = useCallback(
+    async (opts: { cursor?: string | null; append?: boolean } = {}) => {
+      const token = await getToken();
+      if (!token) return;
+      const params = new URLSearchParams();
+      if (filter === 'unread') params.set('unread', '1');
+      if (opts.cursor) params.set('cursor', opts.cursor);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      try {
+        if (opts.append) setLoadingMore(true);
+        else setLoading(true);
+
+        const response = await fetch(`/api/notifications${query}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error('Failed to load');
+        const data = await response.json();
+        const page: UserNotificationView[] = data.notifications || [];
+
+        setItems((prev) => {
+          if (!opts.append) return page;
+          const seen = new Set(prev.map((row) => row.id));
+          return [...prev, ...page.filter((row) => !seen.has(row.id))];
+        });
+        setNextCursor(typeof data.nextCursor === 'string' ? data.nextCursor : null);
+        if (!opts.append && typeof data.unreadCount === 'number') {
+          setUnreadCount(data.unreadCount);
+        }
+      } catch {
+        toast({ title: 'Could not load notifications', status: 'error' });
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [filter, toast],
+  );
 
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
-      void fetchNotifications();
+      setItems([]);
+      setNextCursor(null);
+      void fetchPage({ append: false });
     }
-  }, [isInitialized, isAuthenticated, fetchNotifications]);
+  }, [isInitialized, isAuthenticated, filter, fetchPage]);
 
   const markRead = async (item: UserNotificationView) => {
     const token = await getToken();
@@ -67,6 +92,7 @@ export default function NotificationsPage() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => null);
+      setUnreadCount((c) => Math.max(0, c - 1));
     }
     setItems((prev) =>
       prev.map((row) =>
@@ -89,6 +115,7 @@ export default function NotificationsPage() {
     setItems((prev) =>
       prev.map((row) => ({ ...row, unread: false, readAt: row.readAt || new Date().toISOString() })),
     );
+    setUnreadCount(0);
   };
 
   return (
@@ -102,9 +129,17 @@ export default function NotificationsPage() {
             <Heading size="lg" color="satrf.navy">
               Notifications
             </Heading>
-            <Button size="sm" variant="outline" onClick={() => void markAll()} minH="44px">
-              Mark all as read
-            </Button>
+            {unreadCount > 0 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void markAll()}
+                minH="44px"
+                data-testid="mark-all-read"
+              >
+                Mark all as read
+              </Button>
+            ) : null}
           </HStack>
 
           <HStack mb={4} spacing={2}>
@@ -184,6 +219,20 @@ export default function NotificationsPage() {
               ))}
             </VStack>
           )}
+
+          {nextCursor ? (
+            <Button
+              mt={6}
+              w="full"
+              minH="44px"
+              variant="outline"
+              isLoading={loadingMore}
+              onClick={() => void fetchPage({ cursor: nextCursor, append: true })}
+              data-testid="notifications-load-more"
+            >
+              Load more
+            </Button>
+          ) : null}
         </Container>
       </PublicPageShell>
     </Layout>

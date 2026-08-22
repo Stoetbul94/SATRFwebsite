@@ -60,4 +60,12 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
 ];
 
 export const DROPDOWN_LIMIT = 8;
+/** History page size / Load more page size. */
 export const HISTORY_LIMIT = 25;
+/**
+ * Max published notifications scanned for unread badge / mark-all window.
+ * Badge = unread among eligible items within this recent scan (capped indicator).
+ */
+export const INBOX_SCAN_LIMIT = 50;
+/** Visible-tab fallback refresh for the bell (ms). */
+export const BELL_FALLBACK_INTERVAL_MS = 5 * 60 * 1000;

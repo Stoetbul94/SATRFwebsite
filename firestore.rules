@@ -102,6 +102,11 @@ service cloud.firestore {
     match /users/{userId}/notificationState/{notificationId} {
       allow read, write: if false;
     }
+
+    // Per-user inbox meta (readThroughAt) — Admin SDK / API routes only.
+    match /users/{userId}/notificationMeta/{documentId} {
+      allow read, write: if false;
+    }
     
     // ============================================================================
     // DEFAULT DENY

@@ -11,7 +11,19 @@ import {
 import { sanitizeNotificationHref, buildCallForEntriesNotificationHref } from '@/lib/notifications/hrefSafety';
 import { buildCallForEntriesNotificationId } from '@/lib/notifications/ids';
 import { formatNotificationWhen } from '@/lib/notifications/formatRelative';
-import type { SerializedNotification, UserNotificationView } from '@/lib/notifications/types';
+import {
+  isNotificationRead,
+  resolveUserNotificationView,
+} from '@/lib/notifications/readState';
+import {
+  decodeNotificationCursor,
+  encodeNotificationCursor,
+} from '@/lib/notifications/cursor';
+import {
+  BELL_FALLBACK_INTERVAL_MS,
+  type SerializedNotification,
+  type UserNotificationView,
+} from '@/lib/notifications/types';
 
 function baseNotification(
   overrides: Partial<SerializedNotification> & { id: string },
@@ -191,5 +203,110 @@ describe('timestamp formatting', () => {
     expect(formatNotificationWhen(yesterday.toISOString(), now)).toBe('Yesterday');
     const earlier = new Date(Date.UTC(2026, 7, 10, 10, 0, 0));
     expect(formatNotificationWhen(earlier.toISOString(), now)).toMatch(/10 Aug 2026/);
+  });
+});
+
+describe('readThroughAt read resolution', () => {
+  const through = '2026-08-20T12:00:00.000Z';
+
+  it('treats missing meta as no global read-through', () => {
+    expect(
+      isNotificationRead({
+        publishedAt: '2026-08-10T00:00:00.000Z',
+        individualReadAt: null,
+        readThroughAt: null,
+      }),
+    ).toBe(false);
+  });
+
+  it('marks publishedAt <= readThroughAt as read', () => {
+    expect(
+      isNotificationRead({
+        publishedAt: '2026-08-20T12:00:00.000Z',
+        individualReadAt: null,
+        readThroughAt: through,
+      }),
+    ).toBe(true);
+    expect(
+      isNotificationRead({
+        publishedAt: '2026-08-19T00:00:00.000Z',
+        individualReadAt: null,
+        readThroughAt: through,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps publishedAt > readThroughAt unread without individual read', () => {
+    expect(
+      isNotificationRead({
+        publishedAt: '2026-08-21T00:00:00.000Z',
+        individualReadAt: null,
+        readThroughAt: through,
+      }),
+    ).toBe(false);
+  });
+
+  it('individual readAt marks read even after readThroughAt', () => {
+    expect(
+      isNotificationRead({
+        publishedAt: '2026-08-21T00:00:00.000Z',
+        individualReadAt: '2026-08-21T01:00:00.000Z',
+        readThroughAt: through,
+      }),
+    ).toBe(true);
+  });
+
+  it('Mark All via readThroughAt covers 26+ notifications', () => {
+    const readThroughAt = '2026-09-01T00:00:00.000Z';
+    const many = Array.from({ length: 30 }, (_, i) =>
+      baseNotification({
+        id: `n-${i}`,
+        publishedAt: new Date(Date.UTC(2026, 7, 1 + (i % 28), 10)).toISOString(),
+      }),
+    );
+    const views = many.map((n) => resolveUserNotificationView(n, null, readThroughAt));
+    expect(views.every((v) => v && !v.unread)).toBe(true);
+    expect(views.length).toBe(30);
+  });
+});
+
+describe('pagination cursor', () => {
+  it('round-trips opaque cursors and rejects unsafe input', () => {
+    const encoded = encodeNotificationCursor({
+      publishedAt: '2026-08-22T10:00:00.000Z',
+      id: 'doc-abc',
+    });
+    expect(decodeNotificationCursor(encoded)).toEqual({
+      publishedAt: '2026-08-22T10:00:00.000Z',
+      id: 'doc-abc',
+    });
+    expect(decodeNotificationCursor('not-valid')).toBeNull();
+    expect(decodeNotificationCursor('../../../etc/passwd')).toBeNull();
+  });
+
+  it('does not duplicate ids across pages and skips private audience', () => {
+    const page1 = [
+      baseNotification({ id: 'a', publishedAt: '2026-08-22T10:00:00.000Z' }),
+      baseNotification({
+        id: 'secret',
+        audience: { type: 'custom', userIds: ['other'] },
+        publishedAt: '2026-08-22T09:00:00.000Z',
+      }),
+    ];
+    const page2 = [
+      baseNotification({ id: 'b', publishedAt: '2026-08-21T10:00:00.000Z' }),
+    ];
+    const eligible1 = filterEligibleNotifications(page1, 'uid-1');
+    const eligible2 = filterEligibleNotifications(page2, 'uid-1');
+    const ids = [...eligible1, ...eligible2].map((n) => n.id);
+    expect(ids).toEqual(['a', 'b']);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('bell refresh interval', () => {
+  it('uses 5-minute fallback, not 60 seconds', () => {
+    expect(BELL_FALLBACK_INTERVAL_MS).toBe(5 * 60 * 1000);
+    expect(BELL_FALLBACK_INTERVAL_MS).toBeGreaterThan(60_000);
   });
 });

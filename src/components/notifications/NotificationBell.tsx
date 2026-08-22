@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { auth } from '@/lib/firebase';
 import { formatNotificationWhen } from '@/lib/notifications/formatRelative';
+import { BELL_FALLBACK_INTERVAL_MS } from '@/lib/notifications/types';
 import type { UserNotificationView } from '@/lib/notifications/types';
 
 async function getToken(): Promise<string | null> {
@@ -42,12 +43,14 @@ export default function NotificationBell() {
   const [items, setItems] = useState<UserNotificationView[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [badge, setBadge] = useState<string | null>(null);
-  const fetchedOnce = useRef(false);
+  const fetchInFlight = useRef(false);
 
   const fetchDropdown = useCallback(async () => {
+    if (fetchInFlight.current) return;
     const token = await getToken();
     if (!token) return;
     try {
+      fetchInFlight.current = true;
       setLoading(true);
       const response = await fetch('/api/notifications?view=dropdown', {
         headers: { Authorization: `Bearer ${token}` },
@@ -60,18 +63,38 @@ export default function NotificationBell() {
     } catch {
       /* non-blocking */
     } finally {
+      fetchInFlight.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (fetchedOnce.current) return;
-    fetchedOnce.current = true;
     void fetchDropdown();
-    const interval = window.setInterval(() => {
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchDropdown();
+      }
+    };
+
+    const onFocus = () => {
       void fetchDropdown();
-    }, 60_000);
-    return () => window.clearInterval(interval);
+    };
+
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', onFocus);
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchDropdown();
+      }
+    }, BELL_FALLBACK_INTERVAL_MS);
+
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(interval);
+    };
   }, [fetchDropdown]);
 
   const markReadAndNavigate = async (item: UserNotificationView) => {
@@ -114,7 +137,11 @@ export default function NotificationBell() {
       });
       if (!response.ok) throw new Error('Failed');
       setItems((prev) =>
-        prev.map((row) => ({ ...row, unread: false, readAt: row.readAt || new Date().toISOString() })),
+        prev.map((row) => ({
+          ...row,
+          unread: false,
+          readAt: row.readAt || new Date().toISOString(),
+        })),
       );
       setUnreadCount(0);
       setBadge(null);
@@ -139,35 +166,37 @@ export default function NotificationBell() {
       isLazy
     >
       <PopoverTrigger>
-        <Box position="relative" display="inline-block">
-          <IconButton
-            aria-label={ariaLabel}
-            icon={<FiBell />}
-            variant="ghost"
-            color="white"
-            size="md"
-            minW="44px"
-            minH="44px"
-            _hover={{ bg: 'whiteAlpha.200' }}
-            data-testid="notification-bell"
-          />
-          {badge && (
-            <Badge
-              position="absolute"
-              top="2px"
-              right="2px"
-              borderRadius="full"
-              colorScheme="red"
-              fontSize="0.65rem"
-              minW="18px"
-              textAlign="center"
-              pointerEvents="none"
-              data-testid="notification-badge"
-            >
-              {badge}
-            </Badge>
-          )}
-        </Box>
+        <IconButton
+          aria-label={ariaLabel}
+          icon={
+            <Box as="span" position="relative" display="inline-flex" lineHeight={0}>
+              <FiBell />
+              {badge ? (
+                <Badge
+                  position="absolute"
+                  top="-6px"
+                  right="-8px"
+                  borderRadius="full"
+                  colorScheme="red"
+                  fontSize="0.65rem"
+                  minW="18px"
+                  textAlign="center"
+                  pointerEvents="none"
+                  data-testid="notification-badge"
+                >
+                  {badge}
+                </Badge>
+              ) : null}
+            </Box>
+          }
+          variant="ghost"
+          color="white"
+          size="md"
+          minW="44px"
+          minH="44px"
+          _hover={{ bg: 'whiteAlpha.200' }}
+          data-testid="notification-bell"
+        />
       </PopoverTrigger>
       <Portal>
         <PopoverContent
@@ -238,9 +267,19 @@ export default function NotificationBell() {
             )}
             <Divider />
             <HStack justify="space-between" px={3} py={2}>
-              <Button size="sm" variant="ghost" onClick={() => void markAllRead()} minH="40px">
-                Mark all as read
-              </Button>
+              {unreadCount > 0 ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void markAllRead()}
+                  minH="40px"
+                  data-testid="mark-all-read"
+                >
+                  Mark all as read
+                </Button>
+              ) : (
+                <Box />
+              )}
               <Button
                 as={Link}
                 href="/notifications"

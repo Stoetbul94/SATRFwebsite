@@ -1,10 +1,20 @@
-import { Timestamp, type Firestore, type WriteBatch } from 'firebase-admin/firestore';
+import {
+  FieldPath,
+  Timestamp,
+  type Firestore,
+  type Query,
+  type WriteBatch,
+} from 'firebase-admin/firestore';
+import {
+  decodeNotificationCursor,
+  encodeNotificationCursor,
+} from '@/lib/notifications/cursor';
 import { filterEligibleNotifications } from '@/lib/notifications/eligibility';
 import { buildManualNotificationId } from '@/lib/notifications/ids';
+import { resolveUserNotificationView } from '@/lib/notifications/readState';
 import {
   countUnread,
   serializeNotification,
-  toUserNotificationView,
 } from '@/lib/notifications/serialize';
 import { sanitizeNotificationHref } from '@/lib/notifications/hrefSafety';
 import type {
@@ -13,9 +23,14 @@ import type {
   SerializedNotification,
   UserNotificationView,
 } from '@/lib/notifications/types';
-import { DROPDOWN_LIMIT, HISTORY_LIMIT } from '@/lib/notifications/types';
+import {
+  DROPDOWN_LIMIT,
+  HISTORY_LIMIT,
+  INBOX_SCAN_LIMIT,
+} from '@/lib/notifications/types';
 
 const COLLECTION = 'notifications';
+const META_DOC = 'inbox';
 
 function collection(db: Firestore) {
   return db.collection(COLLECTION);
@@ -25,17 +40,102 @@ function stateRef(db: Firestore, userId: string, notificationId: string) {
   return db.collection('users').doc(userId).collection('notificationState').doc(notificationId);
 }
 
+function metaRef(db: Firestore, userId: string) {
+  return db.collection('users').doc(userId).collection('notificationMeta').doc(META_DOC);
+}
+
+function toIsoFromUnknown(value: unknown): string | null {
+  if (!value) return null;
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate: () => Date }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  if (typeof value === 'string') return value;
+  return null;
+}
+
+export async function getReadThroughAt(
+  db: Firestore,
+  userId: string,
+): Promise<string | null> {
+  const snap = await metaRef(db, userId).get();
+  if (!snap.exists) return null;
+  return toIsoFromUnknown((snap.data() as Record<string, unknown>).readThroughAt);
+}
+
+/**
+ * Batched multi-get for per-notification read state (reduces RPC round-trips).
+ */
+export async function loadReadStateMap(
+  db: Firestore,
+  userId: string,
+  notificationIds: string[],
+): Promise<Record<string, string | null>> {
+  const result: Record<string, string | null> = {};
+  if (!notificationIds.length) return result;
+
+  const refs = notificationIds.map((id) => stateRef(db, userId, id));
+  const snaps = await db.getAll(...refs);
+
+  snaps.forEach((snap, index) => {
+    const id = notificationIds[index];
+    if (!snap.exists) {
+      result[id] = null;
+      return;
+    }
+    const data = snap.data() as Record<string, unknown>;
+    result[id] = toIsoFromUnknown(data.readAt);
+  });
+
+  return result;
+}
+
+type PublishedPage = {
+  docs: SerializedNotification[];
+  /** Cursor from last Firestore doc in this page (underlying query advance). */
+  nextCursor: string | null;
+};
+
+async function queryPublishedPage(
+  db: Firestore,
+  options: { limit: number; cursor?: string | null },
+): Promise<PublishedPage> {
+  let query: Query = collection(db)
+    .where('status', '==', 'published')
+    .orderBy('publishedAt', 'desc')
+    .orderBy(FieldPath.documentId(), 'desc')
+    .limit(options.limit);
+
+  const cursor = options.cursor ? decodeNotificationCursor(options.cursor) : null;
+  if (cursor) {
+    query = query.startAfter(Timestamp.fromDate(new Date(cursor.publishedAt)), cursor.id);
+  }
+
+  const snap = await query.get();
+  const docs = snap.docs.map((doc) => serializeNotification(doc.id, doc.data()));
+
+  let nextCursor: string | null = null;
+  if (snap.docs.length === options.limit) {
+    const last = snap.docs[snap.docs.length - 1];
+    const publishedAt = toIsoFromUnknown(last.data().publishedAt);
+    if (publishedAt) {
+      nextCursor = encodeNotificationCursor({ publishedAt, id: last.id });
+    }
+  }
+
+  return { docs, nextCursor };
+}
+
 export async function listPublishedNotifications(
   db: Firestore,
   limit = HISTORY_LIMIT,
 ): Promise<SerializedNotification[]> {
-  const snap = await collection(db)
-    .where('status', '==', 'published')
-    .orderBy('publishedAt', 'desc')
-    .limit(limit)
-    .get();
-
-  return snap.docs.map((doc) => serializeNotification(doc.id, doc.data()));
+  const page = await queryPublishedPage(db, { limit });
+  return page.docs;
 }
 
 export async function listNotificationsForEvent(
@@ -60,70 +160,95 @@ export async function getNotification(
   return serializeNotification(doc.id, doc.data() as Record<string, unknown>);
 }
 
-async function loadReadStateMap(
+async function attachReadState(
   db: Firestore,
   userId: string,
-  notificationIds: string[],
-): Promise<Record<string, string | null>> {
-  const result: Record<string, string | null> = {};
-  await Promise.all(
-    notificationIds.map(async (id) => {
-      const snap = await stateRef(db, userId, id).get();
-      if (!snap.exists) {
-        result[id] = null;
-        return;
-      }
-      const data = snap.data() as Record<string, unknown>;
-      const readAt =
-        data.readAt &&
-        typeof data.readAt === 'object' &&
-        'toDate' in (data.readAt as object)
-          ? (data.readAt as { toDate: () => Date }).toDate().toISOString()
-          : typeof data.readAt === 'string'
-            ? data.readAt
-            : null;
-      result[id] = readAt;
-    }),
-  );
-  return result;
-}
-
-export async function listNotificationsForUser(
-  db: Firestore,
-  userId: string,
-  options: { limit?: number; unreadOnly?: boolean } = {},
-): Promise<{ notifications: UserNotificationView[]; unreadCount: number }> {
-  const limit = options.limit ?? HISTORY_LIMIT;
-  const published = await listPublishedNotifications(db, HISTORY_LIMIT);
-  const eligible = filterEligibleNotifications(published, userId);
-  const recent = eligible
-    .map((item) => toUserNotificationView(item, null))
-    .filter((item): item is UserNotificationView => item !== null);
+  eligible: SerializedNotification[],
+  readThroughAt: string | null,
+): Promise<UserNotificationView[]> {
+  // Only fetch individual state for items not already covered by read-through.
+  const needsState = eligible.filter((item) => {
+    if (!item.publishedAt || !readThroughAt) return true;
+    return Date.parse(item.publishedAt) > Date.parse(readThroughAt);
+  });
 
   const readMap = await loadReadStateMap(
     db,
     userId,
-    recent.map((item) => item.id),
+    needsState.map((item) => item.id),
   );
 
-  const withRead = recent.map((item) => ({
-    ...item,
-    readAt: readMap[item.id] ?? null,
-    unread: !readMap[item.id],
-  }));
-
-  const unreadCount = countUnread(withRead);
-  let notifications = withRead.slice(0, limit);
-  if (options.unreadOnly) {
-    notifications = withRead.filter((item) => item.unread).slice(0, limit);
-  }
-
-  return { notifications, unreadCount };
+  return eligible
+    .map((item) =>
+      resolveUserNotificationView(item, readMap[item.id] ?? null, readThroughAt),
+    )
+    .filter((item): item is UserNotificationView => item !== null);
 }
 
-export async function listDropdownNotificationsForUser(db: Firestore, userId: string) {
-  const result = await listNotificationsForUser(db, userId, { limit: DROPDOWN_LIMIT });
-  return result;
+export type ListNotificationsResult = {
+  notifications: UserNotificationView[];
+  unreadCount: number;
+  nextCursor: string | null;
+  /** Scan window used for unread badge semantics. */
+  scanLimit: number;
+};
+
+/**
+ * History page with cursor pagination over the published query.
+ * Audience filtering is server-side; nextCursor advances on the underlying page.
+ */
+export async function listNotificationsForUser(
+  db: Firestore,
+  userId: string,
+  options: {
+    limit?: number;
+    unreadOnly?: boolean;
+    cursor?: string | null;
+  } = {},
+): Promise<ListNotificationsResult> {
+  const limit = options.limit ?? HISTORY_LIMIT;
+  const readThroughAt = await getReadThroughAt(db, userId);
+  const page = await queryPublishedPage(db, {
+    limit,
+    cursor: options.cursor,
+  });
+
+  const eligible = filterEligibleNotifications(page.docs, userId);
+  let withRead = await attachReadState(db, userId, eligible, readThroughAt);
+
+  if (options.unreadOnly) {
+    withRead = withRead.filter((item) => item.unread);
+  }
+
+  // Unread count for this response: within returned page only for history;
+  // callers that need badge use listDropdown / scan helper.
+  return {
+    notifications: withRead,
+    unreadCount: countUnread(withRead),
+    nextCursor: page.nextCursor,
+    scanLimit: limit,
+  };
+}
+
+/**
+ * Bell dropdown: recent items + capped unread scan (INBOX_SCAN_LIMIT).
+ */
+export async function listDropdownNotificationsForUser(
+  db: Firestore,
+  userId: string,
+): Promise<ListNotificationsResult> {
+  const readThroughAt = await getReadThroughAt(db, userId);
+  const page = await queryPublishedPage(db, { limit: INBOX_SCAN_LIMIT });
+  const eligible = filterEligibleNotifications(page.docs, userId);
+  const withRead = await attachReadState(db, userId, eligible, readThroughAt);
+  const unreadCount = countUnread(withRead);
+
+  return {
+    notifications: withRead.slice(0, DROPDOWN_LIMIT),
+    unreadCount,
+    nextCursor: null,
+    scanLimit: INBOX_SCAN_LIMIT,
+  };
 }
 
 export async function markNotificationRead(
@@ -148,24 +273,23 @@ export async function markNotificationRead(
   );
 }
 
-export async function markAllNotificationsRead(db: Firestore, userId: string): Promise<number> {
-  const { notifications } = await listNotificationsForUser(db, userId, {
-    limit: HISTORY_LIMIT,
-  });
-  const unread = notifications.filter((item) => item.unread);
-  if (!unread.length) return 0;
-
-  const batch = db.batch();
+/**
+ * Mark ALL currently published (and earlier) notifications as read via one
+ * readThroughAt write — not limited to HISTORY_LIMIT state docs.
+ */
+export async function markAllNotificationsRead(
+  db: Firestore,
+  userId: string,
+): Promise<{ marked: true; readThroughAt: string }> {
   const now = Timestamp.now();
-  unread.forEach((item) => {
-    batch.set(
-      stateRef(db, userId, item.id),
-      { readAt: now, updatedAt: now },
-      { merge: true },
-    );
-  });
-  await batch.commit();
-  return unread.length;
+  await metaRef(db, userId).set(
+    {
+      readThroughAt: now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+  return { marked: true, readThroughAt: now.toDate().toISOString() };
 }
 
 export type CreateNotificationInput = {
