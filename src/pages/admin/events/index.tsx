@@ -46,7 +46,7 @@ import {
   parseEventDisciplines,
 } from '@/lib/eventDisciplines';
 import type { Discipline } from '@/types/scores';
-import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX, FiUsers, FiCalendar } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiPlus, FiArchive, FiImage, FiX, FiUsers, FiCalendar, FiFileText } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
@@ -83,6 +83,12 @@ export default function AdminEvents() {
     imageUrl: '',
     payfastUrl: '',
     eftInstructions: '',
+    startTime: '',
+    endTime: '',
+    equipmentInspectionTime: '',
+    registrationDeadlineDate: '',
+    registrationDeadlineTime: '',
+    mapUrl: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -153,6 +159,12 @@ export default function AdminEvents() {
       imageUrl: '',
       payfastUrl: '',
       eftInstructions: '',
+      startTime: '',
+      endTime: '',
+      equipmentInspectionTime: '',
+      registrationDeadlineDate: '',
+      registrationDeadlineTime: '',
+      mapUrl: '',
     });
     setImageFile(null);
     setImagePreview(null);
@@ -160,6 +172,23 @@ export default function AdminEvents() {
     setIsSaving(false);
     setUploadProgress(0);
     onOpen();
+  };
+
+  const normalizeTimeForInput = (value: unknown): string => {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return '';
+    return `${match[1].padStart(2, '0')}:${match[2]}`;
+  };
+
+  const normalizeDeadlineForInputs = (value: unknown): { date: string; time: string } => {
+    if (!value) return { date: '', time: '' };
+    const parsed = new Date(String(value));
+    if (Number.isNaN(parsed.getTime())) return { date: '', time: '' };
+    return {
+      date: `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`,
+      time: `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`,
+    };
   };
 
   // Helper function to normalize date to YYYY-MM-DD format for date input
@@ -207,6 +236,7 @@ export default function AdminEvents() {
     setSelectedEvent(event);
     
     // Ensure all required fields have default values to prevent validation errors
+    const deadlineInputs = normalizeDeadlineForInputs((event as any).registrationDeadline);
     const formDataToSet = {
       title: event.title || '',
       date: normalizeDateForInput(event.date),
@@ -219,6 +249,12 @@ export default function AdminEvents() {
       imageUrl: (event as any).imageUrl || '',
       payfastUrl: (event as any).payfastUrl || '',
       eftInstructions: (event as any).eftInstructions || '',
+      startTime: normalizeTimeForInput((event as any).startTime),
+      endTime: normalizeTimeForInput((event as any).endTime),
+      equipmentInspectionTime: normalizeTimeForInput((event as any).equipmentInspectionTime),
+      registrationDeadlineDate: deadlineInputs.date,
+      registrationDeadlineTime: deadlineInputs.time,
+      mapUrl: (event as any).mapUrl || '',
     };
     
     console.log('[EDIT EVENT] Form data prepared:', formDataToSet);
@@ -531,6 +567,15 @@ export default function AdminEvents() {
         eftInstructions: formData.eftInstructions || undefined,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : undefined,
         price: parseFloat(formData.price),
+        startTime: formData.startTime || null,
+        endTime: formData.endTime || null,
+        equipmentInspectionTime: formData.equipmentInspectionTime || null,
+        registrationDeadline: formData.registrationDeadlineDate
+          ? new Date(
+              `${formData.registrationDeadlineDate}T${formData.registrationDeadlineTime || '23:59'}:00`,
+            ).toISOString()
+          : null,
+        mapUrl: formData.mapUrl || null,
       };
 
       if (imageBase64) {
@@ -608,6 +653,12 @@ export default function AdminEvents() {
           imageUrl: '',
           payfastUrl: '',
           eftInstructions: '',
+          startTime: '',
+          endTime: '',
+          equipmentInspectionTime: '',
+          registrationDeadlineDate: '',
+          registrationDeadlineTime: '',
+          mapUrl: '',
         });
         setImageFile(null);
         setImagePreview(null);
@@ -840,10 +891,21 @@ export default function AdminEvents() {
                     <AdminIconActions
                       actions={[
                         {
+                          label: 'Event overview',
+                          icon: <FiCalendar />,
+                          onClick: () => router.push(`/admin/events/${event.id}`),
+                        },
+                        {
                           label: 'View registrations',
                           icon: <FiUsers />,
                           colorScheme: 'teal',
                           onClick: () => router.push(`/admin/events/${event.id}/registrations`),
+                        },
+                        {
+                          label: 'Documents',
+                          icon: <FiFileText />,
+                          colorScheme: 'purple',
+                          onClick: () => router.push(`/admin/events/${event.id}/documents`),
                         },
                         { label: 'Edit event', icon: <FiEdit />, onClick: () => handleEdit(event) },
                         {
@@ -938,6 +1000,80 @@ export default function AdminEvents() {
                     isDisabled={isSaving || uploadingImage}
                   />
                   <FormErrorMessage>{formErrors.location}</FormErrorMessage>
+                </FormControl>
+              </HStack>
+
+              <HStack spacing={4}>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Start time</FormLabel>
+                  <Input
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                </FormControl>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>End time</FormLabel>
+                  <Input
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                </FormControl>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Equipment inspection</FormLabel>
+                  <Input
+                    type="time"
+                    value={formData.equipmentInspectionTime}
+                    onChange={(e) =>
+                      setFormData({ ...formData, equipmentInspectionTime: e.target.value })
+                    }
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                </FormControl>
+              </HStack>
+
+              <HStack spacing={4}>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Registration closes — date</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.registrationDeadlineDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, registrationDeadlineDate: e.target.value })
+                    }
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                </FormControl>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Registration closes — time</FormLabel>
+                  <Input
+                    type="time"
+                    value={formData.registrationDeadlineTime}
+                    onChange={(e) =>
+                      setFormData({ ...formData, registrationDeadlineTime: e.target.value })
+                    }
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
+                  <FormHelperText>Africa/Johannesburg (browser local time)</FormHelperText>
+                </FormControl>
+                <FormControl flex={1}>
+                  <FormLabel fontWeight="semibold" mb={2}>Map URL</FormLabel>
+                  <Input
+                    type="url"
+                    value={formData.mapUrl}
+                    onChange={(e) => setFormData({ ...formData, mapUrl: e.target.value })}
+                    placeholder="https://maps.google.com/..."
+                    size="lg"
+                    isDisabled={isSaving || uploadingImage}
+                  />
                 </FormControl>
               </HStack>
 

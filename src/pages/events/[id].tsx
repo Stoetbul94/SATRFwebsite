@@ -15,7 +15,9 @@ import PublicPageShell from '@/components/layout/PublicPageShell';
 import EventRegistrationModal from '@/components/events/EventRegistrationModal';
 import EventHubShell from '@/components/events/hub/EventHubShell';
 import { eventsAPI } from '@/lib/api';
+import { mapPublicDocumentsToHub } from '@/lib/eventHub/documents';
 import { transformApiEventToHub } from '@/lib/eventHub/transformEvent';
+import type { PublicEventDocument } from '@/lib/eventDocuments/types';
 import type { CalendarEventInput } from '@/lib/eventCalendarLinks';
 
 const SITE_ORIGIN = 'https://www.rifleshooting.co.za';
@@ -51,8 +53,23 @@ export default function EventDetailPage() {
     try {
       setLoading(true);
       setError(null);
-      const eventData = await eventsAPI.getById(eventId);
-      setHubEvent(transformApiEventToHub(eventData as Record<string, unknown>));
+      const [eventData, documentsResponse] = await Promise.all([
+        eventsAPI.getById(eventId),
+        fetch(`/api/events/${eventId}/documents`).then(async (response) =>
+          response.ok ? response.json() : { documents: [] },
+        ),
+      ]);
+
+      const publishedDocs = Array.isArray(documentsResponse.documents)
+        ? mapPublicDocumentsToHub(
+            eventId,
+            documentsResponse.documents as PublicEventDocument[],
+          )
+        : [];
+
+      setHubEvent(
+        transformApiEventToHub(eventData as Record<string, unknown>, publishedDocs),
+      );
     } catch (err: unknown) {
       console.error('Error fetching event:', err);
       setError(err instanceof Error ? err.message : 'Failed to load event details');

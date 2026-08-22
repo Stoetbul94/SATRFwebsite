@@ -2,6 +2,7 @@ import { disciplinePublicLabel, parseEventDisciplines } from '@/lib/eventDiscipl
 import { getPublicRegistrationStatus } from '@/lib/eventRegistrationUi';
 import { isEventPast } from '@/lib/eventDisplay';
 import { parseEventDocuments } from '@/lib/eventHub/documents';
+import type { EventHubDocument } from '@/lib/eventHub/types';
 import { deriveEventHubStatus } from '@/lib/eventHub/status';
 import type { EventHubViewModel } from '@/lib/eventHub/types';
 
@@ -20,7 +21,10 @@ function toDate(value: unknown): Date | null {
 }
 
 /** Map API / Firestore payload to Event Hub view model. */
-export function transformApiEventToHub(raw: Record<string, unknown>): EventHubViewModel {
+export function transformApiEventToHub(
+  raw: Record<string, unknown>,
+  publishedDocuments: EventHubDocument[] = [],
+): EventHubViewModel {
   const id = String(raw.id || '');
   const disciplines = Array.isArray(raw.disciplines)
     ? parseEventDisciplines(raw)
@@ -78,9 +82,13 @@ export function transformApiEventToHub(raw: Record<string, unknown>): EventHubVi
         : typeof raw.lng === 'number'
           ? raw.lng
           : undefined,
-    documents: parseEventDocuments(id, raw),
+    documents:
+      publishedDocuments.length > 0 ? publishedDocuments : parseEventDocuments(id, raw),
     registrationDeadline,
     startTime: typeof raw.startTime === 'string' ? raw.startTime : null,
     endTime: typeof raw.endTime === 'string' ? raw.endTime : null,
+    equipmentInspectionTime:
+      typeof raw.equipmentInspectionTime === 'string' ? raw.equipmentInspectionTime : null,
+    mapUrl: typeof raw.mapUrl === 'string' ? raw.mapUrl : null,
   };
 }
