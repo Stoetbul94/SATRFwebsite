@@ -28,7 +28,7 @@ describe('rules downloads', () => {
     expect(stripHash(pdfPageHref(entry))).toBe(SECOND_PRINT);
   });
 
-  it('opens rules through the in-app viewer with page query (mobile-safe)', () => {
+  it('opens rules through the in-app viewer with document ID (mobile-safe)', () => {
     const href = ruleViewerHref({
       pdfUrl: SECOND_PRINT,
       page: 342,
@@ -37,7 +37,10 @@ describe('rules downloads', () => {
     });
     expect(href.startsWith('/rules/view?')).toBe(true);
     const q = new URL(href, 'https://www.rifleshooting.co.za').searchParams;
-    expect(q.get('file')).toBe(SECOND_PRINT);
+    expect(q.get('document')).toBe(
+      'issf-rule-book-2026-edition-2025-second-print-07-2026-effective-1-july-2026',
+    );
+    expect(q.get('file')).toBeNull();
     expect(q.get('page')).toBe('342');
     expect(q.get('rule')).toBe('7.7.4');
     expect(href).not.toContain('#page=');

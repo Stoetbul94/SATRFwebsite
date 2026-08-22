@@ -1,5 +1,7 @@
 /** Helpers for Open vs Download vs official ISSF links. */
 
+import { resolveRulesDocumentByPath } from '@/lib/rulesDocumentResolver';
+
 export function stripHash(href: string) {
   return href.split('#')[0];
 }
@@ -28,16 +30,11 @@ export function officialSourceHref(entry: { officialPdfUrl?: string; officialUrl
   return entry.officialPdfUrl || entry.officialUrl || '';
 }
 
-/** Only allow same-origin ISSF mirrors — prevents open-redirect via ?file=. */
-export function isAllowedRulesPdfPath(href?: string | null): href is string {
-  if (!isLocalAsset(href)) return false;
-  const clean = stripHash(href);
-  return clean.startsWith('/documents/issf/') && clean.toLowerCase().endsWith('.pdf');
-}
+export { isAllowedRulesPdfPath } from '@/lib/rulesDocumentResolver';
 
 /**
- * In-app viewer URL. Mobile Safari / Android / PWA native PDF viewers ignore `#page=`,
- * so Open should use this instead of a raw PDF hash link.
+ * In-app viewer URL using catalogue document ID (not raw file paths).
+ * Mobile Safari / Android native PDF viewers ignore `#page=`, so Open uses /rules/view.
  */
 export function ruleViewerHref(opts: {
   pdfUrl: string;
@@ -46,10 +43,11 @@ export function ruleViewerHref(opts: {
   heading?: string;
 }) {
   const file = stripHash(opts.pdfUrl);
-  if (!isAllowedRulesPdfPath(file)) {
+  const doc = resolveRulesDocumentByPath(file);
+  if (!doc) {
     return opts.page ? `${file}#page=${opts.page}` : file;
   }
-  const params = new URLSearchParams({ file });
+  const params = new URLSearchParams({ document: doc.id });
   if (opts.page && opts.page > 0) params.set('page', String(opts.page));
   if (opts.ruleNumber) params.set('rule', opts.ruleNumber);
   if (opts.heading) params.set('heading', opts.heading.slice(0, 120));

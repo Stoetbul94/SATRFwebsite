@@ -26,6 +26,7 @@ test.describe('Rules Finder', () => {
     const open = page.getByRole('link', { name: /Open at page|Open rule \(page/i }).first();
     const download = page.getByRole('link', { name: 'Download Rule Book' }).first();
     await expect(open).toHaveAttribute('href', /\/rules\/view\?/);
+    await expect(open).toHaveAttribute('href', /document=/);
     await expect(open).toHaveAttribute('href', /page=\d+/);
     await expect(open).not.toHaveAttribute('href', /#page=/);
     await expect(download).toHaveAttribute(
