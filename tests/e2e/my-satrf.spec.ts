@@ -144,8 +144,8 @@ test.describe('My SATRF dashboard', () => {
     await mockDashboardApi(page, linkedDashboard);
     await page.goto('/dashboard');
 
-    await expect(page.getByText('50 m Rifle Prone').first()).toBeVisible();
-    await expect(page.getByText('587.2').first()).toBeVisible();
+    await expect(page.getByRole('cell', { name: '50 m Rifle Prone' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: '587.2' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View My Results' })).toBeVisible();
   });
 
