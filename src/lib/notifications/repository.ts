@@ -251,6 +251,28 @@ export async function listDropdownNotificationsForUser(
   };
 }
 
+/** Lighter dashboard summary — smaller scan than bell dropdown (INBOX_SCAN_LIMIT). */
+export const DASHBOARD_NOTIFICATION_SCAN_LIMIT = 25;
+
+export async function listDashboardNotificationSummary(
+  db: Firestore,
+  userId: string,
+  recentLimit = 3,
+): Promise<ListNotificationsResult> {
+  const readThroughAt = await getReadThroughAt(db, userId);
+  const page = await queryPublishedPage(db, { limit: DASHBOARD_NOTIFICATION_SCAN_LIMIT });
+  const eligible = filterEligibleNotifications(page.docs, userId);
+  const withRead = await attachReadState(db, userId, eligible, readThroughAt);
+  const unreadCount = countUnread(withRead);
+
+  return {
+    notifications: withRead.slice(0, recentLimit),
+    unreadCount,
+    nextCursor: null,
+    scanLimit: DASHBOARD_NOTIFICATION_SCAN_LIMIT,
+  };
+}
+
 export async function markNotificationRead(
   db: Firestore,
   userId: string,

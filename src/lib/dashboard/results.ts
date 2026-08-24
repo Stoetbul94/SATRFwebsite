@@ -67,8 +67,8 @@ export function selectRecentResults(
   });
 }
 
-export function isCompetitionProfileLinked(scores: Array<Score & { deleted?: boolean }>): boolean {
-  return scores.some((s) => !s.deleted && Boolean(s.userId));
+export function hasLinkedResults(scores: Array<Score & { deleted?: boolean }>): boolean {
+  return scores.some((s) => !s.deleted);
 }
 
 export function isProfileIncomplete(user: {

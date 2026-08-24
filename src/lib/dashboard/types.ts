@@ -47,7 +47,7 @@ export type DashboardResponse = {
     lastName: string | null;
     club: string | null;
     province: string | null;
-    competitionProfileLinked: boolean;
+    hasLinkedResults: boolean;
     profileIncomplete: boolean;
   };
   nextEvent: DashboardNextEvent | null;

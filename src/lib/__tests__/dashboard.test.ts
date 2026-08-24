@@ -4,7 +4,7 @@ import {
   isUpcomingEvent,
 } from '@/lib/dashboard/nextEvent';
 import {
-  isCompetitionProfileLinked,
+  hasLinkedResults,
   isProfileIncomplete,
   selectRecentResults,
 } from '@/lib/dashboard/results';
@@ -116,9 +116,22 @@ describe('dashboard results', () => {
     updatedAt: '2026-06-27T00:00:00.000Z',
   } satisfies Score;
 
-  it('detects linked competition profile via userId on scores', () => {
-    expect(isCompetitionProfileLinked([base])).toBe(true);
-    expect(isCompetitionProfileLinked([])).toBe(false);
+  it('hasLinkedResults is true when scores exist for uid query', () => {
+    expect(hasLinkedResults([base])).toBe(true);
+    expect(hasLinkedResults([])).toBe(false);
+  });
+
+  it('no scores is not the same as unlinked profile — empty means no results yet', () => {
+    const dto = buildDashboardDto({
+      user: { firstName: 'John' },
+      next: null,
+      upcomingRegs: [],
+      scores: [],
+      notifications: { unreadCount: 0, recent: [] },
+      hasCallForEntries: false,
+    });
+    expect(dto.user.hasLinkedResults).toBe(false);
+    expect(dto.results).toHaveLength(0);
   });
 
   it('keeps qualification and finals as separate rows', () => {
@@ -131,7 +144,7 @@ describe('dashboard results', () => {
 
   it('does not use name matching — only userId-linked scores in caller query', () => {
     const unlinked = { ...base, userId: null, shooterName: 'Same Name' };
-    expect(isCompetitionProfileLinked([unlinked])).toBe(false);
+    expect(hasLinkedResults([unlinked])).toBe(true);
   });
 });
 
@@ -157,12 +170,26 @@ describe('dashboard DTO', () => {
     expect(dto.user.firstName).toBe('Arnold');
     expect(dto.registrations[0].statusLabel).toBe('Registered');
     expect(dto.nextEvent?.isRegistered).toBe(true);
-    expect(dto.user.competitionProfileLinked).toBe(false);
-    expect(JSON.stringify(dto)).not.toMatch(/memberId|authUid|paid|payment/i);
+    expect(dto.user.hasLinkedResults).toBe(false);
+    expect(JSON.stringify(dto)).not.toMatch(/memberId|authUid|paid|payment|competitionProfile/i);
   });
 
   it('flags incomplete profile when club or province missing', () => {
     expect(isProfileIncomplete({ firstName: 'A', club: '', province: 'GP' })).toBe(true);
     expect(isProfileIncomplete({ firstName: 'A', club: 'C', province: 'GP' })).toBe(false);
+  });
+
+  it('preserves partial errors without crashing DTO', () => {
+    const dto = buildDashboardDto({
+      user: { firstName: 'Jane' },
+      next: null,
+      upcomingRegs: [],
+      scores: [],
+      notifications: { unreadCount: 0, recent: [] },
+      hasCallForEntries: false,
+      errors: { registrations: 'Registrations could not be loaded' },
+    });
+    expect(dto.errors?.registrations).toBeTruthy();
+    expect(dto.user.firstName).toBe('Jane');
   });
 });

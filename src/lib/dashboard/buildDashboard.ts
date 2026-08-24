@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { isEventRegistrationOpen } from '@/lib/registrations';
-import { listDropdownNotificationsForUser } from '@/lib/notifications/repository';
+import { listDashboardNotificationSummary } from '@/lib/notifications/repository';
 import {
   selectNextEvent,
   selectUpcomingRegistrations,
@@ -8,7 +8,7 @@ import {
   type RegistrationLike,
 } from '@/lib/dashboard/nextEvent';
 import {
-  isCompetitionProfileLinked,
+  hasLinkedResults,
   isProfileIncomplete,
   selectRecentResults,
 } from '@/lib/dashboard/results';
@@ -48,7 +48,7 @@ export function buildDashboardDto(input: {
   } | null;
   next: { event: EventLike; isRegistered: boolean } | null;
   upcomingRegs: Array<RegistrationLike & { event: EventLike }>;
-  scores: Score[];
+  scores: Array<Score & { deleted?: boolean }>;
   notifications: {
     unreadCount: number;
     recent: Array<{
@@ -63,12 +63,10 @@ export function buildDashboardDto(input: {
   hasCallForEntries: boolean;
   errors?: DashboardResponse['errors'];
 }): DashboardResponse {
-  const firstName =
-    input.user?.firstName?.trim() ||
-    'Athlete';
+  const firstName = input.user?.firstName?.trim() || 'Athlete';
 
   const results = selectRecentResults(input.scores, DASHBOARD_RESULTS_LIMIT);
-  const linked = isCompetitionProfileLinked(input.scores);
+  const linkedResults = hasLinkedResults(input.scores);
 
   const nextEvent = input.next
     ? {
@@ -89,7 +87,7 @@ export function buildDashboardDto(input: {
       lastName: input.user?.lastName?.trim() || null,
       club: input.user?.club?.trim() || null,
       province: input.user?.province?.trim() || null,
-      competitionProfileLinked: linked,
+      hasLinkedResults: linkedResults,
       profileIncomplete: isProfileIncomplete({
         firstName: input.user?.firstName,
         club: input.user?.club,
@@ -136,11 +134,10 @@ export async function getPersonalDashboard(
   const userSettled = await Promise.allSettled([loadDashboardUser(db, uid)]);
   const user = userSettled[0].status === 'fulfilled' ? userSettled[0].value : null;
 
-  const [regsSettled, scoresSettled, openSettled, notifSettled] = await Promise.allSettled([
+  const [regsSettled, scoresSettled, notifSettled] = await Promise.allSettled([
     loadUserRegistrations(db, uid),
     loadUserScores(db, uid),
-    loadCandidateOpenEvents(db),
-    listDropdownNotificationsForUser(db, uid),
+    listDashboardNotificationSummary(db, uid, DASHBOARD_NOTIFICATION_LIMIT),
   ]);
 
   const registrations =
@@ -154,17 +151,15 @@ export async function getPersonalDashboard(
     errors.results = 'Results could not be loaded';
   }
 
-  const openEvents = openSettled.status === 'fulfilled' ? openSettled.value : [];
-  if (openSettled.status === 'rejected') {
-    errors.events = 'Events could not be loaded';
-  }
-
-  let notificationPayload = { unreadCount: 0, recent: [] as DashboardResponse['notifications']['recent'] };
+  let notificationPayload = {
+    unreadCount: 0,
+    recent: [] as DashboardResponse['notifications']['recent'],
+  };
   if (notifSettled.status === 'fulfilled') {
     const result = notifSettled.value;
     notificationPayload = {
       unreadCount: result.unreadCount,
-      recent: result.notifications.slice(0, DASHBOARD_NOTIFICATION_LIMIT).map((n) => ({
+      recent: result.notifications.map((n) => ({
         id: n.id,
         title: n.title,
         message: n.message,
@@ -178,27 +173,41 @@ export async function getPersonalDashboard(
   }
 
   const regLikes = registrationLikes(registrations);
-  const eventIds = [
-    ...regLikes.map((r) => r.eventId),
-    ...openEvents.map((e) => e.id),
-  ];
+  const registeredEventIds = Array.from(
+    new Set(regLikes.map((r) => r.eventId).filter(Boolean)),
+  );
 
   let eventsById: Record<string, EventLike> = {};
+  let openEvents: EventLike[] = [];
+
   try {
-    eventsById = await loadEventsByIds(db, eventIds);
-    for (const e of openEvents) {
-      if (!eventsById[e.id]) eventsById[e.id] = e;
-    }
+    eventsById = await loadEventsByIds(db, registeredEventIds);
   } catch {
     errors.events = 'Events could not be loaded';
-    for (const e of openEvents) eventsById[e.id] = e;
   }
 
-  const next = selectNextEvent({
+  // Prefer registered upcoming events — skip broad fallback query when sufficient.
+  let next = selectNextEvent({
     eventsById,
     registrations: regLikes,
-    openEvents,
+    openEvents: [],
   });
+
+  if (!next) {
+    try {
+      openEvents = await loadCandidateOpenEvents(db);
+      for (const event of openEvents) {
+        eventsById[event.id] = event;
+      }
+      next = selectNextEvent({
+        eventsById,
+        registrations: regLikes,
+        openEvents,
+      });
+    } catch {
+      errors.events = 'Events could not be loaded';
+    }
+  }
 
   const upcomingRegs = selectUpcomingRegistrations({
     registrations: regLikes,

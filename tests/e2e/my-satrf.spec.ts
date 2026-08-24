@@ -6,7 +6,7 @@ const emptyDashboard = {
     lastName: 'Doe',
     club: null,
     province: null,
-    competitionProfileLinked: false,
+    hasLinkedResults: false,
     profileIncomplete: true,
   },
   nextEvent: null,
@@ -21,7 +21,7 @@ const registeredDashboard = {
     lastName: 'Doe',
     club: 'SATRF Club',
     province: 'Gauteng',
-    competitionProfileLinked: false,
+    hasLinkedResults: false,
     profileIncomplete: false,
   },
   nextEvent: {
@@ -64,7 +64,7 @@ const linkedDashboard = {
   ...registeredDashboard,
   user: {
     ...registeredDashboard.user,
-    competitionProfileLinked: true,
+    hasLinkedResults: true,
   },
   results: [
     {
@@ -123,7 +123,7 @@ test.describe('My SATRF dashboard', () => {
 
     await expect(page.getByRole('heading', { name: /Welcome back, John/i })).toBeVisible();
     await expect(page.getByText(/No upcoming registrations yet/i)).toBeVisible();
-    await expect(page.getByText(/not yet linked to this account/i)).toBeVisible();
+    await expect(page.getByText(/No competition results are linked to your account yet/i)).toBeVisible();
     await expect(page.getByText(/No unread notifications/i)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse Events' }).first()).toBeVisible();
   });
@@ -133,7 +133,7 @@ test.describe('My SATRF dashboard', () => {
     await mockDashboardApi(page, registeredDashboard);
     await page.goto('/dashboard');
 
-    await expect(page.getByText('SATRF SA Championships')).toBeVisible();
+    await expect(page.getByText('SATRF SA Championships').first()).toBeVisible();
     await expect(page.getByText('Registered').first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'View Event' }).first()).toBeVisible();
     await expect(page.getByText('2 unread')).toBeVisible();
@@ -144,8 +144,8 @@ test.describe('My SATRF dashboard', () => {
     await mockDashboardApi(page, linkedDashboard);
     await page.goto('/dashboard');
 
-    await expect(page.getByText('50 m Rifle Prone')).toBeVisible();
-    await expect(page.getByText('587.2')).toBeVisible();
+    await expect(page.getByText('50 m Rifle Prone').first()).toBeVisible();
+    await expect(page.getByText('587.2').first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'View My Results' })).toBeVisible();
   });
 
@@ -160,7 +160,7 @@ test.describe('My SATRF dashboard', () => {
       return doc.scrollWidth > doc.clientWidth + 1;
     });
     expect(overflow).toBe(false);
-    await expect(page.getByText('MY SATRF')).toBeVisible();
+    await expect(page.getByRole('main').getByText('My SATRF')).toBeVisible();
     await expect(page.getByRole('link', { name: 'View Notifications' })).toBeVisible();
   });
 });

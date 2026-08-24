@@ -48,7 +48,7 @@ describe('/api/dashboard security', () => {
   it('uses verified uid only and ignores client uid override', async () => {
     mockVerify.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
     mockGetDashboard.mockResolvedValue({
-      user: { firstName: 'A', competitionProfileLinked: false, profileIncomplete: false },
+      user: { firstName: 'A', hasLinkedResults: false, profileIncomplete: false },
       registrations: [],
       results: [],
       notifications: { unreadCount: 0, recent: [] },
@@ -67,6 +67,8 @@ describe('/api/dashboard security', () => {
     expect(mockGetDashboard).toHaveBeenCalledWith(expect.anything(), 'user-a');
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.headers['Cache-Control']).toBe('private, no-store');
+    const body = (res.json as jest.Mock).mock.calls[0][0];
+    expect(JSON.stringify(body)).not.toMatch(/user-a|user-b|authUid|"uid"/);
   });
 
   it('rejects non-GET', async () => {

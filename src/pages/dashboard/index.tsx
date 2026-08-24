@@ -194,7 +194,6 @@ export default function MySatrfDashboardPage() {
                   "next"
                   "entries"
                   "results"
-                  "profile"
                   "notif"
                   "actions"
                 `,
@@ -202,7 +201,6 @@ export default function MySatrfDashboardPage() {
                   "next notif"
                   "entries actions"
                   "results results"
-                  "profile profile"
                 `,
               }}
               gap={4}
@@ -213,7 +211,7 @@ export default function MySatrfDashboardPage() {
                   {!data?.nextEvent ? (
                     <VStack align="start" spacing={3}>
                       <Text color="text.muted">No upcoming registrations yet.</Text>
-                      <Button as={Link} href="/events" size="sm" colorScheme="green">
+                      <Button as={Link} href="/events" size="sm" colorScheme="green" minH="44px">
                         Browse Events
                       </Button>
                     </VStack>
@@ -243,7 +241,7 @@ export default function MySatrfDashboardPage() {
                         </Text>
                       ) : null}
                       <HStack spacing={2} flexWrap="wrap">
-                        <Button as={Link} href={`/events/${data.nextEvent.id}`} size="sm" colorScheme="blue">
+                        <Button as={Link} href={`/events/${data.nextEvent.id}`} size="sm" colorScheme="blue" minH="44px">
                           View Event
                         </Button>
                         {!data.nextEvent.isRegistered && data.nextEvent.registrationOpen ? (
@@ -253,6 +251,7 @@ export default function MySatrfDashboardPage() {
                             size="sm"
                             variant="outline"
                             colorScheme="green"
+                            minH="44px"
                           >
                             Register
                           </Button>
@@ -303,7 +302,7 @@ export default function MySatrfDashboardPage() {
                   ) : !data?.registrations.length ? (
                     <VStack align="start" spacing={3}>
                       <Text color="text.muted">You have no upcoming entries.</Text>
-                      <Button as={Link} href="/events" size="sm" variant="outline" colorScheme="green">
+                      <Button as={Link} href="/events" size="sm" variant="outline" colorScheme="green" minH="44px">
                         Browse Events
                       </Button>
                     </VStack>
@@ -367,9 +366,9 @@ export default function MySatrfDashboardPage() {
 
               <GridItem area="results">
                 <SectionCard
-                  title="Recent Results"
+                  title="Competition Results"
                   action={
-                    data?.user.competitionProfileLinked ? (
+                    data?.user.hasLinkedResults ? (
                       <ChakraLink as={Link} href="/scores" fontSize="sm" fontWeight="600" color="satrf.navy">
                         View My Results
                       </ChakraLink>
@@ -378,16 +377,11 @@ export default function MySatrfDashboardPage() {
                 >
                   {data?.errors?.results ? (
                     <Text color="text.muted">{data.errors.results}</Text>
-                  ) : !data?.user.competitionProfileLinked ? (
-                    <Box>
-                      <Text fontWeight="600" color="satrf.navy" mb={1}>
-                        Competition Profile
-                      </Text>
-                      <Text color="text.muted" fontSize="sm">
-                        Your competition results are not yet linked to this account. Contact SATRF or wait for
-                        administrator linking.
-                      </Text>
-                    </Box>
+                  ) : !data?.user.hasLinkedResults ? (
+                    <Text color="text.muted" fontSize="sm">
+                      No competition results are linked to your account yet. Results entered for your website account
+                      will appear here.
+                    </Text>
                   ) : !data.results.length ? (
                     <Text color="text.muted">No recent results yet.</Text>
                   ) : (
@@ -407,7 +401,7 @@ export default function MySatrfDashboardPage() {
                       ))}
                     </Stack>
                   )}
-                  {data?.user.competitionProfileLinked && data.results.length > 0 ? (
+                  {data?.user.hasLinkedResults && data.results.length > 0 ? (
                     <Box display={{ base: 'none', md: 'block' }} overflowX="auto">
                       <Box as="table" w="full" fontSize="sm" sx={{ borderCollapse: 'collapse' }}>
                         <Box as="thead">
@@ -451,26 +445,6 @@ export default function MySatrfDashboardPage() {
                       </Box>
                     </Box>
                   ) : null}
-                </SectionCard>
-              </GridItem>
-
-              <GridItem area="profile">
-                <SectionCard title="Competition Profile">
-                  {data?.user.competitionProfileLinked ? (
-                    <Text>
-                      <Text as="span" fontWeight="700" color="satrf.green.700">
-                        Linked
-                      </Text>
-                      <Text as="span" color="text.muted" ml={2} fontSize="sm">
-                        Website account · competition scores via your authenticated identity
-                      </Text>
-                    </Text>
-                  ) : (
-                    <Text color="text.muted" fontSize="sm">
-                      Membership profile not linked. A website account is not automatic SATRF federation
-                      membership. Competition results appear once an administrator links scores to this account.
-                    </Text>
-                  )}
                 </SectionCard>
               </GridItem>
             </Grid>
