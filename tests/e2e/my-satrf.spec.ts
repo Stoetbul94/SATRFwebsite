@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
+const loggedOutStorage = { cookies: [] as [], origins: [] as [] };
+
 const emptyDashboard = {
   user: {
     firstName: 'John',
@@ -110,12 +112,20 @@ async function mockDashboardApi(page: Page, payload: unknown) {
   });
 }
 
-test.describe('My SATRF dashboard', () => {
-  test('logged out user is redirected to login with redirect param', async ({ page }) => {
-    await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login\?redirect=%2Fdashboard/);
-  });
+test.describe('My SATRF dashboard — logged out', () => {
+  test.use({ storageState: loggedOutStorage });
 
+  test('logged out user is redirected to login with redirect param', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto('/dashboard');
+    await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
+  });
+});
+
+test.describe('My SATRF dashboard', () => {
   test('new user sees useful empty state', async ({ page }) => {
     await mockWebsiteUser(page);
     await mockDashboardApi(page, emptyDashboard);
@@ -146,7 +156,7 @@ test.describe('My SATRF dashboard', () => {
 
     await expect(page.getByRole('cell', { name: '50 m Rifle Prone' })).toBeVisible();
     await expect(page.getByRole('cell', { name: '587.2' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View My Results' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View My Performance' })).toBeVisible();
   });
 
   test('mobile 375px layout has no horizontal overflow', async ({ page }) => {

@@ -20,9 +20,9 @@ export default function DisciplineTabs({ disciplines, active, onChange }: Discip
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(d.discipline)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-4 py-2 min-h-[44px] rounded-full text-sm font-medium transition-colors ${
               selected
-                ? 'bg-satrf-navy text-white shadow'
+                ? 'bg-[#0A1A2F] text-white shadow'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
             }`}
           >

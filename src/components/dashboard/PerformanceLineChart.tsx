@@ -33,6 +33,7 @@ interface PerformanceLineChartProps {
   pointLookup?: Map<string, AthleteChartPoint>;
   referenceLines?: ChartReferenceLine[];
   highlightValues?: number[];
+  onPointClick?: (scoreId: string) => void;
 }
 
 function ChartTooltip({
@@ -40,11 +41,13 @@ function ChartTooltip({
   payload,
   label,
   pointLookup,
+  highlightValues = [],
 }: {
   active?: boolean;
   payload?: { dataKey: string; value: number; color: string; name?: string; payload: Record<string, unknown> }[];
   label?: string;
   pointLookup?: Map<string, AthleteChartPoint>;
+  highlightValues?: number[];
 }) {
   if (!active || !payload?.length) return null;
 
@@ -52,9 +55,13 @@ function ChartTooltip({
   const meta =
     pointLookup?.get(String(label)) ??
     (rawPayload as unknown as AthleteChartPoint | undefined);
+  const highlightSet = new Set(highlightValues);
+  const qualEntry = payload.find((e) => e.dataKey === 'value');
+  const isPb =
+    qualEntry && typeof qualEntry.value === 'number' && highlightSet.has(qualEntry.value);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-lg">
+    <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-lg max-w-xs">
       <p className="font-semibold text-gray-900">{meta?.eventName ?? label}</p>
       {meta?.date && (
         <p className="text-xs text-gray-500 mb-2">
@@ -65,14 +72,15 @@ function ChartTooltip({
           })}
         </p>
       )}
-      {payload.map((entry) => (
-        <p key={entry.dataKey} className="text-gray-700" style={{ color: entry.color }}>
-          {entry.name ?? entry.dataKey}: <span className="font-medium">{entry.value}</span>
-        </p>
-      ))}
-      {meta?.label && (
-        <p className="text-gray-600 mt-1">Score: {meta.label}</p>
+      {payload.map((entry) =>
+        entry.value == null ? null : (
+          <p key={entry.dataKey} className="text-gray-700" style={{ color: entry.color }}>
+            {entry.name ?? entry.dataKey}: <span className="font-medium">{entry.value}</span>
+          </p>
+        ),
       )}
+      {meta?.label && <p className="text-gray-600 mt-1">Score: {meta.label}</p>}
+      {isPb ? <p className="text-amber-700 text-xs font-medium mt-1">Personal best</p> : null}
       {meta?.innerTens != null && meta.innerTens > 0 && (
         <p className="text-gray-500 text-xs">Inner 10s: {meta.innerTens}</p>
       )}
@@ -123,6 +131,7 @@ export default function PerformanceLineChart({
   pointLookup,
   referenceLines = [],
   highlightValues = [],
+  onPointClick,
 }: PerformanceLineChartProps) {
   if (!data.length) {
     return (
@@ -156,7 +165,9 @@ export default function PerformanceLineChart({
               : undefined
           }
         />
-        <Tooltip content={<ChartTooltip pointLookup={pointLookup} />} />
+        <Tooltip
+          content={<ChartTooltip pointLookup={pointLookup} highlightValues={highlightValues} />}
+        />
         {lines.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {referenceLines.map((ref) => (
           <ReferenceLine
@@ -180,11 +191,14 @@ export default function PerformanceLineChart({
             dataKey={line.dataKey}
             name={line.name}
             stroke={line.color}
-            strokeWidth={2}
+            strokeWidth={line.dataKey === 'rollingAvg' ? 1.5 : 2}
+            strokeDasharray={line.dataKey === 'rollingAvg' ? '5 5' : undefined}
             dot={(props) => {
+              if (line.dataKey === 'rollingAvg') return <g key={props.key} />;
               const { cx, cy, payload } = props;
               const value = payload?.[line.dataKey];
               const isPb = typeof value === 'number' && highlightSet.has(value);
+              const scoreId = String(payload?.id ?? '');
               return (
                 <circle
                   cx={cx}
@@ -193,10 +207,14 @@ export default function PerformanceLineChart({
                   fill={isPb ? '#fbbf24' : line.color}
                   stroke={isPb ? '#b45309' : line.color}
                   strokeWidth={isPb ? 2.5 : 2}
+                  style={{ cursor: onPointClick && scoreId ? 'pointer' : undefined }}
+                  onClick={() => {
+                    if (onPointClick && scoreId) onPointClick(scoreId);
+                  }}
                 />
               );
             }}
-            activeDot={{ r: 6 }}
+            activeDot={line.dataKey === 'rollingAvg' ? false : { r: 6 }}
             connectNulls
           />
         ))}

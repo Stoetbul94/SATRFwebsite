@@ -1,8 +1,14 @@
 import type { DisciplineAnalytics } from '@/lib/athleteAnalytics';
+import {
+  latestQualPoint,
+  recentQualAverage,
+} from '@/lib/athleteAnalytics';
 import { qualScoreVariant } from '@/lib/rankingsDisplay';
 
 interface DisciplineStatsRowProps {
   analytics: DisciplineAnalytics;
+  /** @deprecated aim marks hidden in My Performance — kept for backwards compatibility */
+  showAimMarks?: boolean;
 }
 
 function StatCard({
@@ -14,16 +20,17 @@ function StatCard({
   title: string;
   value: string;
   subtitle?: string;
-  accent?: 'blue' | 'red' | 'amber';
+  accent?: 'blue' | 'green' | 'navy' | 'amber';
 }) {
   const accentClasses = {
     blue: 'border-blue-100 bg-blue-50/60',
-    red: 'border-red-100 bg-red-50/60',
+    green: 'border-green-100 bg-green-50/60',
+    navy: 'border-slate-200 bg-slate-50/80',
     amber: 'border-amber-100 bg-amber-50/60',
   }[accent];
 
   return (
-    <div className={`rounded-lg border px-4 py-3 ${accentClasses}`}>
+    <div className={`rounded-lg border px-4 py-3 min-h-[88px] ${accentClasses}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{title}</p>
       <p className="text-lg font-semibold text-gray-900 mt-0.5">{value}</p>
       {subtitle && <p className="text-xs text-gray-600 mt-1 truncate">{subtitle}</p>}
@@ -32,41 +39,62 @@ function StatCard({
 }
 
 export default function DisciplineStatsRow({ analytics }: DisciplineStatsRowProps) {
+  const recentAvg = recentQualAverage(analytics.qualSeries, 3);
+  const latest = latestQualPoint(analytics.qualSeries);
   const qualUnit =
     qualScoreVariant(analytics.discipline, 'qualification') === 'ringPrimary' ? 'rings' : 'decimal';
-  const qualAim = analytics.aimMarks.qual;
-  const finalAim = analytics.aimMarks.final;
+
+  const fourthCard =
+    analytics.finalCompetitions > 0 && analytics.bestFinal
+      ? {
+          title: 'Best Final',
+          value: analytics.bestFinal.label,
+          subtitle: analytics.bestFinal.eventName,
+          accent: 'amber' as const,
+        }
+      : {
+          title: 'Competitions',
+          value: String(analytics.qualCompetitions),
+          subtitle: `${analytics.finalCompetitions} final${analytics.finalCompetitions === 1 ? '' : 's'}`,
+          accent: 'navy' as const,
+        };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       <StatCard
-        title="Personal best · Qualification"
+        title="Personal Best"
         value={analytics.bestQual?.label ?? '—'}
-        subtitle={analytics.bestQual ? analytics.bestQual.eventName : 'No qualification scores yet'}
+        subtitle={
+          analytics.bestQual
+            ? `${analytics.bestQual.eventName} · Personal best`
+            : 'No qualification scores yet'
+        }
         accent="blue"
       />
       <StatCard
-        title="Personal best · Final"
-        value={analytics.bestFinal?.label ?? '—'}
-        subtitle={analytics.bestFinal ? analytics.bestFinal.eventName : 'No final scores yet'}
-        accent="red"
+        title="Recent Average"
+        value={recentAvg != null ? String(recentAvg) : '—'}
+        subtitle={
+          analytics.qualSeries.length >= 3
+            ? `Last 3 qualification (${qualUnit})`
+            : analytics.qualSeries.length > 0
+              ? 'Need 3+ matches for 3-event average'
+              : undefined
+        }
+        accent="green"
       />
       <StatCard
-        title="Qualification aim"
-        value={`${qualAim.value} ${qualUnit}`}
-        subtitle={qualAim.label}
-        accent="amber"
+        title="Latest Score"
+        value={latest?.label ?? '—'}
+        subtitle={latest ? latest.eventName : undefined}
+        accent="navy"
       />
-      {finalAim ? (
-        <StatCard
-          title="Final aim"
-          value={`${finalAim.value} decimal`}
-          subtitle={finalAim.label}
-          accent="amber"
-        />
-      ) : (
-        <StatCard title="Final aim" value="—" subtitle="No finals for this discipline" accent="amber" />
-      )}
+      <StatCard
+        title={fourthCard.title}
+        value={fourthCard.value}
+        subtitle={fourthCard.subtitle}
+        accent={fourthCard.accent}
+      />
     </div>
   );
 }

@@ -379,3 +379,87 @@ export function buildAthleteAnalytics(scores: Score[]): AthleteAnalyticsSummary 
     disciplines,
   };
 }
+
+/** Trailing N-event average for chronologically ordered qualification points. */
+export function trailingAverage(values: number[], index: number, window = 3): number | null {
+  if (index < window - 1) return null;
+  const slice = values.slice(index - window + 1, index + 1);
+  if (slice.length < window) return null;
+  return round1(slice.reduce((sum, v) => sum + v, 0) / window);
+}
+
+export function enrichQualSeriesWithRollingAverage(
+  points: AthleteChartPoint[],
+  window = 3,
+): Array<AthleteChartPoint & { value: number; rollingAvg: number | null }> {
+  const values = points.map((p) => p.primaryValue);
+  return points.map((p, index) => ({
+    ...p,
+    value: p.primaryValue,
+    rollingAvg: trailingAverage(values, index, window),
+  }));
+}
+
+/** Recent N qualification average (uses last N events in chronological order). */
+export function recentQualAverage(points: AthleteChartPoint[], count = 3): number | null {
+  if (!points.length) return null;
+  const recent = points.slice(-Math.min(count, points.length));
+  return round1(recent.reduce((sum, p) => sum + p.primaryValue, 0) / recent.length);
+}
+
+export function latestQualPoint(points: AthleteChartPoint[]): AthleteChartPoint | null {
+  return points.length ? points[points.length - 1] : null;
+}
+
+export type ScoreDistributionBucket = {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+};
+
+/** Auto-derived qualification score distribution for consistency visual. */
+export function buildQualScoreDistribution(
+  points: AthleteChartPoint[],
+  bucketCount = 5,
+): ScoreDistributionBucket[] {
+  if (points.length < 5) return [];
+
+  const values = points.map((p) => p.primaryValue);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min === max) {
+    return [{ label: String(min), min, max, count: values.length }];
+  }
+
+  const span = max - min;
+  const width = span / bucketCount;
+  const buckets: ScoreDistributionBucket[] = Array.from({ length: bucketCount }, (_, i) => {
+    const bMin = min + i * width;
+    const bMax = i === bucketCount - 1 ? max : min + (i + 1) * width;
+    return {
+      label: `${Math.round(bMin)}–${Math.round(bMax)}`,
+      min: bMin,
+      max: bMax,
+      count: 0,
+    };
+  });
+
+  for (const value of values) {
+    let idx = Math.floor((value - min) / width);
+    if (idx >= bucketCount) idx = bucketCount - 1;
+    buckets[idx].count += 1;
+  }
+
+  return buckets;
+}
+
+export function filterScoresByYear(scores: Score[], year: number | 'all'): Score[] {
+  if (year === 'all') return scores;
+  const prefix = `${year}-`;
+  return scores.filter((s) => String(s.date || '').startsWith(prefix));
+}
+
+export function scoresForDiscipline(scores: Score[], discipline: Discipline): Score[] {
+  return scores.filter((s) => s.discipline === discipline && !((s as Score & { deleted?: boolean }).deleted));
+}

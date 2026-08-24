@@ -369,8 +369,8 @@ export default function MySatrfDashboardPage() {
                   title="Competition Results"
                   action={
                     data?.user.hasLinkedResults ? (
-                      <ChakraLink as={Link} href="/scores" fontSize="sm" fontWeight="600" color="satrf.navy">
-                        View My Results
+                      <ChakraLink as={Link} href="/dashboard/results" fontSize="sm" fontWeight="600" color="satrf.navy">
+                        View My Performance
                       </ChakraLink>
                     ) : null
                   }
