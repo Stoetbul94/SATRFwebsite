@@ -60,13 +60,20 @@ export async function pingFirestore(): Promise<void> {
   await db.collection('events').limit(1).get();
 }
 
+export type VerifiedUser = { uid: string; email: string | null };
+
+export type OptionalAuthResult =
+  | { kind: 'absent' }
+  | { kind: 'authenticated'; uid: string; email: string | null }
+  | { kind: 'invalid' };
+
 /**
  * Verify a Firebase ID token from an Authorization: Bearer header.
  * Returns the decoded uid + email, or null if missing/invalid.
  */
 export async function verifyRequestUser(
-  authorizationHeader?: string
-): Promise<{ uid: string; email: string | null } | null> {
+  authorizationHeader?: string,
+): Promise<VerifiedUser | null> {
   const token = authorizationHeader?.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
   try {
@@ -74,5 +81,35 @@ export async function verifyRequestUser(
     return { uid: decoded.uid, email: decoded.email?.toLowerCase() ?? null };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Optional auth for public endpoints that also accept guests.
+ * - No Authorization header → absent (guest)
+ * - Valid Bearer token → authenticated
+ * - Malformed or invalid Bearer token → invalid (caller should 401)
+ */
+export async function verifyOptionalRequestUser(
+  authorizationHeader?: string,
+): Promise<OptionalAuthResult> {
+  if (!authorizationHeader?.trim()) {
+    return { kind: 'absent' };
+  }
+
+  const match = authorizationHeader.match(/^Bearer\s+(\S.+)$/i);
+  if (!match?.[1]?.trim()) {
+    return { kind: 'invalid' };
+  }
+
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(match[1].trim());
+    return {
+      kind: 'authenticated',
+      uid: decoded.uid,
+      email: decoded.email?.toLowerCase() ?? null,
+    };
+  } catch {
+    return { kind: 'invalid' };
   }
 }

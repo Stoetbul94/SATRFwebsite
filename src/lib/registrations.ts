@@ -157,6 +157,22 @@ export async function syncEventRegistrationCount(db: Firestore, eventId: string)
   return count;
 }
 
+export async function findRegistrationByMemberId(
+  db: Firestore,
+  eventId: string,
+  memberId: string,
+): Promise<EventRegistration | null> {
+  const snap = await db
+    .collection('registrations')
+    .where('eventId', '==', eventId)
+    .where('memberId', '==', memberId)
+    .where('status', '==', 'registered')
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return serializeRegistrationDoc(snap.docs[0].id, snap.docs[0].data() as Record<string, unknown>);
+}
+
 export async function findDuplicateRegistration(
   db: Firestore,
   eventId: string,

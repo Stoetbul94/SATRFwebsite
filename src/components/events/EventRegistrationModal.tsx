@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Modal,
   ModalOverlay,
@@ -21,10 +22,13 @@ import {
   AlertTitle,
   AlertDescription,
   Box,
-  Link,
+  Link as ChakraLink,
+  HStack,
 } from '@chakra-ui/react';
-import { disciplinePublicLabel, EVENT_DISCIPLINE_OPTIONS } from '@/lib/eventDisciplines';
+import { disciplinePublicLabel } from '@/lib/eventDisciplines';
 import { formatEntryFee } from '@/lib/eventDisciplines';
+import { useAuth } from '@/contexts/AuthContext';
+import { auth } from '@/lib/firebase';
 import type { Discipline } from '@/types/scores';
 
 export interface EventRegistrationTarget {
@@ -51,6 +55,16 @@ interface RegistrationResult {
   eftInstructions: string | null;
   message: string;
   alreadyRegistered?: boolean;
+  accountLinked?: boolean;
+}
+
+async function getAuthToken(): Promise<string | null> {
+  const fresh = await auth.currentUser?.getIdToken().catch(() => null);
+  if (fresh) return fresh;
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('access_token') || localStorage.getItem('auth_token');
+  }
+  return null;
 }
 
 export default function EventRegistrationModal({
@@ -59,6 +73,7 @@ export default function EventRegistrationModal({
   event,
   onSuccess,
 }: EventRegistrationModalProps) {
+  const { user, isAuthenticated } = useAuth();
   const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -68,19 +83,59 @@ export default function EventRegistrationModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<RegistrationResult | null>(null);
+  const [registeredWhileAuthenticated, setRegisteredWhileAuthenticated] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
 
   const showDiscipline = event.disciplines.length > 1;
   const needsDiscipline = event.disciplines.length > 1;
 
-  const reset = () => {
+  const clearFormFields = () => {
+    setName('');
+    setEmail('');
+    setClub('');
+    setPhone('');
+    setDiscipline('');
+  };
+
+  const prefillFromProfile = () => {
+    if (!user) return;
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+    setName(fullName);
+    setEmail(user.email || '');
+    setClub(user.club || '');
+    setPhone(user.phone || user.phoneNumber || '');
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPrefilled(false);
+      return;
+    }
     setStep('form');
     setErrors({});
     setResult(null);
     setSubmitting(false);
-  };
+    setRegisteredWhileAuthenticated(false);
+    clearFormFields();
+    setPrefilled(false);
+  }, [isOpen, event.id]);
+
+  useEffect(() => {
+    if (!isOpen || prefilled) return;
+    if (isAuthenticated && user) {
+      prefillFromProfile();
+      setPrefilled(true);
+    }
+  }, [isOpen, isAuthenticated, user, prefilled, event.id]);
 
   const handleClose = () => {
-    reset();
+    setStep('form');
+    setErrors({});
+    setResult(null);
+    setSubmitting(false);
+    setRegisteredWhileAuthenticated(false);
+    setPrefilled(false);
+    clearFormFields();
     onClose();
   };
 
@@ -101,9 +156,15 @@ export default function EventRegistrationModal({
     setErrors({});
 
     try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/events/${event.id}/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
@@ -118,12 +179,14 @@ export default function EventRegistrationModal({
         throw new Error(data.error || data.details || 'Registration failed');
       }
 
+      setRegisteredWhileAuthenticated(Boolean(token));
       setResult({
         paymentMethod: data.paymentMethod,
         payfastUrl: data.payfastUrl,
         eftInstructions: data.eftInstructions,
         message: data.message,
         alreadyRegistered: data.alreadyRegistered,
+        accountLinked: data.linkedAccount ?? data.accountLinked,
       });
       setStep('confirm');
       onSuccess?.();
@@ -141,6 +204,10 @@ export default function EventRegistrationModal({
     }
   };
 
+  const helperCopy = isAuthenticated
+    ? 'Registering with your My SATRF account'
+    : 'No login required';
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="md" isCentered>
       <ModalOverlay />
@@ -155,7 +222,7 @@ export default function EventRegistrationModal({
             <ModalBody>
               <VStack spacing={4} align="stretch">
                 <Text fontSize="sm" color="text.muted">
-                  {formatEntryFee(event.price)} · No login required
+                  {formatEntryFee(event.price)} · {helperCopy}
                 </Text>
                 {errors.form && (
                   <Alert status="error" borderRadius="md">
@@ -170,7 +237,18 @@ export default function EventRegistrationModal({
                 </FormControl>
                 <FormControl isRequired isInvalid={!!errors.email}>
                   <FormLabel>Email</FormLabel>
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    isReadOnly={isAuthenticated}
+                    bg={isAuthenticated ? 'bg.canvas' : undefined}
+                  />
+                  {isAuthenticated && (
+                    <Text fontSize="xs" color="text.muted" mt={1}>
+                      Using your account email
+                    </Text>
+                  )}
                   {errors.email && <Text fontSize="xs" color="red.500" mt={1}>{errors.email}</Text>}
                 </FormControl>
                 <FormControl isRequired isInvalid={!!errors.club}>
@@ -260,6 +338,17 @@ export default function EventRegistrationModal({
                   <Text fontSize="sm" color="text.muted">
                     No payment required. See you at the event!
                   </Text>
+                )}
+
+                {registeredWhileAuthenticated && (
+                  <HStack spacing={3} flexWrap="wrap">
+                    <Button as={Link} href="/dashboard" variant="satrf" size="sm">
+                      View My SATRF
+                    </Button>
+                    <Button as={Link} href={`/events/${event.id}`} variant="outline" size="sm">
+                      View Event
+                    </Button>
+                  </HStack>
                 )}
               </VStack>
             </ModalBody>

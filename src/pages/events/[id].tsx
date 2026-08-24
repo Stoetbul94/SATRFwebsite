@@ -49,9 +49,11 @@ export default function EventDetailPage() {
     }
   }, [id]);
 
-  const fetchEvent = async (eventId: string) => {
+  const fetchEvent = async (eventId: string, options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       setError(null);
       const [eventData, documentsResponse] = await Promise.all([
         eventsAPI.getById(eventId),
@@ -74,7 +76,9 @@ export default function EventDetailPage() {
       console.error('Error fetching event:', err);
       setError(err instanceof Error ? err.message : 'Failed to load event details');
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -175,7 +179,7 @@ export default function EventDetailPage() {
           payfastUrl: hubEvent.payfastUrl,
           eftInstructions: hubEvent.eftInstructions,
         }}
-        onSuccess={() => id && typeof id === 'string' && fetchEvent(id)}
+        onSuccess={() => id && typeof id === 'string' && fetchEvent(id, { silent: true })}
       />
     </Layout>
   );
