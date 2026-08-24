@@ -21,19 +21,16 @@ describe('userAthlete', () => {
   });
 
   describe('shouldRedirectAdminFromDashboard', () => {
-    it('redirects admin-only, not admin-athletes or members', () => {
-      expect(shouldRedirectAdminFromDashboard(adminOnly)).toBe(true);
-      expect(shouldRedirectAdminFromDashboard({ role: 'admin' })).toBe(true);
+    it('never redirects — My SATRF is for all authenticated users', () => {
+      expect(shouldRedirectAdminFromDashboard(adminOnly)).toBe(false);
       expect(shouldRedirectAdminFromDashboard(adminAthlete)).toBe(false);
       expect(shouldRedirectAdminFromDashboard(member)).toBe(false);
     });
   });
 
   describe('getMemberDashboardPath', () => {
-    it('sends admin-only users to admin dashboard', () => {
-      expect(getMemberDashboardPath(adminOnly)).toBe('/admin/dashboard');
-    });
-    it('sends athletes and members to member dashboard', () => {
+    it('always returns /dashboard', () => {
+      expect(getMemberDashboardPath(adminOnly)).toBe('/dashboard');
       expect(getMemberDashboardPath(adminAthlete)).toBe('/dashboard');
       expect(getMemberDashboardPath(member)).toBe('/dashboard');
     });
@@ -46,17 +43,11 @@ describe('userAthlete', () => {
       expect(resolvePostLoginPath(adminAthlete)).toBe('/admin/dashboard');
     });
 
-    it('honours redirect for admin-athletes on member paths', () => {
+    it('honours redirect for admins including My SATRF', () => {
+      expect(resolvePostLoginPath(adminOnly, '/dashboard')).toBe('/dashboard');
+      expect(resolvePostLoginPath(adminOnly, '/profile')).toBe('/profile');
       expect(resolvePostLoginPath(adminAthlete, '/dashboard')).toBe('/dashboard');
-      expect(resolvePostLoginPath(adminAthlete, '/profile')).toBe('/profile');
-      expect(resolvePostLoginPath(adminAthlete, '/events/abc')).toBe('/events/abc');
       expect(resolvePostLoginPath(adminAthlete, '/admin/users')).toBe('/admin/users');
-    });
-
-    it('overrides non-admin redirects for admin-only users', () => {
-      expect(resolvePostLoginPath(adminOnly, '/dashboard')).toBe('/admin/dashboard');
-      expect(resolvePostLoginPath(adminOnly, '/profile')).toBe('/admin/dashboard');
-      expect(resolvePostLoginPath(adminOnly, '/admin/events')).toBe('/admin/events');
     });
 
     it('blocks non-admins from admin redirects', () => {

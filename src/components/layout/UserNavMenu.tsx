@@ -15,10 +15,9 @@ import {
   VStack,
   Box,
 } from '@chakra-ui/react';
-import { FiChevronDown, FiShield, FiGrid, FiUser, FiLogOut } from 'react-icons/fi';
+import { FiChevronDown, FiShield, FiGrid, FiUser, FiLogOut, FiBell } from 'react-icons/fi';
 import type { UserProfile } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/userRole';
-import { isAdminAthlete } from '@/lib/userAthlete';
 
 interface UserNavMenuProps {
   user: UserProfile;
@@ -41,17 +40,21 @@ export default function UserNavMenu({
   onNavigate,
 }: UserNavMenuProps) {
   const isAdmin = isUserAdmin(user);
-  const showMemberDashboard = !isAdmin || isAdminAthlete(user);
-  const showAdminNav = isAdmin;
 
   const items = [
-    showMemberDashboard && {
+    {
       key: 'dashboard',
-      label: 'My Dashboard',
+      label: 'My SATRF',
       href: '/dashboard',
       icon: FiGrid,
     },
-    showAdminNav && {
+    {
+      key: 'notifications',
+      label: 'Notifications',
+      href: '/notifications',
+      icon: FiBell,
+    },
+    isAdmin && {
       key: 'admin',
       label: 'Admin Panel',
       href: '/admin/dashboard',
@@ -59,7 +62,7 @@ export default function UserNavMenu({
     },
     {
       key: 'profile',
-      label: 'My Profile',
+      label: 'Profile / Account',
       href: '/profile',
       icon: FiUser,
     },
@@ -102,7 +105,7 @@ export default function UserNavMenu({
           }}
           px={3}
         >
-          Logout
+          Sign Out
         </Button>
       </VStack>
     );
@@ -156,7 +159,7 @@ export default function UserNavMenu({
         ))}
         <MenuDivider />
         <MenuItem icon={<FiLogOut />} onClick={() => void onLogout()} color="red.600">
-          Logout
+          Sign Out
         </MenuItem>
       </MenuList>
     </Menu>
